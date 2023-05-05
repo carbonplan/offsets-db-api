@@ -26,6 +26,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     # https://docs.github.com/en/actions/using-containerized-services/creating-postgresql-service-containers
     # See also https://remarkablemark.org/blog/2021/03/14/setup-postgresql-in-github-actions/

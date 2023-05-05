@@ -25,6 +25,7 @@ jobs:
   deploy:
     name: deploy app
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     if: ${{ (contains(github.event.pull_request.labels.*.name, 'api') && github.event_name == 'pull_request') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     steps:
       - uses: actions/checkout@v3
