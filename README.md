@@ -17,8 +17,6 @@
 
 **accounting of voluntary and compliance offset programs**
 
-[![CI](https://github.com/carbonplan/offsets-db/actions/workflows/main.yaml/badge.svg)](https://github.com/carbonplan/offsets-db/actions/workflows/main.yaml)
-[![Prefect](https://github.com/carbonplan/offsets-db/actions/workflows/prefect-flows.yaml/badge.svg)](https://github.com/carbonplan/offsets-db/actions/workflows/prefect-flows.yaml)
 [![Fly.io Deployment](https://github.com/carbonplan/offsets-db/actions/workflows/fly.yml/badge.svg)](https://github.com/carbonplan/offsets-db/actions/workflows/fly.yml)
 ![MIT License](https://badgen.net/badge/license/MIT/blue)
 
