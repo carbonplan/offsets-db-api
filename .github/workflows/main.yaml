@@ -57,7 +57,7 @@ jobs:
           micromamba-version: latest
           channel-priority: strict
           environment-file: environment.yml
-          environment-name: offsets-db-prod
+          environment-name: offsets-db
           cache-env: true
           cache-downloads: true
 

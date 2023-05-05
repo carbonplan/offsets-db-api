@@ -1,4 +1,4 @@
-name: offsets-db-prod
+name: offsets-db
 channels:
   - conda-forge
   - nodefaults
