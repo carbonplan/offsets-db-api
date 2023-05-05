@@ -1,0 +1,11 @@
+api:
+  - carbonplan_offsets_db/**/*
+  - migrations/**/*
+  - Procfile
+  - environment.yml
+  - release.sh
+  - fly.*.toml
+
+ci:
+  - .github/*
+  - .github/**/*

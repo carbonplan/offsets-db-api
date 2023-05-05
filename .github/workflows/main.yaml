@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *' # Daily “At 00:00” UTC
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OFFSETS_DB_DATABASE_URL: postgres://postgres_user:postgres_password@localhost:5432/postgres_db
+  OFFSETS_DB_STAGING: true
+
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: us-west-2
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # https://docs.github.com/en/actions/using-containerized-services/creating-postgresql-service-containers
+    # See also https://remarkablemark.org/blog/2021/03/14/setup-postgresql-in-github-actions/
+    # and https://github.com/actions/example-services/blob/master/.github/workflows/postgres-service.yml
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_DB: postgres_db
+          POSTGRES_PASSWORD: postgres_password
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres_user
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up conda environment
+        uses: mamba-org/provision-with-micromamba@v15
+        with:
+          micromamba-version: latest
+          channel-priority: strict
+          environment-file: environment.yml
+          environment-name: offsets-db
+          cache-env: true
+          cache-downloads: true
+
+      - name: Install package
+        run: |
+          python -m pip install -e .
+
+      - name: Database migration
+        run: |
+          python -m alembic upgrade head
+
+      - name: Run tests
+        run: |
+          python -m pytest -v
