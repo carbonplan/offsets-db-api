@@ -1,0 +1,111 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm[toml]>=6.2", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "carbonplan-offsets-db"
+description = "Monitoring the global carbon market"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "CarbonPlan", email = "tech@carbonplan.org" }]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering",
+]
+
+dynamic = ["version"]
+
+dependencies = [
+    "aiofiles",
+    "alembic >= 1.7.5",
+    "fastapi == 0.94",
+    "pandas >=1.5.3",
+    "psycopg2",
+    "pydantic>=1.10",
+    "s3fs >=2023",
+    "sqlmodel >= 0.0.8",
+]
+
+[project.urls]
+repository = "https://github.com/carbonplan/offsets-db"
+
+[tool.setuptools.packages.find]
+include = ["carbonplan_offsets_db*"]
+
+[tool.setuptools_scm]
+version_scheme = "post-release"
+local_scheme = "node-and-date"
+fallback_version = "999"
+
+[tool.coverage.run]
+omit = ["tests/*"]
+branch = true
+
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+skip-string-normalization = true
+
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+builtins = ["ellipsis"]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+per-file-ignores = {}
+# E402: module level import not at top of file
+# E501: line too long - let black worry about that
+# E731: do not assign a lambda expression, use a def
+ignore = ["E402", "E501", "E731"]
+select = [
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E",
+    "W",
+    # isort
+    "I",
+    # Pyupgrade
+    "UP",
+]
+
+
+[tool.ruff.mccabe]
+max-complexity = 18
+
+[tool.ruff.isort]
+known-first-party = ["carbonplan_offsets_db"]
+
+[tool.pytest.ini_options]
+console_output_style = "count"
+addopts = "--cov=./ --cov-report=xml  --cov-report=term-missing --verbose"

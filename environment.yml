@@ -1,0 +1,22 @@
+name: offsets-db-prod
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - aiofiles
+  - alembic >= 1.7.5
+  - asyncpg>=0.27
+  - fastapi == 0.94
+  - gunicorn
+  - httpx
+  - pandas >=1.5.3
+  - psycopg2
+  - pydantic
+  - pytest
+  - pytest-cov
+  - python=3.10
+  - s3fs >=2023
+  - sqlmodel >=0.0.8
+  - ujson
+  - universal_pathlib
+  - uvicorn
