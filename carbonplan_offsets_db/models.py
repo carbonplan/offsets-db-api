@@ -56,9 +56,9 @@ class Project(ProjectBase, table=True):
 
 class ProjectRead(ProjectBase):
     id: int
+    description: str | None
+    details_url: pydantic.HttpUrl | None
 
 
 class ProjectReadDetails(ProjectRead):
-    description: str | None
-    details_url: pydantic.HttpUrl | None
     recorded_at: datetime.datetime
