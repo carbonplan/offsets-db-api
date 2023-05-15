@@ -102,18 +102,18 @@ def get_projects(
     protocol: list[str] | None = Query(None, description='Protocol name'),
     registered_at_from: datetime.date
     | datetime.datetime
-    | None = Query(default=None, description='Registered at from'),
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
     registered_at_to: datetime.date
     | datetime.datetime
-    | None = Query(default=None, description='Registered at to'),
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
     started_at_from: datetime.date
     | datetime.datetime
-    | None = Query(default=None, description='Started at from'),
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
     started_at_to: datetime.date
     | datetime.datetime
-    | None = Query(default=None, description='Started at to'),
-    limit: int = 100,
-    offset: int = 0,
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    limit: int = Query(50, description='Limit number of results', le=100, gt=0),
+    offset: int = Query(0, description='Offset results', ge=0),
     session: Session = Depends(get_session),
 ):
     """Get projects with pagination and filtering"""
@@ -148,8 +148,6 @@ def get_projects(
 
     if started_at_to:
         query = query.filter(Project.started_at <= started_at_to)
-
-    logger.info('Printing query, %s', query)
 
     projects = query.limit(limit).offset(offset).all()
 
