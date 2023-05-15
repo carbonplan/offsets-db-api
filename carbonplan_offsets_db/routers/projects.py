@@ -112,16 +112,22 @@ def get_projects(
     started_at_to: datetime.date
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    search: str
+    | None = Query(
+        None,
+        description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
+    ),
     limit: int = Query(50, description='Limit number of results', le=100, gt=0),
     offset: int = Query(0, description='Offset results', ge=0),
     session: Session = Depends(get_session),
 ):
     """Get projects with pagination and filtering"""
     logger.info(
-        'Getting projects with filter: registry=%s, country=%s, protocol=%s, limit=%d, offset=%d',
+        'Getting projects with filter: registry=%s, country=%s, protocol=%s, search=%s, limit=%d, offset=%d',
         registry,
         country,
         protocol,
+        search,
         limit,
         offset,
     )
@@ -149,6 +155,13 @@ def get_projects(
     if started_at_to:
         query = query.filter(Project.started_at <= started_at_to)
 
+    if search:
+        search_pattern = (
+            f'%{search}%'  # Wrapping search string with % to match anywhere in the string
+        )
+        query = query.filter(
+            or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
+        )
     projects = query.limit(limit).offset(offset).all()
 
     logger.info('Found %d projects', len(projects))

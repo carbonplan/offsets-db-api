@@ -96,11 +96,12 @@ def test_get_projects_limit_offset(test_app):
 @pytest.mark.parametrize('protocol', [None, 'foo'])
 @pytest.mark.parametrize('started_at_from', ['2020-01-01'])
 @pytest.mark.parametrize('started_at_to', ['2023-01-01'])
+@pytest.mark.parametrize('search', ['foo'])
 def test_get_projects_with_filters(
-    test_app, registry, country, protocol, started_at_from, started_at_to
+    test_app, registry, country, protocol, started_at_from, started_at_to, search
 ):
     response = test_app.get(
-        f'/projects?registry={registry}&country={country}&protocol={protocol}&started_at_from={started_at_from}&started_at_to={started_at_to}'
+        f'/projects?registry={registry}&country={country}&protocol={protocol}&started_at_from={started_at_from}&started_at_to={started_at_to}&search={search}'
     )
     assert response.status_code == 200
     data = response.json()
