@@ -100,6 +100,18 @@ def get_projects(
     registry: list[Registries] | None = Query(None, description='Registry name'),
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
+    registered_at_from: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Registered at from'),
+    registered_at_to: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Registered at to'),
+    started_at_from: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Started at from'),
+    started_at_to: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Started at to'),
     limit: int = 100,
     offset: int = 0,
     session: Session = Depends(get_session),
@@ -124,6 +136,20 @@ def get_projects(
 
     if protocol:
         query = query.filter(or_(*[Project.protocol.ilike(p) for p in protocol]))
+
+    if registered_at_from:
+        query = query.filter(Project.registered_at >= registered_at_from)
+
+    if registered_at_to:
+        query = query.filter(Project.registered_at <= registered_at_to)
+
+    if started_at_from:
+        query = query.filter(Project.started_at >= started_at_from)
+
+    if started_at_to:
+        query = query.filter(Project.started_at <= started_at_to)
+
+    logger.info('Printing query, %s', query)
 
     projects = query.limit(limit).offset(offset).all()
 
