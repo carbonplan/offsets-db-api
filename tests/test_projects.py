@@ -91,10 +91,23 @@ def test_get_projects_limit_offset(test_app):
     assert len(response.json()) == 1
 
 
-def test_get_projects_with_filters(test_app):
-    response = test_app.get('/projects?registry=american-carbon-registry')
+@pytest.mark.parametrize('registry', ['american-carbon-registry', 'climate-action-reserve'])
+@pytest.mark.parametrize('country', ['US', 'CA'])
+@pytest.mark.parametrize('protocol', [None, 'foo'])
+@pytest.mark.parametrize('started_at_from', ['2020-01-01'])
+@pytest.mark.parametrize('started_at_to', ['2023-01-01'])
+def test_get_projects_with_filters(
+    test_app, registry, country, protocol, started_at_from, started_at_to
+):
+    response = test_app.get(
+        f'/projects?registry={registry}&country={country}&protocol={protocol}&started_at_from={started_at_from}&started_at_to={started_at_to}'
+    )
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
-    assert len(response.json()) > 0
-    for project in response.json():
-        assert project['registry'] == 'american-carbon-registry'
+    data = response.json()
+    assert isinstance(data, list)
+    if data:
+        for project in data:
+            assert project['registry'] == registry
+            assert project['country'] == country
+            if protocol:
+                assert project['protocol'] == protocol

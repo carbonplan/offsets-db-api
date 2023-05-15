@@ -1,6 +1,7 @@
 import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlmodel import Session
 
 from ..database import get_session
@@ -96,20 +97,57 @@ def get_files(
 
 @router.get('/', response_model=list[ProjectRead])
 def get_projects(
-    registry: Registries | None = None,
-    limit: int = 100,
-    offset: int = 0,
+    registry: list[Registries] | None = Query(None, description='Registry name'),
+    country: list[str] | None = Query(None, description='Country name'),
+    protocol: list[str] | None = Query(None, description='Protocol name'),
+    registered_at_from: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    registered_at_to: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    started_at_from: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    started_at_to: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    limit: int = Query(50, description='Limit number of results', le=100, gt=0),
+    offset: int = Query(0, description='Offset results', ge=0),
     session: Session = Depends(get_session),
 ):
     """Get projects with pagination and filtering"""
     logger.info(
-        'Getting projects with filter: registry=%s, limit=%d, offset=%d', registry, limit, offset
+        'Getting projects with filter: registry=%s, country=%s, protocol=%s, limit=%d, offset=%d',
+        registry,
+        country,
+        protocol,
+        limit,
+        offset,
     )
 
     query = session.query(Project)
 
     if registry:
-        query = query.filter_by(registry=registry)
+        query = query.filter(or_(*[Project.registry.ilike(r) for r in registry]))
+
+    if country:
+        query = query.filter(or_(*[Project.country.ilike(c) for c in country]))
+
+    if protocol:
+        query = query.filter(or_(*[Project.protocol.ilike(p) for p in protocol]))
+
+    if registered_at_from:
+        query = query.filter(Project.registered_at >= registered_at_from)
+
+    if registered_at_to:
+        query = query.filter(Project.registered_at <= registered_at_to)
+
+    if started_at_from:
+        query = query.filter(Project.started_at >= started_at_from)
+
+    if started_at_to:
+        query = query.filter(Project.started_at <= started_at_to)
 
     projects = query.limit(limit).offset(offset).all()
 
