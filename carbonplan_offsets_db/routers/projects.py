@@ -122,7 +122,7 @@ def get_projects(
     offset: int = Query(0, description='Offset results', ge=0),
     sort: list[str] = Query(
         default=['project_id'],
-        description='List of sorting parameters in the format "field_name" for ascending order or "-field_name" for descending order.',
+        description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
     ),
     session: Session = Depends(get_session),
 ):
