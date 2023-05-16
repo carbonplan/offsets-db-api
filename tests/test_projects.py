@@ -116,7 +116,7 @@ def test_get_projects_with_filters(
 
 def test_get_projects_with_sort_errors(test_app):
     # Request sorted data from the endpoint
-    response = test_app.get('/projects?sort=foo:bar')
+    response = test_app.get('/projects?sort=+foo')
 
     # Assert that the request was successful
     assert response.status_code == 400
@@ -128,14 +128,12 @@ def test_get_projects_with_sort_errors(test_app):
     assert isinstance(data, dict), f'Expected Dict, got {type(data).__name__}'
 
     # Assert that the error message is correct
-    assert 'Invalid sort property: foo' in data['detail']
+    assert 'Invalid sort field:' in data['detail']
 
 
 def test_get_projects_with_sort(test_app):
     # Request sorted data from the endpoint
-    response = test_app.get(
-        '/projects?sort=country:ascending&sort=project_id:ascending&sort=registered_at:descending'
-    )
+    response = test_app.get('/projects?sort=+country&sort=project_id&sort=-registered_at')
 
     # Assert that the request was successful
     assert response.status_code == 200

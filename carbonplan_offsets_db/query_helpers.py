@@ -3,34 +3,31 @@ from sqlalchemy import asc, desc
 
 
 def apply_sorting(*, query, sort: list[str], model):
-    ascending_order = ['ascending', 'descending', 'asc', 'desc']
+    # Define valid column names
     columns = [c.name for c in model.__table__.columns]
 
     for sort_param in sort:
-        # if sort_param not in the form of 'property:order' raise an error
-        if ':' not in sort_param:
-            raise HTTPException(
-                status_code=400,
-                detail=f'Invalid sort parameter: {sort_param}. Must be of the form "property:order"',
-            )
-        property, order = sort_param.split(':')
+        sort_param = sort_param.strip()
+        # Check if sort_param starts with '-' for descending order
+        if sort_param.startswith('-'):
+            order = desc
+            field = sort_param[1:]  # Remove the '-' from sort_param
 
-        if property not in columns:
-            raise HTTPException(
-                status_code=400,
-                detail=f'Invalid sort property: {property}. Must be one of {columns}',
-            )
-
-        if order in ascending_order:
-            query = (
-                query.order_by(asc(getattr(model, property)))
-                if order in ['ascending', 'asc']
-                else query.order_by(desc(getattr(model, property)))
-            )
+        elif sort_param.startswith('+'):
+            order = asc
+            field = sort_param[1:]  # Remove the '+' from sort_param
         else:
+            order = asc
+            field = sort_param
+
+        # Check if field is a valid column name
+        if field not in columns:
             raise HTTPException(
                 status_code=400,
-                detail=f'Invalid sort order: {order}. Must be one of {ascending_order}',
+                detail=f'Invalid sort field: {field}. Must be one of {columns}',
             )
+
+        # Apply sorting to the query
+        query = query.order_by(order(getattr(model, field)))
 
     return query
