@@ -20,12 +20,18 @@ concurrency:
 
 env:
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  PRODUCTION_URL: 'https://offsets-db.fly.dev/docs'
+  STAGING_URL: 'https://offsets-db-staging.fly.dev/docs'
 
 jobs:
   deploy:
     name: deploy app
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+      url: ${{ github.ref == 'refs/heads/main' && env.PRODUCTION_URL || env.STAGING_URL }}
+
     if: ${{ (contains(github.event.pull_request.labels.*.name, 'api') && github.event_name == 'pull_request') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     steps:
       - uses: actions/checkout@v3
