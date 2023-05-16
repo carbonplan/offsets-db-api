@@ -7,10 +7,15 @@ def apply_sorting(*, query, sort: list[str], model):
     columns = [c.name for c in model.__table__.columns]
 
     for sort_param in sort:
+        sort_param = sort_param.strip()
         # Check if sort_param starts with '-' for descending order
         if sort_param.startswith('-'):
             order = desc
             field = sort_param[1:]  # Remove the '-' from sort_param
+
+        elif sort_param.startswith('+'):
+            order = asc
+            field = sort_param[1:]  # Remove the '+' from sort_param
         else:
             order = asc
             field = sort_param
