@@ -112,3 +112,63 @@ def test_get_projects_with_filters(
             assert project['country'] == country
             if protocol:
                 assert project['protocol'] == protocol
+
+
+def test_get_projects_with_sort_errors(test_app):
+    # Request sorted data from the endpoint
+    response = test_app.get('/projects?sort=foo:bar')
+
+    # Assert that the request was successful
+    assert response.status_code == 400
+
+    # Parse the JSON response
+    data = response.json()
+
+    # Assert that the response is a list
+    assert isinstance(data, dict), f'Expected Dict, got {type(data).__name__}'
+
+    # Assert that the error message is correct
+    assert 'Invalid sort property: foo' in data['detail']
+
+
+def test_get_projects_with_sort(test_app):
+    # Request sorted data from the endpoint
+    response = test_app.get(
+        '/projects?sort=country:ascending&sort=project_id:ascending&sort=registered_at:descending'
+    )
+
+    # Assert that the request was successful
+    assert response.status_code == 200
+
+    # Parse the JSON response
+    data = response.json()
+
+    # Assert that the response is a list
+    assert isinstance(data, list), f'Expected List, got {type(data).__name__}'
+
+    # If there are any projects in the response, check that they are sorted
+    if data:
+        prev_country, prev_project_id, prev_registered_at = None, None, None
+        for project in data:
+            country = project['country']
+            project_id = project['project_id']
+            registered_at_str = project['registered_at']
+            registered_at = (
+                datetime.datetime.strptime(registered_at_str, '%Y-%m-%d')
+                if registered_at_str
+                else None
+            )
+
+            # Check the sorting logic
+            if prev_country is not None:
+                assert country >= prev_country, 'Projects are not sorted by country'
+                if country == prev_country:
+                    assert (
+                        project_id >= prev_project_id
+                    ), 'Projects are not sorted by project_id within the same country'
+                    if project_id == prev_project_id:
+                        assert (
+                            registered_at <= prev_registered_at
+                        ), 'Projects are not sorted by registered_at within the same project_id'
+
+            prev_country, prev_project_id, prev_registered_at = country, project_id, registered_at

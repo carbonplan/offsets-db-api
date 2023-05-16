@@ -7,6 +7,7 @@ from sqlmodel import Session
 from ..database import get_session
 from ..logging import get_logger
 from ..models import File, FileCategory, FileStatus, Project, ProjectRead, ProjectReadDetails
+from ..query_helpers import apply_sorting
 from ..schemas import FileURLPayload, Registries
 from ..tasks import process_files
 
@@ -119,6 +120,10 @@ def get_projects(
     ),
     limit: int = Query(50, description='Limit number of results', le=100, gt=0),
     offset: int = Query(0, description='Offset results', ge=0),
+    sort: list[str] = Query(
+        default=['project_id:ascending'],
+        description='List of sorting parameters in the format "property:order"',
+    ),
     session: Session = Depends(get_session),
 ):
     """Get projects with pagination and filtering"""
@@ -162,6 +167,10 @@ def get_projects(
         query = query.filter(
             or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
         )
+
+    if sort:
+        query = apply_sorting(query=query, sort=sort, model=Project)
+
     projects = query.limit(limit).offset(offset).all()
 
     logger.info('Found %d projects', len(projects))
