@@ -133,7 +133,7 @@ def test_get_projects_with_sort_errors(test_app):
 
 def test_get_projects_with_sort(test_app):
     # Request sorted data from the endpoint
-    response = test_app.get('/projects?sort=country&sort=project_id&sort=-registered_at')
+    response = test_app.get('/projects?sort=+country&sort=project_id&sort=-registered_at')
 
     # Assert that the request was successful
     assert response.status_code == 200
