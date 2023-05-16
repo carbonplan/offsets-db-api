@@ -121,8 +121,8 @@ def get_projects(
     limit: int = Query(50, description='Limit number of results', le=100, gt=0),
     offset: int = Query(0, description='Offset results', ge=0),
     sort: list[str] = Query(
-        default=['project_id:ascending'],
-        description='List of sorting parameters in the format "property:order"',
+        default=['project_id'],
+        description='List of sorting parameters in the format "field_name" for ascending order or "-field_name" for descending order.',
     ),
     session: Session = Depends(get_session),
 ):
