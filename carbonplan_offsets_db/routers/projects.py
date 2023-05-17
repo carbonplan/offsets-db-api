@@ -101,6 +101,7 @@ def get_projects(
     registry: list[Registries] | None = Query(None, description='Registry name'),
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
+    category: list[str] | None = Query(None, description='Category name'),
     registered_at_from: datetime.date
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
@@ -118,7 +119,7 @@ def get_projects(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
-    limit: int = Query(50, description='Limit number of results', le=100, gt=0),
+    limit: int = Query(500, description='Limit number of results', le=1000, gt=0),
     offset: int = Query(0, description='Offset results', ge=0),
     sort: list[str] = Query(
         default=['project_id'],
@@ -128,10 +129,11 @@ def get_projects(
 ):
     """Get projects with pagination and filtering"""
     logger.info(
-        'Getting projects with filter: registry=%s, country=%s, protocol=%s, search=%s, limit=%d, offset=%d',
+        'Getting projects with filter: registry=%s, country=%s, protocol=%s, category=%s, search=%s, limit=%d, offset=%d',
         registry,
         country,
         protocol,
+        category,
         search,
         limit,
         offset,
@@ -147,6 +149,9 @@ def get_projects(
 
     if protocol:
         query = query.filter(or_(*[Project.protocol.ilike(p) for p in protocol]))
+
+    if category:
+        query = query.filter(or_(*[Project.category.ilike(c) for c in category]))
 
     if registered_at_from:
         query = query.filter(Project.registered_at >= registered_at_from)
