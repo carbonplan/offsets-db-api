@@ -38,6 +38,7 @@ class ProjectBase(SQLModel):
     registry: str = Field(description='Name of the registry')
     proponent: str | None
     protocol: str | None
+    category: str | None
     developer: str | None
     voluntary_status: str | None
     country: str | None
