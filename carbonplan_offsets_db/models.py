@@ -63,3 +63,12 @@ class ProjectRead(ProjectBase):
 
 class ProjectReadDetails(ProjectRead):
     recorded_at: datetime.datetime
+
+
+class Credit(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True)
+    project_id: str = Field(description='Project id used by registry system')
+    quantity: int = Field(description='Number of credits')
+    vintage: int = Field(description='Vintage year of credits')
+    transaction_date: datetime.date | None = Field(description='Date of transaction')
+    transaction_type: str | None = Field(description='Type of transaction')
