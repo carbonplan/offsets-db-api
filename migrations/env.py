@@ -10,6 +10,7 @@ from sqlmodel import SQLModel
 from carbonplan_offsets_db.models import (  # (be sure to import all models you need migrated)
     File,
     Project,
+    Credit,
 )
 from carbonplan_offsets_db.settings import get_settings
 
