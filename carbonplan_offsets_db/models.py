@@ -1,20 +1,9 @@
 import datetime
-import enum
 
 import pydantic
 from sqlmodel import Field, Relationship, SQLModel
 
-
-class FileStatus(str, enum.Enum):
-    pending = 'pending'
-    success = 'success'
-    failure = 'failure'
-
-
-class FileCategory(str, enum.Enum):
-    projects = 'projects'
-    credits = 'credits'
-    unknown = 'unknown'
+from .schemas import FileCategory, FileStatus
 
 
 class FileBase(SQLModel):
