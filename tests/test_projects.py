@@ -4,7 +4,7 @@ import time
 import pytest
 
 
-def test_submit_bad_filea(test_app):
+def test_submit_bad_file(test_app):
     response = test_app.post('/projects/files', json=[{'url': 'http://foo.com'}])
     assert response.status_code == 200
     data = response.json()[0]

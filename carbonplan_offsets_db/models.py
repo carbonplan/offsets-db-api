@@ -87,3 +87,7 @@ class Credit(CreditBase, table=True):
 
     # relationship
     project: Project = Relationship(back_populates='credits')
+
+
+class CreditRead(CreditBase):
+    id: int
