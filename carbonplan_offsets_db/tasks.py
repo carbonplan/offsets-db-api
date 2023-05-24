@@ -6,7 +6,7 @@ import pandas as pd
 from sqlmodel import Session, delete, select
 
 from .logging import get_logger
-from .models import File, Project
+from .models import Credit, File, Project
 
 logger = get_logger()
 
@@ -38,16 +38,13 @@ def process_files(*, session: Session, files: list[File]):
 
     # This dictionary maps each file category to the model class that can be used to process the file.
 
-    models = {'projects': Project}
+    models = {'projects': Project, 'credits': Credit}
 
     for file in files:
         try:
             model = models.get(file.category)
-            if file.category == 'projects':
+            if file.category in ['projects', 'credits']:
                 process_project_records(session=session, model=model, file=file)
-
-            elif file.category == 'credits':
-                logger.info('Credits files are not yet supported. Skipping file %s', file.url)
 
             else:
                 logger.info('Unknown file category: %s. Skipping file %s', file.category, file.url)

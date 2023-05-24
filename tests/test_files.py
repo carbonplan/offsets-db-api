@@ -23,7 +23,11 @@ def test_submit_bad_file(test_app):
             {
                 'url': 's3://carbonplan-share/offsets-db-testing-data/data/processed/latest/american-carbon-registry/projects.csv.gz',
                 'category': 'projects',
-            }
+            },
+            {
+                'url': 's3://carbonplan-share/offsets-db-testing-data/data/processed/latest/american-carbon-registry/transactions.csv.gz',
+                'category': 'credits',
+            },
         ],
     ],
 )

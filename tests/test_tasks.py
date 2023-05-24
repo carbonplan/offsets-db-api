@@ -67,20 +67,6 @@ def test_process_files_calls_process_project_records_with_correct_args_for_proje
         )
 
 
-def test_process_files_skips_credit_files(mock_session, caplog):
-    credit_files = [MagicMock(url='https://example.com/credits.csv', category='credits')]
-
-    # Call process_files function with the mocked objects and capture logs
-    with caplog.at_level(logging.INFO):
-        process_files(session=mock_session, files=credit_files)
-
-        # Assert that logger.info was called with the correct message
-        assert (
-            f'Credits files are not yet supported. Skipping file {credit_files[0].url}'
-            in caplog.text
-        )
-
-
 def test_process_files_handles_unknown_file_categories(mock_session, caplog):
     unknown_files = [MagicMock(url='https://example.com/unknown.csv', category='unknown')]
 

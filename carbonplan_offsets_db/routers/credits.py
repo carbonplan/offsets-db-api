@@ -13,4 +13,6 @@ logger = get_logger()
 def get_credits(session: Session = Depends(get_session)):
     """List credits"""
     logger.info('Getting credits')
-    return session.query(Credit).all()
+    results = session.query(Credit).all()
+    logger.info(f'Found {len(results)} credits')
+    return results
