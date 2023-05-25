@@ -8,6 +8,12 @@ from sqlmodel import Session, delete, select
 from .logging import get_logger
 from .models import Credit, File, Project
 
+# This dictionary maps each file category to the model class that can be used to process the file.
+
+models = {'projects': Project, 'credits': Credit}
+attribute_names = {'projects': 'project_id', 'credits': 'transaction_serial_number'}
+keys_mapping = {'projects': ['id', 'project_id'], 'credits': ['id', 'transaction_serial_number']}
+
 logger = get_logger()
 
 
@@ -36,15 +42,10 @@ def generate_hash(df: pd.DataFrame) -> str:
 def process_files(*, session: Session, files: list[File]):
     """Process a file and update its status in the database"""
 
-    # This dictionary maps each file category to the model class that can be used to process the file.
-
-    models = {'projects': Project, 'credits': Credit}
-
     for file in files:
         try:
-            model = models.get(file.category)
-            if file.category in ['projects', 'credits']:
-                process_project_records(session=session, model=model, file=file)
+            if file.category in models:
+                process_project_records(session=session, model=models[file.category], file=file)
 
             else:
                 logger.info('Unknown file category: %s. Skipping file %s', file.category, file.url)
@@ -70,29 +71,43 @@ def process_project_records(session: Session, model: Project, file: File) -> Non
         logger.debug(f'Found {len(records)} records in file')
 
         existing_records = find_existing_records(
-            session=session, model=model, attribute_name='project_id', records=records
+            session=session,
+            model=model,
+            attribute_name=attribute_names[file.category],
+            records=records,
         )
 
         if existing_records:
             update_existing_records(
-                session=session, model=model, existing_records=existing_records, records=records
+                session=session,
+                model=model,
+                existing_records=existing_records,
+                records=records,
+                attribute_name=attribute_names[file.category],
+                keys=keys_mapping[file.category],
             )
 
         new_records = find_new_records(
-            model=model, existing_records=existing_records, records=records
+            existing_records=existing_records,
+            records=records,
+            attribute_name=attribute_names[file.category],
         )
 
         if new_records:
             insert_new_records(session=session, model=model, new_records=new_records)
 
-        ids_to_delete = find_ids_to_delete(existing_records=existing_records, records=records)
+        ids_to_delete = find_ids_to_delete(
+            existing_records=existing_records,
+            records=records,
+            attribute_name=attribute_names[file.category],
+        )
 
         if ids_to_delete:
             delete_records(
                 session=session,
                 model=model,
                 ids_to_delete=ids_to_delete,
-                attribute_name='project_id',
+                attribute_name=attribute_names[file.category],
             )
 
         update_file_status(session=session, file=file, df=df)
@@ -104,7 +119,7 @@ def process_project_records(session: Session, model: Project, file: File) -> Non
 
 
 def find_existing_records(
-    session: Session, model: Project, attribute_name: str, records: list[dict]
+    *, session: Session, model: Project, attribute_name: str, records: list[dict]
 ) -> list[Project]:
     """Find existing records in the database"""
     query = select(model).where(
@@ -117,17 +132,29 @@ def find_existing_records(
 
 
 def update_existing_records(
-    session: Session, model: Project, existing_records: list[Project], records: list[dict]
+    *,
+    session: Session,
+    model: Project,
+    existing_records: list[Project],
+    records: list[dict],
+    attribute_name: str,
+    keys: list[str],
 ) -> None:
     """Update existing records if they are also present in the loaded records"""
     records_to_update = []
     for existing_record in existing_records:
         matching_record = next(
-            (rec for rec in records if rec['project_id'] == getattr(existing_record, 'project_id')),
+            (
+                rec
+                for rec in records
+                if rec[attribute_name] == getattr(existing_record, attribute_name)
+            ),
             None,
         )
         if matching_record:
-            update_record(existing_record=existing_record, matching_record=matching_record)
+            update_record(
+                existing_record=existing_record, matching_record=matching_record, keys=keys
+            )
             records_to_update.append(existing_record.dict())
     if records_to_update:
         logger.info(f'Updating {len(records_to_update)} existing records')
@@ -135,20 +162,20 @@ def update_existing_records(
         session.commit()
 
 
-def update_record(existing_record: Project, matching_record: dict) -> None:
+def update_record(*, existing_record: Project, matching_record: dict, keys: list[str]) -> None:
     """Update an existing record with data from a matching record"""
-    keys = ['id', 'project_id']
+
     for key, value in matching_record.items():
         if key not in keys and hasattr(existing_record, key):
             setattr(existing_record, key, value)
 
 
 def find_new_records(
-    model: Project, existing_records: list[Project], records: list[dict]
+    *, existing_records: list[Project], records: list[dict], attribute_name: str
 ) -> list[dict]:
     """Find new records that are not present in the database"""
-    existing_ids = {getattr(record, 'project_id') for record in existing_records}
-    new_records = [record for record in records if record['project_id'] not in existing_ids]
+    existing_ids = {getattr(record, attribute_name) for record in existing_records}
+    new_records = [record for record in records if record[attribute_name] not in existing_ids]
     logger.info(f'Found {len(new_records)} new records')
     return new_records
 
@@ -160,17 +187,19 @@ def insert_new_records(session: Session, model: Project, new_records: list[dict]
         session.commit()
 
 
-def find_ids_to_delete(existing_records: list[Project], records: list[dict]) -> set:
+def find_ids_to_delete(
+    *, existing_records: list[Project], records: list[dict], attribute_name: str
+) -> set:
     """Find ids of records that are in the database but not in the loaded records"""
-    existing_ids = {getattr(record, 'project_id') for record in existing_records}
-    loaded_ids = {record['project_id'] for record in records}
+    existing_ids = {getattr(record, attribute_name) for record in existing_records}
+    loaded_ids = {record[attribute_name] for record in records}
     ids_to_delete = existing_ids - loaded_ids
     logger.info(f'Found {len(ids_to_delete)} ids to delete')
     return ids_to_delete
 
 
 def delete_records(
-    session: Session, model: Project, ids_to_delete: set, attribute_name: str
+    *, session: Session, model: Project, ids_to_delete: set, attribute_name: str
 ) -> None:
     """Delete records from the database"""
     if ids_to_delete:
