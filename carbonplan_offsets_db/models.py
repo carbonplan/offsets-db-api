@@ -66,6 +66,7 @@ class CreditBase(SQLModel):
     vintage: int | None = Field(description='Vintage year of credits')
     transaction_date: datetime.date | None = Field(description='Date of transaction')
     transaction_type: str | None = Field(description='Type of transaction')
+    transaction_serial_number: str = Field(description='Transaction serial number', unique=True)
     details_url: pydantic.HttpUrl | None = Field(description='URL to unit information report')
 
 
