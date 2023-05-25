@@ -20,6 +20,7 @@ def get_projects(
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
+    is_arb: bool | None = Query(None, description='Whether project is an ARB project'),
     registered_at_from: datetime.date
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
@@ -47,11 +48,12 @@ def get_projects(
 ):
     """Get projects with pagination and filtering"""
     logger.info(
-        'Getting projects with filter: registry=%s, country=%s, protocol=%s, category=%s, search=%s, limit=%d, offset=%d',
+        'Getting projects with filter: registry=%s, country=%s, protocol=%s, category=%s, is_arb=%s, search=%s, limit=%d, offset=%d',
         registry,
         country,
         protocol,
         category,
+        is_arb,
         search,
         limit,
         offset,
@@ -70,6 +72,9 @@ def get_projects(
 
     if category:
         query = query.filter(or_(*[Project.category.ilike(c) for c in category]))
+
+    if is_arb is not None:
+        query = query.filter(Project.is_arb == is_arb)
 
     if registered_at_from:
         query = query.filter(Project.registered_at >= registered_at_from)
