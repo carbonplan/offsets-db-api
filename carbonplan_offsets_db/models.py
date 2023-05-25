@@ -33,6 +33,7 @@ class ProjectBase(SQLModel):
     country: str | None
     started_at: datetime.date | None = Field(description='Date project started')
     registered_at: datetime.date | None = Field(description='Date project was registered')
+    is_arb: bool | None = Field(description='Whether project is an ARB project')
 
 
 class Project(ProjectBase, table=True):
