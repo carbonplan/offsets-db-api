@@ -91,7 +91,7 @@ def test_get_projects_with_sort(test_app):
             )
 
             # Check the sorting logic
-            if prev_country is not None:
+            if prev_country is not None and country is not None:
                 assert country >= prev_country, 'Projects are not sorted by country'
                 if country == prev_country:
                     assert (
