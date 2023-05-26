@@ -54,10 +54,6 @@ class ProjectRead(ProjectBase):
     details_url: pydantic.HttpUrl | None
 
 
-class ProjectReadDetails(ProjectRead):
-    recorded_at: datetime.datetime
-
-
 class CreditBase(SQLModel):
     project_id: str = Field(
         description='Project id used by registry system', foreign_key='project.project_id'
@@ -82,3 +78,8 @@ class Credit(CreditBase, table=True):
 
 class CreditRead(CreditBase):
     id: int
+
+
+class ProjectReadDetails(ProjectRead):
+    recorded_at: datetime.datetime
+    credits: list['CreditRead']

@@ -8,6 +8,15 @@ def test_get_project(test_app):
     assert response.status_code == 404
     assert response.json() == {'detail': 'project 123 not found'}
 
+    response = test_app.get('/projects/ACR182')
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, dict)
+    assert data['project_id'] == 'ACR182'
+    assert data['registry'] == 'american-carbon-registry'
+    assert isinstance(data['credits'], list)
+    assert isinstance(data['credits'][0], dict)
+
 
 def test_get_projects(test_app):
     response = test_app.get('/projects')

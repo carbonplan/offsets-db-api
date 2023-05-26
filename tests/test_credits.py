@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_get_credits(test_app):
     response = test_app.get('/credits/')
     assert response.status_code == 200
@@ -23,3 +26,19 @@ def test_get_credits_with_non_existent_route(test_app):
 def test_get_credits_with_wrong_http_verb(test_app):
     response = test_app.post('/credits/')
     assert response.status_code == 405
+
+
+@pytest.mark.parametrize('transaction_type', ['issuance', 'retirement'])
+@pytest.mark.parametrize('project_id', ['ACR0001', 'ACR0002'])
+@pytest.mark.parametrize('vintage', [2010, 2011])
+def test_get_credits_with_filters(test_app, transaction_type, project_id, vintage):
+    response = test_app.get(
+        f'/credits/?transaction_type={transaction_type}&project_id={project_id}&vintage={vintage}&sort=-vintage'
+    )
+    assert response.status_code == 200
+    if response.json():
+        # Verify that all returned credits match the filters
+        for credit in response.json():
+            assert credit['transaction_type'] == transaction_type
+            assert credit['project_id'] == project_id
+            assert credit['vintage'] == vintage

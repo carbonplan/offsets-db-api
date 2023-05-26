@@ -108,7 +108,7 @@ def get_projects(
 @router.get(
     '/{project_id}',
     response_model=ProjectReadDetails,
-    summary='Get a project by registry and project_id',
+    summary='Get project details by project_id',
 )
 def get_project(
     project_id: str,
