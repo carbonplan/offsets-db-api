@@ -12,30 +12,30 @@ buildpacks = ["gcr.io/paketo-buildpacks/python"]
 allowed_public_ports = []
 auto_rollback = true
 
-[[services]]
-internal_port = 8000
-protocol = "tcp"
-
-[services.concurrency]
-hard_limit = 25
-soft_limit = 20
-
-[[services.ports]]
-handlers = ["http"]
-port = "80"
-
-[[services.ports]]
-handlers = ["tls", "http"]
-port = "443"
-
-[[services.tcp_checks]]
-interval = 10000
-timeout = 2000
-
-
 [env]
 OFFSETS_DB_STAGING = "true"
 PORT = "8000"
 
 [deploy]
 release_command = "bash -l release.sh"
+
+
+[[services]]
+protocol = "tcp"
+internal_port = 8000
+
+[[services.ports]]
+port = 80
+handlers = ["http"]
+
+[[services.ports]]
+port = 443
+handlers = ["tls", "http"]
+[services.concurrency]
+hard_limit = 25
+soft_limit = 20
+
+[[services.tcp_checks]]
+interval = "10s"
+timeout = "2s"
+restart_limit = 0
