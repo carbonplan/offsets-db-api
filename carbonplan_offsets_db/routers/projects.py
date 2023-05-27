@@ -1,99 +1,17 @@
 import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlmodel import Session
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import File, FileCategory, FileStatus, Project, ProjectRead, ProjectReadDetails
+from ..models import Project, ProjectRead, ProjectReadDetails
 from ..query_helpers import apply_sorting
-from ..schemas import FileURLPayload, Registries
-from ..tasks import process_files
+from ..schemas import Registries
 
 router = APIRouter()
 logger = get_logger()
-
-
-@router.post(
-    '/files',
-    response_model=list[File],
-    summary='Submit a file to be processed and added to the database',
-)
-def submit_file(
-    payload: list[FileURLPayload],
-    background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-):
-    """Submit a file to the database"""
-    logger.info('Received file(s) %s', payload)
-
-    file_objs = []
-    for p in payload:
-        file_obj = File(url=p.url, category='projects')
-        file_objs.append(file_obj)
-        session.add(file_obj)
-
-    session.commit()
-
-    background_tasks.add_task(process_files, session=session, files=file_objs)
-    return file_objs
-
-
-@router.get('/files/{file_id}', response_model=File, summary='Get a file by id')
-def get_file(file_id: int, session: Session = Depends(get_session)):
-    """Get a file by id"""
-    logger.info('Getting file %s', file_id)
-
-    if file_obj := session.query(File).get(file_id):
-        return file_obj
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f'file {file_id} not found',
-        )
-
-
-@router.get('/files', response_model=list[File], summary='List files')
-def get_files(
-    category: FileCategory | None = None,
-    status: FileStatus | None = None,
-    recorded_at_from: datetime.date | datetime.datetime | None = None,
-    recorded_at_to: datetime.date | datetime.datetime | None = None,
-    limit: int = 100,
-    offset: int = 0,
-    session: Session = Depends(get_session),
-):
-    """Get files"""
-    logger.info(
-        'Getting files with filter: category=%s, status=%s, recorded_at_from=%s, recorded_at_to=%s, limit=%d, offset=%d',
-        category,
-        status,
-        recorded_at_from,
-        recorded_at_to,
-        limit,
-        offset,
-    )
-
-    query = session.query(File)
-
-    if category:
-        query = query.filter_by(category=category)
-
-    if status:
-        query = query.filter_by(status=status)
-
-    if recorded_at_from:
-        query = query.filter(File.recorded_at >= recorded_at_from)
-
-    if recorded_at_to:
-        query = query.filter(File.recorded_at <= recorded_at_to)
-
-    files = query.limit(limit).offset(offset).all()
-
-    logger.info('Found %d files', len(files))
-
-    return files
 
 
 @router.get('/', response_model=list[ProjectRead])
@@ -102,6 +20,7 @@ def get_projects(
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
+    is_arb: bool | None = Query(None, description='Whether project is an ARB project'),
     registered_at_from: datetime.date
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
@@ -129,11 +48,12 @@ def get_projects(
 ):
     """Get projects with pagination and filtering"""
     logger.info(
-        'Getting projects with filter: registry=%s, country=%s, protocol=%s, category=%s, search=%s, limit=%d, offset=%d',
+        'Getting projects with filter: registry=%s, country=%s, protocol=%s, category=%s, is_arb=%s, search=%s, limit=%d, offset=%d',
         registry,
         country,
         protocol,
         category,
+        is_arb,
         search,
         limit,
         offset,
@@ -152,6 +72,9 @@ def get_projects(
 
     if category:
         query = query.filter(or_(*[Project.category.ilike(c) for c in category]))
+
+    if is_arb is not None:
+        query = query.filter(Project.is_arb == is_arb)
 
     if registered_at_from:
         query = query.filter(Project.registered_at >= registered_at_from)
@@ -185,7 +108,7 @@ def get_projects(
 @router.get(
     '/{project_id}',
     response_model=ProjectReadDetails,
-    summary='Get a project by registry and project_id',
+    summary='Get project details by project_id',
 )
 def get_project(
     project_id: str,
