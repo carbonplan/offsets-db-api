@@ -9,9 +9,6 @@ builder = "paketobuildpacks/builder:base"
 buildpacks = ["gcr.io/paketo-buildpacks/python"]
 
 
-[experimental]
-auto_rollback = true
-
 [env]
 OFFSETS_DB_STAGING = "true"
 PORT = "8000"
@@ -21,28 +18,29 @@ release_command = "bash -l release.sh"
 
 
 [[services]]
-protocol = "tcp"
-internal_port = 8000
+  protocol = "tcp"
+  internal_port = 8000
 
-[http_service]
-internal_port = 8000
-force_https = true
-auto_stop_machines = true
-auto_start_machines = true
-min_machines_running = 1
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
 
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
 
-[[services.ports]]
-port = 80
-handlers = ["http"]
+  [[services.tcp_checks]]
+    interval = "10s"
+    timeout = "2s"
+    grace_period = "1s"
+    restart_limit = 0
 
-[[services.ports]]
-port = 443
-handlers = ["tls", "http"]
-[services.concurrency]
-hard_limit = 25
-soft_limit = 20
-
-[[services.tcp_checks]]
-interval = "20s"
-timeout = "10s"
+  [[services.http_checks]]
+    path = "/health/"
+    grace_period = "15s"
+    interval = "30s"
+    timeout = "10s"
