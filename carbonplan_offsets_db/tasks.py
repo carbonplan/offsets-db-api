@@ -139,6 +139,7 @@ def update_existing_records(
     records: list[dict],
     attribute_name: str,
     keys: list[str],
+    batch_size: int = 5000,
 ) -> None:
     """Update existing records if they are also present in the loaded records"""
     records_to_update = []
@@ -158,8 +159,10 @@ def update_existing_records(
             records_to_update.append(existing_record.dict())
     if records_to_update:
         logger.info(f'Updating {len(records_to_update)} existing records')
-        session.bulk_update_mappings(model, records_to_update)
-        session.commit()
+        for i in range(0, len(records_to_update), batch_size):
+            batch = records_to_update[i : i + batch_size]
+            session.bulk_update_mappings(model, batch)
+            session.commit()
 
 
 def update_record(*, existing_record: Project, matching_record: dict, keys: list[str]) -> None:
@@ -180,11 +183,15 @@ def find_new_records(
     return new_records
 
 
-def insert_new_records(session: Session, model: Project, new_records: list[dict]) -> None:
+def insert_new_records(
+    session: Session, model: Project, new_records: list[dict], batch_size: int = 5000
+) -> None:
     """Insert new records into the database"""
     if new_records:
-        session.bulk_insert_mappings(model, new_records)
-        session.commit()
+        for i in range(0, len(new_records), batch_size):
+            batch = new_records[i : i + batch_size]
+            session.bulk_insert_mappings(model, batch)
+            session.commit()
 
 
 def find_ids_to_delete(
@@ -199,12 +206,21 @@ def find_ids_to_delete(
 
 
 def delete_records(
-    *, session: Session, model: Project, ids_to_delete: set, attribute_name: str
+    *,
+    session: Session,
+    model: Project,
+    ids_to_delete: set,
+    attribute_name: str,
+    batch_size: int = 5000,
 ) -> None:
-    """Delete records from the database"""
+    """Delete records from the database in batches"""
     if ids_to_delete:
-        statement = delete(model).where(getattr(model, attribute_name).in_(ids_to_delete))
-        session.execute(statement)
+        ids_to_delete_list = list(ids_to_delete)
+        for i in range(0, len(ids_to_delete_list), batch_size):
+            batch = ids_to_delete_list[i : i + batch_size]
+            statement = delete(model).where(getattr(model, attribute_name).in_(batch))
+            session.execute(statement)
+            session.commit()
 
 
 def update_file_status(session: Session, file: File, df: pd.DataFrame) -> None:
