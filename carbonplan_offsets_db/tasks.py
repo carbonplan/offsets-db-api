@@ -161,8 +161,10 @@ def update_existing_records(
         logger.info(f'Updating {len(records_to_update)} existing records')
         for i in range(0, len(records_to_update), batch_size):
             batch = records_to_update[i : i + batch_size]
+            logger.info(f'Updating batch {i} - {i + batch_size}')
             session.bulk_update_mappings(model, batch)
             session.commit()
+            logger.info(f'Updated batch {i} - {i + batch_size}')
 
 
 def update_record(*, existing_record: Project, matching_record: dict, keys: list[str]) -> None:
@@ -190,8 +192,10 @@ def insert_new_records(
     if new_records:
         for i in range(0, len(new_records), batch_size):
             batch = new_records[i : i + batch_size]
+            logger.info(f'Inserting batch {i} - {i + batch_size}')
             session.bulk_insert_mappings(model, batch)
             session.commit()
+            logger.info(f'Inserted batch {i} - {i + batch_size}')
 
 
 def find_ids_to_delete(
@@ -218,9 +222,11 @@ def delete_records(
         ids_to_delete_list = list(ids_to_delete)
         for i in range(0, len(ids_to_delete_list), batch_size):
             batch = ids_to_delete_list[i : i + batch_size]
+            logger.info(f'Deleting batch {i} - {i + batch_size}')
             statement = delete(model).where(getattr(model, attribute_name).in_(batch))
             session.execute(statement)
             session.commit()
+            logger.info(f'Deleted batch {i} - {i + batch_size}')
 
 
 def update_file_status(session: Session, file: File, df: pd.DataFrame) -> None:
