@@ -31,9 +31,10 @@ def test_get_credits_with_wrong_http_verb(test_app):
 @pytest.mark.parametrize('transaction_type', ['issuance', 'retirement'])
 @pytest.mark.parametrize('project_id', ['ACR0001', 'ACR0002'])
 @pytest.mark.parametrize('vintage', [2010, 2011])
-def test_get_credits_with_filters(test_app, transaction_type, project_id, vintage):
+@pytest.mark.parametrize('is_arb', [True, False])
+def test_get_credits_with_filters(test_app, transaction_type, project_id, vintage, is_arb):
     response = test_app.get(
-        f'/credits/?transaction_type={transaction_type}&project_id={project_id}&vintage={vintage}&sort=-vintage'
+        f'/credits/?transaction_type={transaction_type}&project_id={project_id}&vintage={vintage}&sort=-vintage&is_arb={is_arb}'
     )
     assert response.status_code == 200
     if response.json():
