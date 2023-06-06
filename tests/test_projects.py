@@ -16,6 +16,8 @@ def test_get_project(test_app):
     assert data['registry'] == 'american-carbon-registry'
     assert isinstance(data['credits'], list)
     assert isinstance(data['credits'][0], dict)
+    assert isinstance(data['issued'], int)
+    assert isinstance(data['retired'], int)
 
 
 def test_get_projects(test_app):
@@ -37,11 +39,26 @@ def test_get_projects_limit_offset(test_app):
 @pytest.mark.parametrize('started_at_from', ['2020-01-01'])
 @pytest.mark.parametrize('started_at_to', ['2023-01-01'])
 @pytest.mark.parametrize('search', ['foo'])
+@pytest.mark.parametrize('retired_min', [0])
+@pytest.mark.parametrize('retired_max', [100000])
+@pytest.mark.parametrize('issued_min', [0])
+@pytest.mark.parametrize('issued_max', [100000])
 def test_get_projects_with_filters(
-    test_app, registry, country, protocol, category, started_at_from, started_at_to, search
+    test_app,
+    registry,
+    country,
+    protocol,
+    category,
+    started_at_from,
+    started_at_to,
+    search,
+    retired_min,
+    retired_max,
+    issued_min,
+    issued_max,
 ):
     response = test_app.get(
-        f'/projects?registry={registry}&country={country}&protocol={protocol}&category={category}&started_at_from={started_at_from}&started_at_to={started_at_to}&search={search}'
+        f'/projects?registry={registry}&country={country}&protocol={protocol}&category={category}&started_at_from={started_at_from}&started_at_to={started_at_to}&search={search}&retired_min={retired_min}&retired_max={retired_max}&issued_min={issued_min}&issued_max={issued_max}'
     )
     assert response.status_code == 200
     data = response.json()
