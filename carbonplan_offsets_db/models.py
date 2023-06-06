@@ -34,6 +34,8 @@ class ProjectBase(SQLModel):
     started_at: datetime.date | None = Field(description='Date project started')
     registered_at: datetime.date | None = Field(description='Date project was registered')
     is_arb: bool | None = Field(description='Whether project is an ARB project')
+    retired: int | None = Field(description='Total of retired credits', default=0)
+    issued: int | None = Field(description='Total of issued credits', default=0)
 
 
 class Project(ProjectBase, table=True):
