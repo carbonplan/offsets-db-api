@@ -33,6 +33,10 @@ def get_projects(
     started_at_to: datetime.date
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    issued_min: int | None = Query(None, description='Minimum number of issued credits'),
+    issued_max: int | None = Query(None, description='Maximum number of issued credits'),
+    retired_min: int | None = Query(None, description='Minimum number of retired credits'),
+    retired_max: int | None = Query(None, description='Maximum number of retired credits'),
     search: str
     | None = Query(
         None,
@@ -87,6 +91,19 @@ def get_projects(
 
     if started_at_to:
         query = query.filter(Project.started_at <= started_at_to)
+
+    # Add additional filters for issued and retired credits
+    if issued_min:
+        query = query.filter(Project.issued >= issued_min)
+
+    if issued_max:
+        query = query.filter(Project.issued <= issued_max)
+
+    if retired_min:
+        query = query.filter(Project.retired >= retired_min)
+
+    if retired_max:
+        query = query.filter(Project.retired <= retired_max)
 
     if search:
         search_pattern = (

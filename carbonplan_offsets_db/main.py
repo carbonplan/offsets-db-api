@@ -41,8 +41,7 @@ app = create_application()
 async def startup_event():
     logger.info('Application startup...')
     scheduler.add_job(calculate_totals)
-    scheduler.add_job(calculate_totals, 'interval', hours=8)
-    scheduler.add_job(calculate_totals, 'cron', hour=0)
+    scheduler.add_job(calculate_totals, 'interval', hours=12)
     scheduler.start()
 
 
