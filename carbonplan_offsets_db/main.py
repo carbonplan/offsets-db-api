@@ -1,11 +1,16 @@
+from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .app_metadata import metadata
 from .logging import get_logger
 from .routers import credits, files, health, projects
+from .tasks import calculate_totals
 
 logger = get_logger()
+
+# Initialize scheduler
+scheduler = BackgroundScheduler()
 
 
 def create_application() -> FastAPI:
@@ -35,8 +40,13 @@ app = create_application()
 @app.on_event('startup')
 async def startup_event():
     logger.info('Application startup...')
+    scheduler.add_job(calculate_totals)
+    scheduler.add_job(calculate_totals, 'interval', hours=8)
+    scheduler.add_job(calculate_totals, 'cron', hour=0)
+    scheduler.start()
 
 
 @app.on_event('shutdown')
 async def shutdown_event():
     logger.info('Application shutdown...')
+    scheduler.shutdown()

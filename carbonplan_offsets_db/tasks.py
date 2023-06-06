@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from sqlmodel import Session, delete, select
 
+from .database import get_session
 from .logging import get_logger
 from .models import Credit, File, Project
 
@@ -237,3 +238,50 @@ def update_file_status(session: Session, file: File, df: pd.DataFrame) -> None:
     session.commit()
     session.refresh(file)
     logger.info(f'Done processing file: {file}')
+
+
+def calculate_totals():
+    """Calculate totals (issuances, retirements) for all projects in the database"""
+    logger.info('Updating project retired and issued totals')
+    # Start a new session
+    session = next(get_session())
+
+    try:
+        # Fetch all projects
+        projects = session.exec(select(Project)).all()
+
+        # For each project...
+        for project in projects:
+            # Reset totals
+            issued_total = 0
+            retired_total = 0
+
+            # Fetch all credits for this project
+            credits = session.exec(
+                select(Credit).where(Credit.project_id == project.project_id)
+            ).all()
+
+            # For each credit...
+            for credit in credits:
+                # Add to totals
+                if credit.transaction_type == 'issuance':
+                    issued_total += credit.quantity
+                elif 'retirement' in credit.transaction_type:
+                    retired_total += credit.quantity
+            # Update totals for this project
+            project.issued = issued_total
+            project.retired = retired_total
+            session.add(project)
+
+        # Commit changes
+        session.commit()
+        logger.info('Done updating project retired and issued totals')
+
+    except Exception as exc:
+        logger.error('Error updating project retired and issued totals')
+        logger.exception(exc)
+        session.rollback()
+        raise exc
+
+    finally:
+        session.close()

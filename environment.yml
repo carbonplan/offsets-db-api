@@ -21,3 +21,4 @@ dependencies:
   - ujson
   - universal_pathlib
   - uvicorn
+  - apscheduler>=3.10.1
