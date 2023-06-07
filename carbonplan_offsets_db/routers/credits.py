@@ -1,21 +1,22 @@
 import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import or_
 from sqlmodel import Session
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Credit, CreditRead, Project
-from ..query_helpers import apply_sorting
-from ..schemas import Registries
+from ..models import Credit, CreditWithPagination, Project
+from ..query_helpers import apply_sorting, handle_pagination
+from ..schemas import Pagination, Registries
 
 router = APIRouter()
 logger = get_logger()
 
 
-@router.get('/', summary='List credits', response_model=list[CreditRead])
+@router.get('/', summary='List credits', response_model=CreditWithPagination)
 def get_credits(
+    request: Request,
     registry: list[Registries] | None = Query(None, description='Registry name'),
     category: list[str] | None = Query(None, description='Category name'),
     is_arb: bool | None = Query(None, description='Whether project is an ARB project'),
@@ -27,17 +28,17 @@ def get_credits(
     transaction_date_to: datetime.date
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
-    limit: int = Query(500, description='Limit number of results', le=1000, gt=0),
     search: str
     | None = Query(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
-    offset: int = Query(0, description='Offset results', ge=0),
     sort: list[str] = Query(
         default=['project_id'],
         description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
     ),
+    page: int = Query(1, description='Page number', ge=1),
+    per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
 ):
     """List credits"""
@@ -78,6 +79,11 @@ def get_credits(
     if sort:
         query = apply_sorting(query=query, sort=sort, model=Credit)
 
-    results = query.offset(offset).limit(limit).all()
-    logger.info(f'Found {len(results)} credits')
-    return results
+    total, page, pages, next_page, results = handle_pagination(
+        query=query, page=page, per_page=per_page, request=request
+    )
+
+    return CreditWithPagination(
+        pagination=Pagination(total=total, page=page, pages=pages, next_page=next_page),
+        data=results,
+    )

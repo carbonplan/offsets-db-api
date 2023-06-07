@@ -35,3 +35,10 @@ class FileURLPayload(pydantic.BaseModel):
 class FileURLResponse(pydantic.BaseModel):
     message: str
     file_url: pydantic.AnyUrl
+
+
+class Pagination(pydantic.BaseModel):
+    total: int
+    page: int
+    pages: int
+    next_page: pydantic.HttpUrl | None

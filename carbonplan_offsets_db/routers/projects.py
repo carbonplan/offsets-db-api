@@ -1,21 +1,22 @@
 import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import or_
 from sqlmodel import Session
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Project, ProjectRead, ProjectReadDetails
-from ..query_helpers import apply_sorting
-from ..schemas import Registries
+from ..models import Project, ProjectReadDetails, ProjectWithPagination
+from ..query_helpers import apply_sorting, handle_pagination
+from ..schemas import Pagination, Registries
 
 router = APIRouter()
 logger = get_logger()
 
 
-@router.get('/', response_model=list[ProjectRead])
+@router.get('/', response_model=ProjectWithPagination)
 def get_projects(
+    request: Request,
     registry: list[Registries] | None = Query(None, description='Registry name'),
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
@@ -42,8 +43,8 @@ def get_projects(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
-    limit: int = Query(500, description='Limit number of results', le=1000, gt=0),
-    offset: int = Query(0, description='Offset results', ge=0),
+    page: int = Query(1, description='Page number', ge=1),
+    per_page: int = Query(100, description='Items per page', le=200, ge=1),
     sort: list[str] = Query(
         default=['project_id'],
         description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
@@ -52,15 +53,7 @@ def get_projects(
 ):
     """Get projects with pagination and filtering"""
     logger.info(
-        'Getting projects with filter: registry=%s, country=%s, protocol=%s, category=%s, is_arb=%s, search=%s, limit=%d, offset=%d',
-        registry,
-        country,
-        protocol,
-        category,
-        is_arb,
-        search,
-        limit,
-        offset,
+        f'Getting projects with filter: registry={registry}, country={country}, protocol={protocol}, category={category}, is_arb={is_arb}, search={search}, page={page}, per_page={per_page}, sort={sort}'
     )
 
     query = session.query(Project)
@@ -116,10 +109,14 @@ def get_projects(
     if sort:
         query = apply_sorting(query=query, sort=sort, model=Project)
 
-    projects = query.limit(limit).offset(offset).all()
+    total, page, pages, next_page, results = handle_pagination(
+        query=query, page=page, per_page=per_page, request=request
+    )
 
-    logger.info('Found %d projects', len(projects))
-    return projects
+    return ProjectWithPagination(
+        pagination=Pagination(total=total, page=page, pages=pages, next_page=next_page),
+        data=results,
+    )
 
 
 @router.get(
