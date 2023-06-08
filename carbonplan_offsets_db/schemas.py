@@ -38,7 +38,7 @@ class FileURLResponse(pydantic.BaseModel):
 
 
 class Pagination(pydantic.BaseModel):
-    total: int
-    page: int
-    pages: int
+    total_entries: int
+    current_page: int
+    total_pages: int
     next_page: pydantic.AnyHttpUrl | None

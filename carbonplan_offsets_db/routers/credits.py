@@ -37,7 +37,7 @@ def get_credits(
         default=['project_id'],
         description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
     ),
-    page: int = Query(1, description='Page number', ge=1),
+    current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
 ):
@@ -79,11 +79,16 @@ def get_credits(
     if sort:
         query = apply_sorting(query=query, sort=sort, model=Credit)
 
-    total, page, pages, next_page, results = handle_pagination(
-        query=query, page=page, per_page=per_page, request=request
+    total_entries, current_page, total_pages, next_page, results = handle_pagination(
+        query=query, current_page=current_page, per_page=per_page, request=request
     )
 
     return CreditWithPagination(
-        pagination=Pagination(total=total, page=page, pages=pages, next_page=next_page),
+        pagination=Pagination(
+            total_entries=total_entries,
+            current_page=current_page,
+            total_pages=total_pages,
+            next_page=next_page,
+        ),
         data=results,
     )

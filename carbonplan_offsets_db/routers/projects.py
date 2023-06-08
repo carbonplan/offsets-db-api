@@ -43,7 +43,7 @@ def get_projects(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
-    page: int = Query(1, description='Page number', ge=1),
+    current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     sort: list[str] = Query(
         default=['project_id'],
@@ -53,7 +53,7 @@ def get_projects(
 ):
     """Get projects with pagination and filtering"""
     logger.info(
-        f'Getting projects with filter: registry={registry}, country={country}, protocol={protocol}, category={category}, is_arb={is_arb}, search={search}, page={page}, per_page={per_page}, sort={sort}'
+        f'Getting projects with filter: registry={registry}, country={country}, protocol={protocol}, category={category}, is_arb={is_arb}, search={search}, current_page={current_page}, per_page={per_page}, sort={sort}'
     )
 
     query = session.query(Project)
@@ -109,12 +109,17 @@ def get_projects(
     if sort:
         query = apply_sorting(query=query, sort=sort, model=Project)
 
-    total, page, pages, next_page, results = handle_pagination(
-        query=query, page=page, per_page=per_page, request=request
+    total_entries, current_page, total_pages, next_page, results = handle_pagination(
+        query=query, current_page=current_page, per_page=per_page, request=request
     )
 
     return ProjectWithPagination(
-        pagination=Pagination(total=total, page=page, pages=pages, next_page=next_page),
+        pagination=Pagination(
+            total_entries=total_entries,
+            current_page=current_page,
+            total_pages=total_pages,
+            next_page=next_page,
+        ),
         data=results,
     )
 

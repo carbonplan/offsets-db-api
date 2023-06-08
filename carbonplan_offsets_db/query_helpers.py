@@ -39,7 +39,7 @@ def apply_sorting(*, query, sort: list[str], model):
 
 
 def handle_pagination(
-    *, query: Query, page: int, per_page: int, request: Request
+    *, query: Query, current_page: int, per_page: int, request: Request
 ) -> tuple[int, int, str | None, list[Project | Credit]]:
     """
     Calculate total records, pages and next page url for a given query
@@ -48,7 +48,7 @@ def handle_pagination(
     ----------
     query: Query
        SQLAlchemy Query
-    page: int
+    current_page: int
        Current page number
     per_page: int
        Number of records per page
@@ -57,9 +57,9 @@ def handle_pagination(
 
     Returns
     -------
-    total: int
+    total_entries: int
       Total records in query
-    pages: int
+    total_pages: int
       Total pages in query
     next_page: Optional[str]
       URL of next page
@@ -68,16 +68,16 @@ def handle_pagination(
     """
 
     # Calculate total and pages
-    total = query.count()
-    pages = (total + per_page - 1) // per_page  # ceil(total / per_page)
+    total_entries = query.count()
+    total_pages = (total_entries + per_page - 1) // per_page  # ceil(total / per_page)
 
     # Calculate the next page URL
     next_page = None
 
-    if page < pages:
+    if current_page < total_pages:
         # Convert the QueryParams to a dict, update 'page' and convert to a URL encoded string
         query_params = dict(request.query_params)
-        query_params['page'] = page + 1
+        query_params['current_page'] = current_page + 1
         query_params['per_page'] = per_page
         query_string = urlencode(query_params)
 
@@ -85,6 +85,6 @@ def handle_pagination(
         next_page = f'{request.url.scheme}://{request.url.netloc}{request.url.path}?{query_string}'
 
     # Get the results for the current page
-    data = query.offset((page - 1) * per_page).limit(per_page).all()
+    data = query.offset((current_page - 1) * per_page).limit(per_page).all()
 
-    return total, page, pages, next_page, data
+    return total_entries, current_page, total_pages, next_page, data

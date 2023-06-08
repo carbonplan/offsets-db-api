@@ -27,8 +27,11 @@ def test_get_projects(test_app):
 
 
 def test_get_projects_pagination(test_app):
-    response = test_app.get('/projects?per_page=1&page=1')
+    response = test_app.get('/projects?per_page=1&current_page=1')
     assert response.status_code == 200
+    pagination = response.json()['pagination']
+    assert isinstance(pagination, dict)
+    assert pagination['current_page'] == 1
     assert len(response.json()['data']) == 1
 
 

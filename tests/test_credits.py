@@ -2,7 +2,7 @@ import pytest
 
 
 def test_get_credits(test_app):
-    response = test_app.get('/credits/?per_page=1&page=1')
+    response = test_app.get('/credits/?per_page=1&current_page=1')
     assert response.status_code == 200
 
     if response.json()['data']:
