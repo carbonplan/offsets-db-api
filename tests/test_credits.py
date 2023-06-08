@@ -2,13 +2,14 @@ import pytest
 
 
 def test_get_credits(test_app):
-    response = test_app.get('/credits/')
+    response = test_app.get('/credits?per_page=1&page=1')
     assert response.status_code == 200
     if response.json():
         # Since the database is pre-populated, we should expect at least one credit
-        assert len(response.json()) > 0
+        data = response.json()['data']
+        assert len(data) == 1
         # Verify the structure of a single returned credit
-        credit = response.json()[0]
+        credit = data[0]
         assert 'id' in credit
         assert 'project_id' in credit
         assert 'quantity' in credit
@@ -39,7 +40,7 @@ def test_get_credits_with_filters(test_app, transaction_type, project_id, vintag
     assert response.status_code == 200
     if response.json():
         # Verify that all returned credits match the filters
-        for credit in response.json():
+        for credit in response.json()['data']:
             assert credit['transaction_type'] == transaction_type
             assert credit['project_id'] == project_id
             assert credit['vintage'] == vintage

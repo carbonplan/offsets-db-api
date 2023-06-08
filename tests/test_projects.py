@@ -23,13 +23,13 @@ def test_get_project(test_app):
 def test_get_projects(test_app):
     response = test_app.get('/projects')
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
+    assert isinstance(response.json()['data'], list)
 
 
-def test_get_projects_limit_offset(test_app):
-    response = test_app.get('/projects?limit=1&offset=1')
+def test_get_projects_pagination(test_app):
+    response = test_app.get('/projects?per_page=1&page=1')
     assert response.status_code == 200
-    assert len(response.json()) == 1
+    assert len(response.json()['data']) == 1
 
 
 @pytest.mark.parametrize('registry', ['american-carbon-registry', 'climate-action-reserve'])
@@ -61,7 +61,7 @@ def test_get_projects_with_filters(
         f'/projects?registry={registry}&country={country}&protocol={protocol}&category={category}&started_at_from={started_at_from}&started_at_to={started_at_to}&search={search}&retired_min={retired_min}&retired_max={retired_max}&issued_min={issued_min}&issued_max={issued_max}'
     )
     assert response.status_code == 200
-    data = response.json()
+    data = response.json()['data']
     assert isinstance(data, list)
     if data:
         for project in data:
@@ -98,7 +98,7 @@ def test_get_projects_with_sort(test_app):
     assert response.status_code == 200
 
     # Parse the JSON response
-    data = response.json()
+    data = response.json()['data']
 
     # Assert that the response is a list
     assert isinstance(data, list), f'Expected List, got {type(data).__name__}'

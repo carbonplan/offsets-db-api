@@ -41,4 +41,4 @@ class Pagination(pydantic.BaseModel):
     total: int
     page: int
     pages: int
-    next_page: pydantic.HttpUrl | None
+    next_page: pydantic.AnyHttpUrl | None
