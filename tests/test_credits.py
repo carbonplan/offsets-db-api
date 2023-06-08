@@ -2,21 +2,21 @@ import pytest
 
 
 def test_get_credits(test_app):
-    response = test_app.get('/credits?per_page=1&page=1')
+    response = test_app.get('/credits/?per_page=1&page=1')
     assert response.status_code == 200
-    if response.json():
-        # Since the database is pre-populated, we should expect at least one credit
-        data = response.json()['data']
-        assert len(data) == 1
-        # Verify the structure of a single returned credit
-        credit = data[0]
-        assert 'id' in credit
-        assert 'project_id' in credit
-        assert 'quantity' in credit
-        assert 'vintage' in credit
-        assert 'transaction_date' in credit
-        assert 'transaction_type' in credit
-        assert 'details_url' in credit
+
+    # Since the database is pre-populated, we should expect at least one credit
+    data = response.json()['data']
+    assert len(data) == 1
+    # Verify the structure of a single returned credit
+    credit = data[0]
+    assert 'id' in credit
+    assert 'project_id' in credit
+    assert 'quantity' in credit
+    assert 'vintage' in credit
+    assert 'transaction_date' in credit
+    assert 'transaction_type' in credit
+    assert 'details_url' in credit
 
 
 def test_get_credits_with_non_existent_route(test_app):
@@ -38,9 +38,8 @@ def test_get_credits_with_filters(test_app, transaction_type, project_id, vintag
         f'/credits/?transaction_type={transaction_type}&project_id={project_id}&vintage={vintage}&sort=-vintage&is_arb={is_arb}'
     )
     assert response.status_code == 200
-    if response.json():
-        # Verify that all returned credits match the filters
-        for credit in response.json()['data']:
-            assert credit['transaction_type'] == transaction_type
-            assert credit['project_id'] == project_id
-            assert credit['vintage'] == vintage
+    # Verify that all returned credits match the filters
+    for credit in response.json()['data']:
+        assert credit['transaction_type'] == transaction_type
+        assert credit['project_id'] == project_id
+        assert credit['vintage'] == vintage
