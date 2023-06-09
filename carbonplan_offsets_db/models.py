@@ -3,7 +3,7 @@ import datetime
 import pydantic
 from sqlmodel import Field, Relationship, SQLModel
 
-from .schemas import FileCategory, FileStatus
+from .schemas import FileCategory, FileStatus, Pagination
 
 
 class FileBase(SQLModel):
@@ -85,3 +85,13 @@ class CreditRead(CreditBase):
 class ProjectReadDetails(ProjectRead):
     recorded_at: datetime.datetime
     credits: list['CreditRead']
+
+
+class ProjectWithPagination(pydantic.BaseModel):
+    pagination: Pagination
+    data: list[ProjectRead]
+
+
+class CreditWithPagination(pydantic.BaseModel):
+    pagination: Pagination
+    data: list[CreditRead]
