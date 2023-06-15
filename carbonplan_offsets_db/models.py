@@ -15,6 +15,7 @@ class FileBase(SQLModel):
         default_factory=datetime.datetime.utcnow, description='Date file was recorded in database'
     )
     category: FileCategory = Field(description='Category of file', default='unknown')
+    chunksize: int | None = Field(description='Chunksize used to process file', default=None)
 
 
 class File(FileBase, table=True):

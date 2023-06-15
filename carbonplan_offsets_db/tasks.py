@@ -19,22 +19,20 @@ logger = get_logger()
 
 
 def load_csv_file(file_url: str, **kwargs) -> pd.DataFrame:
-    df = pd.read_csv(file_url, **kwargs)
-    # Sort columns in ascending order
-    df = df[df.columns.sort_values()]
-    logger.info(f'Successfully loaded file: {file_url}')
-    logger.info(f'File has {len(df)} rows')
-    return df
+    logger.info(f'Loading file with kwargs: {kwargs}')
+    return pd.read_csv(file_url, **kwargs)
 
 
-def generate_hash(df: pd.DataFrame) -> str:
+def generate_hash(df: pd.DataFrame | str) -> str:
     """Generate a hash of the dataframe contents"""
 
-    if not isinstance(df, pd.DataFrame):
-        raise TypeError(f'Expected pandas DataFrame, got {type(df)}')
+    if isinstance(df, pd.DataFrame):
+        # Convert the DataFrame to a byte string.
+        byte_str: bytes = df.to_json().encode()
 
-    # Convert the DataFrame to a byte string.
-    byte_str: bytes = df.to_json().encode()
+    else:
+        # Convert the string to a byte string.
+        byte_str = df.encode()
 
     # Compute the hash of the byte string.
     return hashlib.sha256(byte_str).hexdigest()
@@ -62,56 +60,67 @@ def process_files(*, session: Session, files: list[File]):
             session.refresh(file)
 
 
-def process_project_records(session: Session, model: Project, file: File) -> None:
+def process_project_records(*, session: Session, model: Project, file: File) -> None:
     """Process project records in a file"""
     try:
-        df = load_csv_file(file.url)
+        sha_hash = ''
+        kwargs = {}
+        if file.chunksize is not None and file.chunksize > 0:
+            kwargs['chunksize'] = file.chunksize
+        else:
+            kwargs['chunksize'] = 10_000
 
-        # Convert NaN values to None and convert dataframe to a list of dicts
-        records = df.replace({np.nan: None}).to_dict('records')
-        logger.debug(f'Found {len(records)} records in file')
+        chunks = load_csv_file(file.url, **kwargs)
+        logger.info(f'Processing {file.category} file {file.url}')
+        for df in chunks:
+            if not isinstance(df, pd.DataFrame):
+                raise TypeError(f'Expected a DataFrame, got {type(df)}')
 
-        existing_records = find_existing_records(
-            session=session,
-            model=model,
-            attribute_name=attribute_names[file.category],
-            records=records,
-        )
+            # Sort columns in ascending order
+            df = df[df.columns.sort_values()]
+            logger.info(f'File chunk has {len(df)} rows')
+            # Convert NaN values to None and convert dataframe to a list of dicts
+            records = df.replace({np.nan: None}).to_dict('records')
+            logger.debug(f'Found {len(records)} records in file chunk')
 
-        if existing_records:
-            update_existing_records(
+            existing_records = find_existing_records(
                 session=session,
                 model=model,
+                attribute_name=attribute_names[file.category],
+                records=records,
+            )
+
+            if existing_records:
+                update_existing_records(
+                    session=session,
+                    model=model,
+                    existing_records=existing_records,
+                    records=records,
+                    attribute_name=attribute_names[file.category],
+                    keys=keys_mapping[file.category],
+                )
+
+            if new_records := find_new_records(
                 existing_records=existing_records,
                 records=records,
                 attribute_name=attribute_names[file.category],
-                keys=keys_mapping[file.category],
-            )
+            ):
+                insert_new_records(session=session, model=model, new_records=new_records)
 
-        new_records = find_new_records(
-            existing_records=existing_records,
-            records=records,
-            attribute_name=attribute_names[file.category],
-        )
-
-        if new_records:
-            insert_new_records(session=session, model=model, new_records=new_records)
-
-        ids_to_delete = find_ids_to_delete(
-            existing_records=existing_records,
-            records=records,
-            attribute_name=attribute_names[file.category],
-        )
-
-        if ids_to_delete:
-            delete_records(
-                session=session,
-                model=model,
-                ids_to_delete=ids_to_delete,
+            if ids_to_delete := find_ids_to_delete(
+                existing_records=existing_records,
+                records=records,
                 attribute_name=attribute_names[file.category],
-            )
-
-        update_file_status(session=session, file=file, df=df)
+            ):
+                delete_records(
+                    session=session,
+                    model=model,
+                    ids_to_delete=ids_to_delete,
+                    attribute_name=attribute_names[file.category],
+                )
+            sha_hash += generate_hash(df)
+        sha = generate_hash(sha_hash)
+        update_file_status(session=session, file=file, content_sha=sha)
 
     except Exception as exc:
         session.rollback()
@@ -145,15 +154,14 @@ def update_existing_records(
     """Update existing records if they are also present in the loaded records"""
     records_to_update = []
     for existing_record in existing_records:
-        matching_record = next(
+        if matching_record := next(
             (
                 rec
                 for rec in records
                 if rec[attribute_name] == getattr(existing_record, attribute_name)
             ),
             None,
-        )
-        if matching_record:
+        ):
             update_record(
                 existing_record=existing_record, matching_record=matching_record, keys=keys
             )
@@ -230,9 +238,9 @@ def delete_records(
             logger.info(f'Deleted batch {i} - {i + batch_size}')
 
 
-def update_file_status(session: Session, file: File, df: pd.DataFrame) -> None:
+def update_file_status(session: Session, file: File, content_sha: str = None) -> None:
     """Update and commit File object to database"""
-    file.content_hash = generate_hash(df)
+    file.content_hash = content_sha
     file.status = 'success'
     session.add(file)
     session.commit()
