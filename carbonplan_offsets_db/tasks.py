@@ -65,53 +65,50 @@ def process_files(*, session: Session, files: list[File]):
 def process_project_records(session: Session, model: Project, file: File) -> None:
     """Process project records in a file"""
     try:
-        df = load_csv_file(file.url)
+        chunks = load_csv_file(file.url, chunksize=10_000)
 
-        # Convert NaN values to None and convert dataframe to a list of dicts
-        records = df.replace({np.nan: None}).to_dict('records')
-        logger.debug(f'Found {len(records)} records in file')
+        for df in chunks:
+            # Convert NaN values to None and convert dataframe to a list of dicts
+            records = df.replace({np.nan: None}).to_dict('records')
+            logger.debug(f'Found {len(records)} records in file')
 
-        existing_records = find_existing_records(
-            session=session,
-            model=model,
-            attribute_name=attribute_names[file.category],
-            records=records,
-        )
-
-        if existing_records:
-            update_existing_records(
+            existing_records = find_existing_records(
                 session=session,
                 model=model,
+                attribute_name=attribute_names[file.category],
+                records=records,
+            )
+
+            if existing_records:
+                update_existing_records(
+                    session=session,
+                    model=model,
+                    existing_records=existing_records,
+                    records=records,
+                    attribute_name=attribute_names[file.category],
+                    keys=keys_mapping[file.category],
+                )
+
+            if new_records := find_new_records(
                 existing_records=existing_records,
                 records=records,
                 attribute_name=attribute_names[file.category],
-                keys=keys_mapping[file.category],
-            )
+            ):
+                insert_new_records(session=session, model=model, new_records=new_records)
 
-        new_records = find_new_records(
-            existing_records=existing_records,
-            records=records,
-            attribute_name=attribute_names[file.category],
-        )
-
-        if new_records:
-            insert_new_records(session=session, model=model, new_records=new_records)
-
-        ids_to_delete = find_ids_to_delete(
-            existing_records=existing_records,
-            records=records,
-            attribute_name=attribute_names[file.category],
-        )
-
-        if ids_to_delete:
-            delete_records(
-                session=session,
-                model=model,
-                ids_to_delete=ids_to_delete,
+            if ids_to_delete := find_ids_to_delete(
+                existing_records=existing_records,
+                records=records,
                 attribute_name=attribute_names[file.category],
-            )
+            ):
+                delete_records(
+                    session=session,
+                    model=model,
+                    ids_to_delete=ids_to_delete,
+                    attribute_name=attribute_names[file.category],
+                )
 
-        update_file_status(session=session, file=file, df=df)
+            update_file_status(session=session, file=file, df=df)
 
     except Exception as exc:
         session.rollback()
@@ -145,15 +142,14 @@ def update_existing_records(
     """Update existing records if they are also present in the loaded records"""
     records_to_update = []
     for existing_record in existing_records:
-        matching_record = next(
+        if matching_record := next(
             (
                 rec
                 for rec in records
                 if rec[attribute_name] == getattr(existing_record, attribute_name)
             ),
             None,
-        )
-        if matching_record:
+        ):
             update_record(
                 existing_record=existing_record, matching_record=matching_record, keys=keys
             )
