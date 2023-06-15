@@ -5,6 +5,7 @@ channels:
 dependencies:
   - aiofiles
   - alembic >= 1.7.5
+  - apscheduler>=3.10.1
   - asyncpg>=0.27
   - fastapi == 0.94
   - gunicorn
@@ -19,6 +20,4 @@ dependencies:
   - s3fs >=2023
   - sqlmodel >=0.0.8
   - ujson
-  - universal_pathlib
   - uvicorn
-  - apscheduler>=3.10.1

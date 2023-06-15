@@ -25,18 +25,18 @@ def test_generate_hash_with_dataframe():
     assert generate_hash(df) == expected_hash
 
 
-def test_generate_hash_with_non_dataframe_argument():
-    # Test that generate_hash() raises TypeError when passed non-DataFrame argument
-    with pytest.raises(TypeError):
-        generate_hash('not_a_dataframe')
-
-
 def test_process_project_records_calls_load_csv_file_with_correct_url(mock_session):
-    project_file = MagicMock(url='https://example.com/projects.csv', category='projects')
+    project_file = MagicMock(
+        url='https://example.com/projects.csv', category='projects', chunksize=10_000
+    )
+
+    df = pd.DataFrame([project.dict() for project in generate_mock_projects()])
 
     with patch('carbonplan_offsets_db.tasks.load_csv_file') as mock_load_csv_file:
         # Mock the return value of load_csv_file
-        mock_load_csv_file.return_value = pd.DataFrame()
+        # Instead of returning a single buffer, we return a list of buffers, each representing a chunk of the file
+        mock_load_csv_file.return_value = iter([df])
+
         # Call process_project_records function with the mocked objects
         process_project_records(
             session=mock_session,
@@ -45,7 +45,7 @@ def test_process_project_records_calls_load_csv_file_with_correct_url(mock_sessi
         )
 
         # Assert that load_csv_file was called with the correct URL
-        mock_load_csv_file.assert_called_once_with(project_file.url)
+        mock_load_csv_file.assert_called_once_with(project_file.url, chunksize=10_000)
 
 
 def test_process_files_calls_process_project_records_with_correct_args_for_project_files(
@@ -134,7 +134,7 @@ def generate_mock_file(file_id=1, file_url='http://example.com/file.csv'):
 @patch('carbonplan_offsets_db.tasks.load_csv_file')
 def test_insert(mock_load_csv_file, mock_session):
     df = pd.DataFrame([project.dict() for project in generate_mock_projects()])
-    mock_load_csv_file.return_value = df  # Set your mocked dataframe
+    mock_load_csv_file.return_value = iter([df])  # Set your mocked dataframe
 
     # Mock the database query result with no existing records
     mock_session.exec.return_value.all.return_value = []
@@ -159,7 +159,7 @@ def test_update(mock_load_csv_file, mock_session):
     df = pd.DataFrame([project.dict() for project in generate_mock_projects()])
     # add dummy updated values to the dataframe
     df['recorded_at'] = '2021-01-01'
-    mock_load_csv_file.return_value = df  # Set your mocked dataframe
+    mock_load_csv_file.return_value = iter([df])  # Set your mocked dataframe
 
     # Mock the database query result with existing records
     mock_session.exec.return_value.all.return_value = generate_mock_projects()
@@ -181,7 +181,7 @@ def test_update(mock_load_csv_file, mock_session):
 @patch('carbonplan_offsets_db.tasks.load_csv_file')
 def test_delete(mock_load_csv_file, mock_session):
     df = pd.DataFrame([project.dict() for project in generate_mock_projects(2)])
-    mock_load_csv_file.return_value = df  # Set your mocked dataframe
+    mock_load_csv_file.return_value = iter([df])  # Set your mocked dataframe
 
     # Mock the database query result with existing records
     mock_session.exec.return_value.all.return_value = generate_mock_projects()

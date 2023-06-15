@@ -30,6 +30,7 @@ class FileCategory(str, enum.Enum):
 class FileURLPayload(pydantic.BaseModel):
     url: pydantic.AnyUrl
     category: FileCategory
+    chunksize: int = 10_000
 
 
 class FileURLResponse(pydantic.BaseModel):
