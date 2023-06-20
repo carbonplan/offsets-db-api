@@ -7,8 +7,14 @@ import pandas as pd
 import pytest
 from sqlmodel import Session
 
-from carbonplan_offsets_db.models import File, Project
-from carbonplan_offsets_db.tasks import generate_hash, process_files, process_project_records
+from carbonplan_offsets_db.models import CreditStats, File, Project, ProjectStats
+from carbonplan_offsets_db.tasks import (
+    generate_hash,
+    process_files,
+    process_project_records,
+    update_credit_stats,
+    update_project_stats,
+)
 
 
 @pytest.fixture
@@ -202,3 +208,30 @@ def test_delete(mock_load_csv_file, mock_session):
         if record.project_id not in df['project_id'].values
     ]
     assert len(deleted_records) == 1  # The expected number of deleted records
+
+
+def test_update_project_stats(test_db_session):
+    # Call the function you want to test
+    session = next(test_db_session)
+    update_project_stats(session=session)
+
+    # Check if the data was properly updated
+
+    result = session.query(ProjectStats).first()
+
+    # Assertions to check if the values are updated correctly
+    assert result is not None
+    assert result.total_projects > 0
+
+
+def test_update_credit_stats(test_db_session):
+    session = next(test_db_session)
+    # Call the function you want to test
+    update_credit_stats(session=session)
+
+    # Check if the data was properly updated
+    result = session.query(CreditStats).first()
+
+    # Assertions to check if the values are updated correctly
+    assert result is not None
+    assert result.total_credits > 0

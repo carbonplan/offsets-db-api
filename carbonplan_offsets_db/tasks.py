@@ -1,13 +1,15 @@
+import datetime
 import hashlib
 import traceback
 
 import numpy as np
 import pandas as pd
-from sqlmodel import Session, delete, select
+from sqlalchemy.orm.exc import NoResultFound
+from sqlmodel import Session, delete, func, select
 
 from .database import get_session
 from .logging import get_logger
-from .models import Credit, File, Project
+from .models import Credit, CreditStats, File, Project, ProjectStats
 
 # This dictionary maps each file category to the model class that can be used to process the file.
 
@@ -173,7 +175,6 @@ def update_existing_records(
             logger.info(f'Updating batch {i} - {i + batch_size}')
             session.bulk_update_mappings(model, batch)
             session.commit()
-            logger.info(f'Updated batch {i} - {i + batch_size}')
 
 
 def update_record(*, existing_record: Project, matching_record: dict, keys: list[str]) -> None:
@@ -245,14 +246,15 @@ def update_file_status(session: Session, file: File, content_sha: str = None) ->
     session.add(file)
     session.commit()
     session.refresh(file)
-    logger.info(f'Done processing file: {file}')
+    logger.info(f'✅ Done processing file: {file}')
 
 
-def calculate_totals():
+def calculate_totals(session: Session = None):
     """Calculate totals (issuances, retirements) for all projects in the database"""
-    logger.info('Updating project retired and issued totals')
+    logger.info('🔄 Updating project retired and issued totals')
     # Start a new session
-    session = next(get_session())
+    if not session:
+        session = next(get_session())
 
     try:
         # Fetch all projects
@@ -283,7 +285,7 @@ def calculate_totals():
 
         # Commit changes
         session.commit()
-        logger.info('Done updating project retired and issued totals')
+        logger.info('✅ Done updating project retired and issued totals')
 
     except Exception as exc:
         logger.error('Error updating project retired and issued totals')
@@ -293,3 +295,84 @@ def calculate_totals():
 
     finally:
         session.close()
+
+
+def update_project_stats(session: Session = None):
+    date = datetime.date.today()
+    logger.info(f'📅 Updating project stats for {date}...')
+
+    if not session:
+        session = next(get_session())
+
+    project_registry_counts = (
+        session.query(Project.registry, func.count(Project.id)).group_by(Project.registry).all()
+    )
+
+    for registry, total_projects in project_registry_counts:
+        try:
+            project_stats = (
+                session.query(ProjectStats)
+                .filter(ProjectStats.date == date, ProjectStats.registry == registry)
+                .one()
+            )
+
+            logger.info(
+                f'🔄 Updating existing stats for registry {registry} with {total_projects} total projects.'
+            )
+            project_stats.total_projects = total_projects
+        except NoResultFound:
+            logger.info(
+                f'➕ Adding new stats for registry {registry} with {total_projects} total projects.'
+            )
+            project_stats = ProjectStats(
+                date=date, registry=registry, total_projects=total_projects
+            )
+            session.add(project_stats)
+
+    session.commit()
+    logger.info(f'✅ Project stats updated successfully for {date}.')
+
+
+def update_credit_stats(session: Session = None):
+    date = datetime.date.today()
+    logger.info(f'📅 Updating credit stats for {date}...')
+    if not session:
+        session = next(get_session())
+
+    credit_registry_transaction_type_counts = (
+        session.query(Project.registry, Credit.transaction_type, func.count(Credit.id))
+        .join(Project, Credit.project_id == Project.project_id)
+        .group_by(Project.registry, Credit.transaction_type)
+        .all()
+    )
+
+    for registry, transaction_type, total_credits in credit_registry_transaction_type_counts:
+        try:
+            credit_stats = (
+                session.query(CreditStats)
+                .filter(
+                    CreditStats.date == date,
+                    CreditStats.registry == registry,
+                    CreditStats.transaction_type == transaction_type,
+                )
+                .one()
+            )
+
+            logger.info(
+                f'🔄 Updating existing stats for registry {registry}, transaction type {transaction_type}with {total_credits} total credits.'
+            )
+            credit_stats.total_credits = total_credits
+        except NoResultFound:
+            logger.info(
+                f'➕ Adding new stats for registry {registry}, transaction type {transaction_type} with {total_credits} total credits.'
+            )
+            credit_stats = CreditStats(
+                date=date,
+                registry=registry,
+                transaction_type=transaction_type,
+                total_credits=total_credits,
+            )
+            session.add(credit_stats)
+
+    session.commit()
+    logger.info(f'✅ Credit stats updated successfully for {date}.')

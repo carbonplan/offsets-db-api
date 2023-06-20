@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .app_metadata import metadata
 from .logging import get_logger
 from .routers import credits, files, health, projects
-from .tasks import calculate_totals
+from .tasks import calculate_totals, update_credit_stats, update_project_stats
 
 logger = get_logger()
 
@@ -41,6 +41,8 @@ app = create_application()
 async def startup_event():
     logger.info('Application startup...')
     scheduler.add_job(calculate_totals)
+    scheduler.add_job(update_project_stats)
+    scheduler.add_job(update_credit_stats)
     scheduler.add_job(calculate_totals, 'interval', hours=12)
     scheduler.start()
 

@@ -6,7 +6,7 @@ from sqlmodel import Session
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Credit, CreditWithPagination, Project
+from ..models import Credit, CreditStats, CreditWithPagination, Project
 from ..query_helpers import apply_sorting, handle_pagination
 from ..schemas import Pagination, Registries
 
@@ -42,7 +42,7 @@ def get_credits(
     session: Session = Depends(get_session),
 ):
     """List credits"""
-    logger.info('Getting credits')
+    logger.info(f'Getting credits: {request.url}')
 
     # join Credit with Project on project_id
     query = session.query(Credit).join(Project, Credit.project_id == Project.project_id)
@@ -92,3 +92,19 @@ def get_credits(
         ),
         data=results,
     )
+
+
+@router.get(
+    '/stats/',
+    response_model=list[CreditStats],
+    summary='Get aggregated credits statistics',
+)
+def get_credit_stats(
+    session: Session = Depends(get_session),
+):
+    """
+    Returns a list of CreditStats objects containing aggregated statistics for all credits in the database.
+    """
+    logger.info('Getting credits stats')
+
+    return session.query(CreditStats).all()
