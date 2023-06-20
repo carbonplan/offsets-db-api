@@ -41,9 +41,13 @@ app = create_application()
 async def startup_event():
     logger.info('Application startup...')
     scheduler.add_job(calculate_totals)
+    # Remove these two lines once we have a better way to update stats
     scheduler.add_job(update_project_stats)
     scheduler.add_job(update_credit_stats)
     scheduler.add_job(calculate_totals, 'interval', hours=12)
+    # run at 3am every sunday morning
+    scheduler.add_job(update_project_stats, 'cron', day_of_week=0, hour=3)
+    scheduler.add_job(update_credit_stats, 'cron', day_of_week=0, hour=3)
     scheduler.start()
 
 
