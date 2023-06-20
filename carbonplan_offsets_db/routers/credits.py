@@ -101,10 +101,27 @@ def get_credits(
 )
 def get_credit_stats(
     session: Session = Depends(get_session),
+    date_from: datetime.date | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    date_to: datetime.date | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    sort: list[str] = Query(
+        default=['registry'],
+        description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
+    ),
 ):
     """
     Returns a list of CreditStats objects containing aggregated statistics for all credits in the database.
     """
     logger.info('Getting credits stats')
 
-    return session.query(CreditStats).all()
+    query = session.query(CreditStats)
+
+    if date_from:
+        query = query.filter(CreditStats.date >= date_from)
+
+    if date_to:
+        query = query.filter(CreditStats.date <= date_to)
+
+    if sort:
+        query = apply_sorting(query=query, sort=sort, model=CreditStats)
+
+    return query.all()

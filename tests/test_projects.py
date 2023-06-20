@@ -132,3 +132,10 @@ def test_get_projects_with_sort(test_app):
                         ), 'Projects are not sorted by registered_at within the same project_id'
 
             prev_country, prev_project_id, prev_registered_at = country, project_id, registered_at
+
+
+def test_project_stats(test_app):
+    response = test_app.get('/projects/stats/')
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
