@@ -150,6 +150,7 @@ def get_project(
 )
 def get_project_stats(
     session: Session = Depends(get_session),
+    registry: list[Registries] | None = Query(None, description='Registry name'),
     date_from: datetime.date | None = Query(default=None, description='Format: YYYY-MM-DD'),
     date_to: datetime.date | None = Query(default=None, description='Format: YYYY-MM-DD'),
     sort: list[str] = Query(
@@ -163,6 +164,9 @@ def get_project_stats(
     logger.info('Getting projects stats')
 
     query = session.query(ProjectStats)
+
+    if registry:
+        query = query.filter(or_(*[ProjectStats.registry.ilike(r) for r in registry]))
 
     if date_from:
         query = query.filter(ProjectStats.date >= date_from)

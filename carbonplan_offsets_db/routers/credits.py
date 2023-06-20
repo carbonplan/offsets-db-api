@@ -101,6 +101,8 @@ def get_credits(
 )
 def get_credit_stats(
     session: Session = Depends(get_session),
+    registry: list[Registries] | None = Query(None, description='Registry name'),
+    transaction_type: list[str] | None = Query(None, description='Transaction type'),
     date_from: datetime.date | None = Query(default=None, description='Format: YYYY-MM-DD'),
     date_to: datetime.date | None = Query(default=None, description='Format: YYYY-MM-DD'),
     sort: list[str] = Query(
@@ -114,6 +116,14 @@ def get_credit_stats(
     logger.info('Getting credits stats')
 
     query = session.query(CreditStats)
+
+    if registry:
+        query = query.filter(or_(*[CreditStats.registry.ilike(r) for r in registry]))
+
+    if transaction_type:
+        query = query.filter(
+            or_(*[CreditStats.transaction_type.ilike(t) for t in transaction_type])
+        )
 
     if date_from:
         query = query.filter(CreditStats.date >= date_from)
