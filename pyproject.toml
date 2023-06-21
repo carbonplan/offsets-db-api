@@ -46,7 +46,7 @@ local_scheme = "node-and-date"
 fallback_version = "999"
 
 [tool.coverage.run]
-omit = ["tests/*"]
+omit = ["tests/*", "gunicorn_config.py"]
 branch = true
 
 
