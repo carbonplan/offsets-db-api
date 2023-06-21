@@ -340,13 +340,23 @@ def update_credit_stats(session: Session = None):
         session = next(get_session())
 
     credit_registry_transaction_type_counts = (
-        session.query(Project.registry, Credit.transaction_type, func.sum(Credit.quantity))
+        session.query(
+            Project.registry,
+            Credit.transaction_type,
+            func.sum(Credit.quantity),
+            func.count(Credit.id),
+        )
         .join(Project, Credit.project_id == Project.project_id)
         .group_by(Project.registry, Credit.transaction_type)
         .all()
     )
 
-    for registry, transaction_type, total_credits in credit_registry_transaction_type_counts:
+    for (
+        registry,
+        transaction_type,
+        total_credits,
+        total_transactions,
+    ) in credit_registry_transaction_type_counts:
         try:
             credit_stats = (
                 session.query(CreditStats)
@@ -359,18 +369,20 @@ def update_credit_stats(session: Session = None):
             )
 
             logger.info(
-                f'🔄 Updating existing stats for registry {registry}, transaction type {transaction_type} with {total_credits} total credits.'
+                f'🔄 Updating existing stats for registry {registry}, transaction type {transaction_type} with {total_credits} total credits from {total_transactions} total transactions.'
             )
             credit_stats.total_credits = total_credits
+            credit_stats.total_transactions = total_transactions
         except NoResultFound:
             logger.info(
-                f'➕ Adding new stats for registry {registry}, transaction type {transaction_type} with {total_credits} total credits.'
+                f'➕ Adding new stats for registry {registry}, transaction type {transaction_type} with {total_credits} total credits from {total_transactions} total transactions.'
             )
             credit_stats = CreditStats(
                 date=date,
                 registry=registry,
                 transaction_type=transaction_type,
                 total_credits=total_credits,
+                total_transactions=total_transactions,
             )
             session.add(credit_stats)
 
