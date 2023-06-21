@@ -10,6 +10,13 @@ def get_settings_override():
     return Settings(staging=True, api_key='bar')
 
 
+@pytest.fixture(scope='function')
+def test_db_session():
+    session = get_session()
+    yield session
+    session.close()
+
+
 @pytest.fixture(scope='module')
 def test_app():
     app = create_application()
@@ -17,10 +24,3 @@ def test_app():
 
     with TestClient(app) as test_client:
         yield test_client
-
-
-@pytest.fixture(scope='module')
-def test_db_session():
-    session = get_session()
-    yield session
-    session.close()

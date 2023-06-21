@@ -44,3 +44,10 @@ def test_get_credits_with_filters(test_app, transaction_type, project_id, vintag
         assert credit['transaction_type'] == transaction_type
         assert credit['project_id'] == project_id
         assert credit['vintage'] == vintage
+
+
+def test_credit_stats(test_app):
+    response = test_app.get('/credits/stats/')
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)

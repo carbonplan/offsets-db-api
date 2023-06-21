@@ -6,7 +6,7 @@ from sqlmodel import Session
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Project, ProjectReadDetails, ProjectWithPagination
+from ..models import Project, ProjectReadDetails, ProjectStats, ProjectWithPagination
 from ..query_helpers import apply_sorting, handle_pagination
 from ..schemas import Pagination, Registries
 
@@ -52,9 +52,7 @@ def get_projects(
     session: Session = Depends(get_session),
 ):
     """Get projects with pagination and filtering"""
-    logger.info(
-        f'Getting projects with filter: registry={registry}, country={country}, protocol={protocol}, category={category}, is_arb={is_arb}, search={search}, current_page={current_page}, per_page={per_page}, sort={sort}'
-    )
+    logger.info(f'Getting projects: {request.url}')
 
     query = session.query(Project)
 
@@ -143,3 +141,40 @@ def get_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f'project {project_id} not found',
         )
+
+
+@router.get(
+    '/stats/',
+    response_model=list[ProjectStats],
+    summary='Get aggregated statistics for all projects',
+)
+def get_project_stats(
+    session: Session = Depends(get_session),
+    registry: list[Registries] | None = Query(None, description='Registry name'),
+    date_from: datetime.date | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    date_to: datetime.date | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    sort: list[str] = Query(
+        default=['registry'],
+        description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
+    ),
+):
+    """
+    Returns a list of ProjectStats objects containing aggregated statistics for all projects in the database.
+    """
+    logger.info('Getting projects stats')
+
+    query = session.query(ProjectStats)
+
+    if registry:
+        query = query.filter(or_(*[ProjectStats.registry.ilike(r) for r in registry]))
+
+    if date_from:
+        query = query.filter(ProjectStats.date >= date_from)
+
+    if date_to:
+        query = query.filter(ProjectStats.date <= date_to)
+
+    if sort:
+        query = apply_sorting(query=query, sort=sort, model=ProjectStats)
+
+    return query.all()

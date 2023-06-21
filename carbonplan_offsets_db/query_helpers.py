@@ -47,22 +47,22 @@ def handle_pagination(
     Parameters
     ----------
     query: Query
-       SQLAlchemy Query
+        SQLAlchemy Query
     current_page: int
-       Current page number
+        Current page number
     per_page: int
-       Number of records per page
+        Number of records per page
     request: Request
-      FastAPI request instance
+        FastAPI request instance
 
     Returns
     -------
     total_entries: int
-      Total records in query
+        Total records in query
     total_pages: int
-      Total pages in query
+        Total pages in query
     next_page: Optional[str]
-      URL of next page
+        URL of next page
     results: List[Project | Credit]
         Results for the current page
     """

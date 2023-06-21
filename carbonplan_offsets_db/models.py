@@ -96,3 +96,18 @@ class ProjectWithPagination(pydantic.BaseModel):
 class CreditWithPagination(pydantic.BaseModel):
     pagination: Pagination
     data: list[CreditRead]
+
+
+class ProjectStats(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True)
+    date: datetime.date
+    registry: str
+    total_projects: int
+
+
+class CreditStats(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True)
+    date: datetime.date
+    registry: str
+    transaction_type: str
+    total_credits: int

@@ -6,7 +6,7 @@ from sqlmodel import Session
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Credit, CreditWithPagination, Project
+from ..models import Credit, CreditStats, CreditWithPagination, Project
 from ..query_helpers import apply_sorting, handle_pagination
 from ..schemas import Pagination, Registries
 
@@ -42,7 +42,7 @@ def get_credits(
     session: Session = Depends(get_session),
 ):
     """List credits"""
-    logger.info('Getting credits')
+    logger.info(f'Getting credits: {request.url}')
 
     # join Credit with Project on project_id
     query = session.query(Credit).join(Project, Credit.project_id == Project.project_id)
@@ -92,3 +92,46 @@ def get_credits(
         ),
         data=results,
     )
+
+
+@router.get(
+    '/stats/',
+    response_model=list[CreditStats],
+    summary='Get aggregated credits statistics',
+)
+def get_credit_stats(
+    session: Session = Depends(get_session),
+    registry: list[Registries] | None = Query(None, description='Registry name'),
+    transaction_type: list[str] | None = Query(None, description='Transaction type'),
+    date_from: datetime.date | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    date_to: datetime.date | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    sort: list[str] = Query(
+        default=['registry'],
+        description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
+    ),
+):
+    """
+    Returns a list of CreditStats objects containing aggregated statistics for all credits in the database.
+    """
+    logger.info('Getting credits stats')
+
+    query = session.query(CreditStats)
+
+    if registry:
+        query = query.filter(or_(*[CreditStats.registry.ilike(r) for r in registry]))
+
+    if transaction_type:
+        query = query.filter(
+            or_(*[CreditStats.transaction_type.ilike(t) for t in transaction_type])
+        )
+
+    if date_from:
+        query = query.filter(CreditStats.date >= date_from)
+
+    if date_to:
+        query = query.filter(CreditStats.date <= date_to)
+
+    if sort:
+        query = apply_sorting(query=query, sort=sort, model=CreditStats)
+
+    return query.all()
