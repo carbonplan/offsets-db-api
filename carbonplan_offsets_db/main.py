@@ -6,8 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .app_metadata import metadata
 from .logging import get_logger
+from .models import Credit, Project
 from .routers import credits, files, health, projects
-from .tasks import calculate_totals, update_credit_stats, update_project_stats
+from .settings import get_settings
+from .tasks import calculate_totals, export_table_to_csv, update_credit_stats, update_project_stats
 
 logger = get_logger()
 
@@ -66,6 +68,25 @@ async def startup_event():
     # run at 3am every sunday morning
     scheduler.add_job(update_project_stats, 'cron', day_of_week=0, hour=3)
     scheduler.add_job(update_credit_stats, 'cron', day_of_week=0, hour=3)
+
+    settings = get_settings()
+    scheduler.add_job(export_table_to_csv, kwargs={'table': Project, 'path': settings.export_path})
+    scheduler.add_job(export_table_to_csv, kwargs={'table': Credit, 'path': settings.export_path})
+
+    scheduler.add_job(
+        export_table_to_csv,
+        'cron',
+        day_of_week=0,
+        hour=5,
+        kwargs={'table': Project, 'path': settings.export_path},
+    )
+    scheduler.add_job(
+        export_table_to_csv,
+        'cron',
+        day_of_week=0,
+        hour=5,
+        kwargs={'table': Credit, 'path': settings.export_path},
+    )
     scheduler.start()
 
 
