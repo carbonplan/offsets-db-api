@@ -1,3 +1,5 @@
+import os
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,7 +41,23 @@ app = create_application()
 
 @app.on_event('startup')
 async def startup_event():
-    logger.info('Application startup...')
+    """
+    Event handler for application startup.
+    If the current worker is the first one, it starts the scheduler.
+    """
+    logger.info('⏱️ Application startup...')
+
+    worker_num = int(os.environ.get('APP_WORKER_ID', 9999))
+
+    logger.info(f'👷 Worker num: {worker_num}')
+
+    # Only run scheduled jobs in the first worker
+    if worker_num not in [1, 9999]:
+        logger.info(f'👷 Worker {worker_num} is not the first worker, not starting scheduler.')
+        return
+
+    logger.info('🚀 Starting scheduler...')
+    # Add your scheduler jobs here
     scheduler.add_job(calculate_totals)
     # Remove these two lines once we have a better way to update stats
     scheduler.add_job(update_project_stats)

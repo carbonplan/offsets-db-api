@@ -359,7 +359,7 @@ def update_credit_stats(session: Session = None):
             )
 
             logger.info(
-                f'🔄 Updating existing stats for registry {registry}, transaction type {transaction_type}with {total_credits} total credits.'
+                f'🔄 Updating existing stats for registry {registry}, transaction type {transaction_type} with {total_credits} total credits.'
             )
             credit_stats.total_credits = total_credits
         except NoResultFound:

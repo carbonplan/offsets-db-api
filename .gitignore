@@ -132,3 +132,5 @@ dmypy.json
 .DS_Store
 
 carbonplan_offsets_db/_version.py
+.vscode/
+*.sqlite
