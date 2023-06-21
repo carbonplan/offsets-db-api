@@ -21,3 +21,4 @@ dependencies:
   - sqlmodel >=0.0.8
   - ujson
   - uvicorn
+  - universal_pathlib

@@ -388,3 +388,67 @@ def update_credit_stats(session: Session = None):
 
     session.commit()
     logger.info(f'✅ Credit stats updated successfully for {date}.')
+
+
+def export_table_to_csv(*, table, path: str, session: Session = None):
+    """
+    Export a table from the database to a CSV file.
+
+    table: pydantic.BaseModel
+        The SQLAlchemy table class of the table to export.
+    path: str
+        The path of the file to which the table should be exported.
+    session: Session
+        An optional SQLAlchemy session. If not provided, a new session will be created.
+    """
+
+    import datetime
+    import gc
+
+    import upath
+
+    today = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d')
+
+    # Create the filepath
+    directory = upath.UPath(path) / today
+    directory.mkdir(parents=True, exist_ok=True)
+    filepath = f'{directory}/{table.__name__.lower()}.csv.gz'
+
+    # If no session is provided, create a new one
+    if not session:
+        session = next(get_session())
+
+    # Log the start of the operation
+    logger.info(f'🚀 Starting export of table {table.__name__} to {filepath}...')
+
+    # Execute a SELECT * query on the table
+    rows = session.execute(select(table)).fetchall()
+
+    # If fetchall() returns nothing, log the event and return
+    if not rows:
+        logger.info(f'🚧 No data found in table {table.__name__}. No CSV file will be created.')
+        return
+
+    # Convert the result rows to a list of dictionaries
+    rows_as_dicts = [row[0].dict() for row in rows]
+
+    # Create a pandas DataFrame from the list of dictionaries
+    df = pd.DataFrame(rows_as_dicts)
+
+    # Log the first few rows of the DataFrame
+    logger.info(f"👀 Here's a sneak peek of the data:\n{df.head()}")
+
+    # Write the DataFrame to a CSV file
+    df.to_csv(filepath, index=False)
+
+    # Log the completion of the operation
+    logger.info(f'✅ Successfully exported table {table.__name__} to {filepath}!')
+
+    # Delete the DataFrame to free up memory
+    del df
+
+    # Force Python's garbage collector to release unreferenced memory
+    gc.collect()
+
+    # Log the completion of the garbage collection
+    logger.info('🗑️ Garbage collected!')

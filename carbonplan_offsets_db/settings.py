@@ -5,6 +5,11 @@ class Settings(pydantic.BaseSettings):
     database_url: str = pydantic.Field(..., env='offsets_db_database_url')
     staging: bool = pydantic.Field(default=True, env='offsets_db_staging')
     api_key: str = pydantic.Field(default=None, env='offsets_db_api_key')
+    export_path: str = pydantic.Field(
+        default='data/export',
+        env='offsets_db_export_path',
+        description='Path to export database tables to.',
+    )
 
     @pydantic.validator('database_url', pre=True)
     def fix_database_url(cls, value: str) -> str:
