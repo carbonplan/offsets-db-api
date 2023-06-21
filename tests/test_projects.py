@@ -16,8 +16,9 @@ def test_get_project(test_app):
     assert data['registry'] == 'american-carbon-registry'
     assert isinstance(data['credits'], list)
     assert isinstance(data['credits'][0], dict)
-    assert isinstance(data['issued'], int)
-    assert isinstance(data['retired'], int)
+
+    assert 'issued' in data
+    assert 'retired' in data
 
 
 def test_get_projects(test_app):
@@ -137,5 +138,5 @@ def test_get_projects_with_sort(test_app):
 def test_project_stats(test_app):
     response = test_app.get('/projects/stats/')
     assert response.status_code == 200
-    data = response.json()
+    data = response.json()['data']
     assert isinstance(data, list)

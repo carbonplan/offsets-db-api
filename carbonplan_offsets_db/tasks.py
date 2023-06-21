@@ -340,7 +340,7 @@ def update_credit_stats(session: Session = None):
         session = next(get_session())
 
     credit_registry_transaction_type_counts = (
-        session.query(Project.registry, Credit.transaction_type, func.count(Credit.id))
+        session.query(Project.registry, Credit.transaction_type, func.sum(Credit.quantity))
         .join(Project, Credit.project_id == Project.project_id)
         .group_by(Project.registry, Credit.transaction_type)
         .all()
