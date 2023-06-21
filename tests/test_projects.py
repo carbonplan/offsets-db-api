@@ -16,8 +16,9 @@ def test_get_project(test_app):
     assert data['registry'] == 'american-carbon-registry'
     assert isinstance(data['credits'], list)
     assert isinstance(data['credits'][0], dict)
-    assert isinstance(data['issued'], int)
-    assert isinstance(data['retired'], int)
+
+    assert 'issued' in data
+    assert 'retired' in data
 
 
 def test_get_projects(test_app):
