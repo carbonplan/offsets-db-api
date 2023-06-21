@@ -6,7 +6,13 @@ from sqlmodel import Session
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Project, ProjectReadDetails, ProjectStats, ProjectWithPagination
+from ..models import (
+    Project,
+    ProjectReadDetails,
+    ProjectStats,
+    ProjectStatsWithPagination,
+    ProjectWithPagination,
+)
 from ..query_helpers import apply_sorting, handle_pagination
 from ..schemas import Pagination, Registries
 
@@ -145,11 +151,11 @@ def get_project(
 
 @router.get(
     '/stats/',
-    response_model=list[ProjectStats],
+    response_model=ProjectStatsWithPagination,
     summary='Get aggregated statistics for all projects',
 )
 def get_project_stats(
-    session: Session = Depends(get_session),
+    request: Request,
     registry: list[Registries] | None = Query(None, description='Registry name'),
     date_from: datetime.date | None = Query(default=None, description='Format: YYYY-MM-DD'),
     date_to: datetime.date | None = Query(default=None, description='Format: YYYY-MM-DD'),
@@ -157,6 +163,9 @@ def get_project_stats(
         default=['registry'],
         description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
     ),
+    current_page: int = Query(1, description='Page number', ge=1),
+    per_page: int = Query(100, description='Items per page', le=200, ge=1),
+    session: Session = Depends(get_session),
 ):
     """
     Returns a list of ProjectStats objects containing aggregated statistics for all projects in the database.
@@ -177,4 +186,16 @@ def get_project_stats(
     if sort:
         query = apply_sorting(query=query, sort=sort, model=ProjectStats)
 
-    return query.all()
+    total_entries, current_page, total_pages, next_page, results = handle_pagination(
+        query=query, current_page=current_page, per_page=per_page, request=request
+    )
+
+    return ProjectStatsWithPagination(
+        pagination=Pagination(
+            total_entries=total_entries,
+            current_page=current_page,
+            total_pages=total_pages,
+            next_page=next_page,
+        ),
+        data=results,
+    )

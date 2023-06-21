@@ -116,3 +116,13 @@ class CreditStats(SQLModel, table=True):
     registry: str
     transaction_type: str
     total_credits: int = Field(sa_column=Column(BIGINT()))
+
+
+class CreditStatsWithPagination(pydantic.BaseModel):
+    pagination: Pagination
+    data: list[CreditStats]
+
+
+class ProjectStatsWithPagination(pydantic.BaseModel):
+    pagination: Pagination
+    data: list[ProjectStats]
