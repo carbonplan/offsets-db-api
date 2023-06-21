@@ -1,6 +1,7 @@
 import datetime
 
 import pydantic
+from sqlalchemy import BIGINT, Column
 from sqlmodel import Field, Relationship, SQLModel
 
 from .schemas import FileCategory, FileStatus, Pagination
@@ -35,8 +36,12 @@ class ProjectBase(SQLModel):
     started_at: datetime.date | None = Field(description='Date project started')
     registered_at: datetime.date | None = Field(description='Date project was registered')
     is_arb: bool | None = Field(description='Whether project is an ARB project')
-    retired: int | None = Field(description='Total of retired credits', default=0)
-    issued: int | None = Field(description='Total of issued credits', default=0)
+    retired: int | None = Field(
+        description='Total of retired credits', default=0, sa_column=Column(BIGINT())
+    )
+    issued: int | None = Field(
+        description='Total of issued credits', default=0, sa_column=Column(BIGINT())
+    )
 
 
 class Project(ProjectBase, table=True):
@@ -61,7 +66,7 @@ class CreditBase(SQLModel):
     project_id: str = Field(
         description='Project id used by registry system', foreign_key='project.project_id'
     )
-    quantity: int = Field(description='Number of credits')
+    quantity: int = Field(description='Number of credits', sa_column=Column(BIGINT()))
     vintage: int | None = Field(description='Vintage year of credits')
     transaction_date: datetime.date | None = Field(description='Date of transaction')
     transaction_type: str | None = Field(description='Type of transaction')
@@ -110,4 +115,4 @@ class CreditStats(SQLModel, table=True):
     date: datetime.date
     registry: str
     transaction_type: str
-    total_credits: int
+    total_credits: int = Field(sa_column=Column(BIGINT()))
