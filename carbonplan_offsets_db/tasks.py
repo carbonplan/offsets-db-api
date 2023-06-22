@@ -412,7 +412,7 @@ def export_table_to_csv(*, table, path: str, session: Session = None):
     # Create the filepath
     directory = upath.UPath(path) / today
     directory.mkdir(parents=True, exist_ok=True)
-    filepath = f'{directory}/{table.__name__.lower()}.csv.gz'
+    filepath = f'{directory}/{table.__name__.lower()}s.csv.gz'
 
     # If no session is provided, create a new one
     if not session:
