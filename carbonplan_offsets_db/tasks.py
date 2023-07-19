@@ -21,27 +21,59 @@ logger = get_logger()
 
 
 def load_csv_file(file_url: str, **kwargs) -> pd.DataFrame:
-    logger.info(f'Loading file with kwargs: {kwargs}')
+    """
+    Load a CSV file from a URL.
+
+    Parameters
+    ----------
+    file_url : str
+        URL of the file to load.
+    **kwargs : dict
+        Additional keyword arguments to pass to pandas.read_csv.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing the file data.
+    """
+    logger.info(f'📚 Loading file with kwargs: {kwargs}')
     return pd.read_csv(file_url, **kwargs)
 
 
 def generate_hash(df: pd.DataFrame | str) -> str:
-    """Generate a hash of the dataframe contents"""
+    """
+    Generate a SHA256 hash of a DataFrame or string.
 
+    Parameters
+    ----------
+    df : pd.DataFrame | str
+        DataFrame or string to hash.
+
+    Returns
+    -------
+    str
+        SHA256 hash of the input.
+    """
     if isinstance(df, pd.DataFrame):
-        # Convert the DataFrame to a byte string.
-        byte_str: bytes = df.to_json().encode()
-
+        byte_str: bytes = df.to_json().encode()  # Convert DataFrame to byte string
     else:
-        # Convert the string to a byte string.
-        byte_str = df.encode()
+        byte_str = df.encode()  # Convert string to byte string
 
-    # Compute the hash of the byte string.
+    # Compute and return SHA256 hash
     return hashlib.sha256(byte_str).hexdigest()
 
 
 def process_files(*, session: Session, files: list[File]):
-    """Process a file and update its status in the database"""
+    """
+    Process a list of files and update their status in the database.
+
+    Parameters
+    ----------
+    session : Session
+        SQLAlchemy Session object.
+    files : list of File
+        List of File objects to process.
+    """
 
     for file in files:
         try:
@@ -62,8 +94,24 @@ def process_files(*, session: Session, files: list[File]):
             session.refresh(file)
 
 
-def process_project_records(*, session: Session, model: Project, file: File) -> None:
-    """Process project records in a file"""
+def process_project_records(*, session: Session, model: Project | Credit, file: File) -> None:
+    """
+    Process project records in a file.
+
+    Parameters
+    ----------
+    session : Session
+        SQLAlchemy Session object.
+    model : Project or Credit
+        Model that will be used to process the file.
+    file : File
+        File object containing the data to be processed.
+
+    Raises
+    ------
+    Exception
+        If there is an error during processing, an exception is raised.
+    """
     try:
         sha_hash = ''
         kwargs = {}
@@ -137,9 +185,27 @@ def process_project_records(*, session: Session, model: Project, file: File) -> 
 
 
 def find_existing_records(
-    *, session: Session, model: Project, attribute_name: str, records: list[dict]
-) -> list[Project]:
-    """Find existing records in the database"""
+    *, session: Session, model: Project | Credit, attribute_name: str, records: list[dict]
+) -> list[Project] | list[Credit]:
+    """
+    Find existing records in the database.
+
+    Parameters
+    ----------
+    session : Session
+        SQLAlchemy Session object.
+    model : Project, Credit
+        Model that will be used to process the file.
+    attribute_name : str
+        Name of the attribute used to compare records.
+    records : list[dict]
+        List of dictionaries representing the records to find.
+
+    Returns
+    -------
+    list[Project], list[Credit]
+        List of existing project or credit records found in the database.
+    """
     query = select(model).where(
         getattr(model, attribute_name).in_([r[attribute_name] for r in records])
     )
@@ -153,13 +219,32 @@ def update_existing_records(
     *,
     session: Session,
     model: Project,
-    existing_records: list[Project],
+    existing_records: list[Project] | list[Credit],
     records: list[dict],
     attribute_name: str,
     keys: list[str],
     batch_size: int = 5000,
 ) -> None:
-    """Update existing records if they are also present in the loaded records"""
+    """
+    Update existing records if they are also present in the loaded records.
+
+    Parameters
+    ----------
+    session : Session
+        SQLAlchemy Session object.
+    model : Project, Credit
+        Model that will be used to process the file.
+    existing_records : list[Project]
+        List of existing project records.
+    records : list[dict]
+        List of dictionaries representing the records to update.
+    attribute_name : str
+        Name of the attribute used to compare records.
+    keys : list[str]
+        List of keys used to update the records.
+    batch_size : int, optional
+        Size of the batch of records to be updated, by default 5000.
+    """
     records_to_update = []
     for existing_record in existing_records:
         if matching_record := next(
@@ -204,7 +289,20 @@ def find_new_records(
 def insert_new_records(
     session: Session, model: Project, new_records: list[dict], batch_size: int = 5000
 ) -> None:
-    """Insert new records into the database"""
+    """
+    Insert new records into the database.
+
+    Parameters
+    ----------
+    session : Session
+        SQLAlchemy Session object.
+    model : Project
+        Model that will be used to process the file.
+    new_records : list[dict]
+        List of dictionaries representing the new records to be inserted.
+    batch_size : int, optional
+        Size of the batch of records to be inserted, by default 5000.
+    """
     if new_records:
         for i in range(0, len(new_records), batch_size):
             batch = new_records[i : i + batch_size]
@@ -217,7 +315,23 @@ def insert_new_records(
 def find_ids_to_delete(
     *, existing_records: list[Project], records: list[dict], attribute_name: str
 ) -> set:
-    """Find ids of records that are in the database but not in the loaded records"""
+    """
+    Find ids of records that are in the database but not in the loaded records.
+
+    Parameters
+    ----------
+    existing_records : list[Project]
+        List of existing project records.
+    records : list[dict]
+        List of dictionaries representing the records.
+    attribute_name : str
+        Name of the attribute used to compare records.
+
+    Returns
+    -------
+    set
+        Set of ids to delete.
+    """
     existing_ids = {getattr(record, attribute_name) for record in existing_records}
     loaded_ids = {record[attribute_name] for record in records}
     logger.info(f'Found {len(loaded_ids)} ids in loaded records and {len(existing_ids)} in db')
@@ -236,7 +350,22 @@ def delete_records(
     attribute_name: str,
     batch_size: int = 5000,
 ) -> None:
-    """Delete records from the database in batches"""
+    """
+    Delete records from the database in batches.
+
+    Parameters
+    ----------
+    session : Session
+        SQLAlchemy Session object.
+    model : Project
+        Model that will be used to process the file.
+    ids_to_delete : set
+        Set of ids to delete.
+    attribute_name : str
+        Name of the attribute used to compare records.
+    batch_size : int, optional
+        Size of the batch of records to be deleted, by default 5000.
+    """
     if ids_to_delete:
         ids_to_delete_list = list(ids_to_delete)
         for i in range(0, len(ids_to_delete_list), batch_size):
