@@ -184,6 +184,7 @@ def test_update(mock_load_csv_file, mock_session):
     assert file.status == 'success'  # The file status should be set to 'success'
 
 
+@pytest.mark.skip(reason='Disabled until we have a way to delete records')
 @patch('carbonplan_offsets_db.tasks.load_csv_file')
 def test_delete(mock_load_csv_file, mock_session):
     df = pd.DataFrame([project.dict() for project in generate_mock_projects(2)])

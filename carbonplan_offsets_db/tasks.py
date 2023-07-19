@@ -162,18 +162,18 @@ def process_project_records(*, session: Session, model: Project | Credit, file: 
                     session=session, model=model, new_records=new_records, batch_size=batch_size
                 )
 
-            if ids_to_delete := find_ids_to_delete(
-                existing_records=existing_records,
-                records=records,
-                attribute_name=attribute_names[file.category],
-            ):
-                delete_records(
-                    session=session,
-                    model=model,
-                    ids_to_delete=ids_to_delete,
-                    attribute_name=attribute_names[file.category],
-                    batch_size=batch_size,
-                )
+            # if ids_to_delete := find_ids_to_delete(
+            #     existing_records=existing_records,
+            #     records=records,
+            #     attribute_name=attribute_names[file.category],
+            # ):
+            #     delete_records(
+            #         session=session,
+            #         model=model,
+            #         ids_to_delete=ids_to_delete,
+            #         attribute_name=attribute_names[file.category],
+            #         batch_size=batch_size,
+            #     )
             sha_hash += generate_hash(df)
         sha = generate_hash(sha_hash)
         update_file_status(session=session, file=file, content_sha=sha)
