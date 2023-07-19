@@ -72,6 +72,8 @@ def process_project_records(*, session: Session, model: Project, file: File) -> 
         else:
             kwargs['chunksize'] = 10_000
 
+        batch_size = kwargs['chunksize']
+
         chunks = load_csv_file(file.url, **kwargs)
         logger.info(f'Processing {file.category} file {file.url}')
         for df in chunks:
@@ -100,6 +102,7 @@ def process_project_records(*, session: Session, model: Project, file: File) -> 
                     records=records,
                     attribute_name=attribute_names[file.category],
                     keys=keys_mapping[file.category],
+                    batch_size=batch_size,
                 )
 
             if new_records := find_new_records(
@@ -107,7 +110,9 @@ def process_project_records(*, session: Session, model: Project, file: File) -> 
                 records=records,
                 attribute_name=attribute_names[file.category],
             ):
-                insert_new_records(session=session, model=model, new_records=new_records)
+                insert_new_records(
+                    session=session, model=model, new_records=new_records, batch_size=batch_size
+                )
 
             if ids_to_delete := find_ids_to_delete(
                 existing_records=existing_records,
@@ -119,6 +124,7 @@ def process_project_records(*, session: Session, model: Project, file: File) -> 
                     model=model,
                     ids_to_delete=ids_to_delete,
                     attribute_name=attribute_names[file.category],
+                    batch_size=batch_size,
                 )
             sha_hash += generate_hash(df)
         sha = generate_hash(sha_hash)
