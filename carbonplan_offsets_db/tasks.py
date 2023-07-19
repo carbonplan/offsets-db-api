@@ -214,6 +214,9 @@ def find_ids_to_delete(
     """Find ids of records that are in the database but not in the loaded records"""
     existing_ids = {getattr(record, attribute_name) for record in existing_records}
     loaded_ids = {record[attribute_name] for record in records}
+    logger.info(f'Found {len(loaded_ids)} ids in loaded records and {len(existing_ids)} in db')
+    logger.info(f'Sample of ids in loaded records: {list(loaded_ids)[:5]}')
+    logger.info(f'Sample of ids in db: {list(existing_ids)[:5]}')
     ids_to_delete = existing_ids - loaded_ids
     logger.info(f'Found {len(ids_to_delete)} ids to delete')
     return ids_to_delete
