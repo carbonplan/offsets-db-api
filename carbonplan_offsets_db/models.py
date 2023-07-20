@@ -17,6 +17,10 @@ class FileBase(SQLModel):
     )
     category: FileCategory = Field(description='Category of file', default='unknown')
     chunksize: int | None = Field(description='Chunksize used to process file', default=None)
+    valid_records_file_url: pydantic.AnyUrl | None = Field(
+        description='URL to valid records file. This is only used when removing stale records from the database.',
+        default=None,
+    )
 
 
 class File(FileBase, table=True):

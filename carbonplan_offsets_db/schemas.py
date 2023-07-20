@@ -31,6 +31,7 @@ class FileURLPayload(pydantic.BaseModel):
     url: pydantic.AnyUrl
     category: FileCategory
     chunksize: int = 10_000
+    valid_records_file_url: pydantic.AnyUrl | None = None
 
 
 class FileURLResponse(pydantic.BaseModel):

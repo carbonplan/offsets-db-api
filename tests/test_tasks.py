@@ -184,33 +184,6 @@ def test_update(mock_load_csv_file, mock_session):
     assert file.status == 'success'  # The file status should be set to 'success'
 
 
-@pytest.mark.skip(reason='Disabled until we have a way to delete records')
-@patch('carbonplan_offsets_db.tasks.load_csv_file')
-def test_delete(mock_load_csv_file, mock_session):
-    df = pd.DataFrame([project.dict() for project in generate_mock_projects(2)])
-    mock_load_csv_file.return_value = iter([df])  # Set your mocked dataframe
-
-    # Mock the database query result with existing records
-    mock_session.exec.return_value.all.return_value = generate_mock_projects()
-
-    file = generate_mock_file()
-    process_project_records(
-        session=mock_session,
-        file=file,
-        model=Project,
-    )
-
-    # Check if the delete operation was called with the expected number of deleted records
-    assert mock_session.execute.call_count == 1
-
-    deleted_records = [
-        record
-        for record in mock_session.exec.return_value.all.return_value
-        if record.project_id not in df['project_id'].values
-    ]
-    assert len(deleted_records) == 1  # The expected number of deleted records
-
-
 def test_update_project_stats(test_db_session):
     # Call the function you want to test
     session = next(test_db_session)

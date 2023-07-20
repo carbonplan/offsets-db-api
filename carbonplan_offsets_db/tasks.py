@@ -80,6 +80,16 @@ def process_files(*, session: Session, files: list[File]):
             if file.category in models:
                 process_project_records(session=session, model=models[file.category], file=file)
 
+                if file.valid_records_file_url:
+                    df = load_csv_file(file.valid_records_file_url)
+                    valid_ids = df[attribute_names[file.category]].tolist()
+                    remove_stale_records(
+                        session=session,
+                        model=models[file.category],
+                        attribute_name=attribute_names[file.category],
+                        valid_ids=valid_ids,
+                    )
+
             else:
                 logger.info('Unknown file category: %s. Skipping file %s', file.category, file.url)
 
@@ -161,19 +171,6 @@ def process_project_records(*, session: Session, model: Project | Credit, file: 
                 insert_new_records(
                     session=session, model=model, new_records=new_records, batch_size=batch_size
                 )
-
-            # if ids_to_delete := find_ids_to_delete(
-            #     existing_records=existing_records,
-            #     records=records,
-            #     attribute_name=attribute_names[file.category],
-            # ):
-            #     delete_records(
-            #         session=session,
-            #         model=model,
-            #         ids_to_delete=ids_to_delete,
-            #         attribute_name=attribute_names[file.category],
-            #         batch_size=batch_size,
-            #     )
             sha_hash += generate_hash(df)
         sha = generate_hash(sha_hash)
         update_file_status(session=session, file=file, content_sha=sha)
@@ -312,69 +309,37 @@ def insert_new_records(
             logger.info(f'Inserted batch {i} - {i + batch_size}')
 
 
-def find_ids_to_delete(
-    *, existing_records: list[Project], records: list[dict], attribute_name: str
-) -> set:
+def remove_stale_records(
+    *, session: Session, model: Project | Credit, attribute_name: str, valid_ids: list[str]
+):
     """
-    Find ids of records that are in the database but not in the loaded records.
-
-    Parameters
-    ----------
-    existing_records : list[Project]
-        List of existing project records.
-    records : list[dict]
-        List of dictionaries representing the records.
-    attribute_name : str
-        Name of the attribute used to compare records.
-
-    Returns
-    -------
-    set
-        Set of ids to delete.
-    """
-    existing_ids = {getattr(record, attribute_name) for record in existing_records}
-    loaded_ids = {record[attribute_name] for record in records}
-    logger.info(f'Found {len(loaded_ids)} ids in loaded records and {len(existing_ids)} in db')
-    logger.info(f'Sample of ids in loaded records: {list(loaded_ids)[:5]}')
-    logger.info(f'Sample of ids in db: {list(existing_ids)[:5]}')
-    ids_to_delete = existing_ids - loaded_ids
-    logger.info(f'Found {len(ids_to_delete)} ids to delete')
-    return ids_to_delete
-
-
-def delete_records(
-    *,
-    session: Session,
-    model: Project,
-    ids_to_delete: set,
-    attribute_name: str,
-    batch_size: int = 5000,
-) -> None:
-    """
-    Delete records from the database in batches.
+    Remove stale records from the project and credit tables.
 
     Parameters
     ----------
     session : Session
         SQLAlchemy Session object.
-    model : Project
+    model : Project or Credit
         Model that will be used to process the file.
-    ids_to_delete : set
-        Set of ids to delete.
     attribute_name : str
         Name of the attribute used to compare records.
-    batch_size : int, optional
-        Size of the batch of records to be deleted, by default 5000.
+    valid_ids : list[str]
+        List of valid ids.
     """
-    if ids_to_delete:
-        ids_to_delete_list = list(ids_to_delete)
-        for i in range(0, len(ids_to_delete_list), batch_size):
-            batch = ids_to_delete_list[i : i + batch_size]
-            logger.info(f'Deleting batch {i} - {i + batch_size}')
-            statement = delete(model).where(getattr(model, attribute_name).in_(batch))
-            session.execute(statement)
-            session.commit()
-            logger.info(f'Deleted batch {i} - {i + batch_size}')
+
+    logger.info(f'🗑️  Deleting stale records from {model.__name__} table')
+
+    # Build a delete statement.
+    stmt = delete(model).where(getattr(model, attribute_name).notin_(valid_ids))
+    # get count of records to delete
+    count = session.execute(stmt).rowcount
+
+    # Execute the statement.
+    session.execute(stmt)
+
+    # Commit the changes.
+    session.commit()
+    logger.info(f'✅  Deleted {count} stale records from {model.__name__} table')
 
 
 def update_file_status(session: Session, file: File, content_sha: str = None) -> None:
