@@ -327,19 +327,23 @@ def remove_stale_records(
         List of valid ids.
     """
 
-    logger.info(f'🗑️  Deleting stale records from {model.__name__} table')
+    try:
+        logger.info(f'🗑️  Deleting stale records from {model.__name__} table')
 
-    # Build a delete statement.
-    stmt = delete(model).where(getattr(model, attribute_name).notin_(valid_ids))
-    # get count of records to delete
-    count = session.execute(stmt).rowcount
+        # Build a delete statement.
 
-    # Execute the statement.
-    session.execute(stmt)
+        stmt = delete(model).where(getattr(model, attribute_name).notin_(valid_ids))
+        # Execute the statement.
+        results = session.execute(stmt)
+        # get count of records to delete
+        count = results.rowcount
 
-    # Commit the changes.
-    session.commit()
-    logger.info(f'✅  Deleted {count} stale records from {model.__name__} table')
+        # Commit the changes.
+        session.commit()
+        logger.info(f'✅  Deleted {count} stale records from {model.__name__} table')
+    except Exception as e:
+        logger.error(f'An error occurred: {str(e)}')
+        session.rollback()
 
 
 def update_file_status(session: Session, file: File, content_sha: str = None) -> None:

@@ -52,7 +52,12 @@ class Project(ProjectBase, table=True):
     id: int = Field(default=None, primary_key=True)
 
     # relationship
-    credits: list['Credit'] = Relationship(back_populates='project')
+    credits: list['Credit'] = Relationship(
+        sa_relationship_kwargs={
+            'cascade': 'all,delete,delete-orphan',  # Instruct the ORM how to track changes to local objects
+        },
+        back_populates='project',
+    )
     recorded_at: datetime.datetime = Field(
         default_factory=datetime.datetime.now, description='Date project was recorded in database'
     )
@@ -68,7 +73,8 @@ class ProjectRead(ProjectBase):
 
 class CreditBase(SQLModel):
     project_id: str = Field(
-        description='Project id used by registry system', foreign_key='project.project_id'
+        description='Project id used by registry system',
+        foreign_key='project.project_id',
     )
     quantity: int = Field(description='Number of credits', sa_column=Column(BigInteger()))
     vintage: int | None = Field(description='Vintage year of credits')
@@ -85,7 +91,9 @@ class Credit(CreditBase, table=True):
     )
 
     # relationship
-    project: Project = Relationship(back_populates='credits')
+    project: Project = Relationship(
+        back_populates='credits',
+    )
 
 
 class CreditRead(CreditBase):

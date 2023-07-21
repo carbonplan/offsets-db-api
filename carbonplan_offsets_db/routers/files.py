@@ -28,7 +28,12 @@ def submit_file(
 
     file_objs = []
     for p in payload:
-        file_obj = File(url=p.url, category=p.category, chunksize=p.chunksize)
+        file_obj = File(
+            url=p.url,
+            category=p.category,
+            chunksize=p.chunksize,
+            valid_records_file_url=p.valid_records_file_url,
+        )
         file_objs.append(file_obj)
         session.add(file_obj)
 
