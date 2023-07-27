@@ -40,14 +40,34 @@ def apply_filters(
     """
 
     if values is not None:
+        # Check if values is a list
+        is_list = isinstance(values, list | tuple | set)
+
         if operation == 'ilike':
-            query = query.filter(or_(*[getattr(model, attribute).ilike(v) for v in values]))
+            query = (
+                query.filter(or_(*[getattr(model, attribute).ilike(v) for v in values]))
+                if is_list
+                else query.filter(getattr(model, attribute).ilike(values))
+            )
         elif operation == '==':
-            query = query.filter(getattr(model, attribute) == values)
+            query = (
+                query.filter(or_(*[getattr(model, attribute) == v for v in values]))
+                if is_list
+                else query.filter(getattr(model, attribute) == values)
+            )
         elif operation == '>=':
-            query = query.filter(getattr(model, attribute) >= values)
+            query = (
+                query.filter(or_(*[getattr(model, attribute) >= v for v in values]))
+                if is_list
+                else query.filter(getattr(model, attribute) >= values)
+            )
         elif operation == '<=':
-            query = query.filter(getattr(model, attribute) <= values)
+            query = (
+                query.filter(or_(*[getattr(model, attribute) <= v for v in values]))
+                if is_list
+                else query.filter(getattr(model, attribute) <= values)
+            )
+
     return query
 
 
