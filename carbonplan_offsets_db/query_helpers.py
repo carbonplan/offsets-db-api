@@ -1,10 +1,47 @@
 from urllib.parse import urlencode
 
 from fastapi import HTTPException, Request
-from sqlalchemy import asc, desc
+from sqlalchemy import asc, desc, or_
 from sqlalchemy.orm import Query
 
 from .models import Credit, Project
+
+
+def apply_filters(*, query, model: Project | Credit, attribute: str, values: list, operation: str):
+    """
+    Apply filters to the query based on operation type.
+    Supports 'ilike', '==', '>=', and '<=' operations.
+
+    Parameters
+    ----------
+    query: Query
+        SQLAlchemy Query
+    model: Project | Credit
+        SQLAlchemy model class
+    attribute: str
+        model attribute to apply filter on
+    values: list
+        list of values to filter with
+    operation: str
+        operation type to apply to the filter ('ilike', '==', '>=', '<=')
+
+
+    Returns
+    -------
+    query: Query
+        updated SQLAlchemy Query object
+    """
+
+    if values is not None:
+        if operation == 'ilike':
+            query = query.filter(or_(*[getattr(model, attribute).ilike(v) for v in values]))
+        elif operation == '==':
+            query = query.filter(getattr(model, attribute) == values)
+        elif operation == '>=':
+            query = query.filter(getattr(model, attribute) >= values)
+        elif operation == '<=':
+            query = query.filter(getattr(model, attribute) <= values)
+    return query
 
 
 def apply_sorting(*, query, sort: list[str], model):

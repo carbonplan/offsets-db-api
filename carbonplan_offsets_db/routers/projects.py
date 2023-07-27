@@ -13,7 +13,7 @@ from ..models import (
     ProjectStatsWithPagination,
     ProjectWithPagination,
 )
-from ..query_helpers import apply_sorting, handle_pagination
+from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination, Registries
 
 router = APIRouter()
@@ -58,54 +58,41 @@ def get_projects(
     session: Session = Depends(get_session),
 ):
     """Get projects with pagination and filtering"""
+
     logger.info(f'Getting projects: {request.url}')
 
     query = session.query(Project)
 
-    if registry:
-        query = query.filter(or_(*[Project.registry.ilike(r) for r in registry]))
+    # Filters applying 'ilike' operation
+    filterable_attributes = [
+        ('registry', registry, 'ilike'),
+        ('country', country, 'ilike'),
+        ('protocol', protocol, 'ilike'),
+        ('category', category, 'ilike'),
+    ]
 
-    if country:
-        query = query.filter(or_(*[Project.country.ilike(c) for c in country]))
+    for attribute, values, operation in filterable_attributes:
+        query = apply_filters(query, Project, attribute, values, operation)
 
-    if protocol:
-        query = query.filter(or_(*[Project.protocol.ilike(p) for p in protocol]))
+    # Filters applying '==', '>=', or '<=' operations
+    other_filters = [
+        ('is_arb', is_arb, '=='),
+        ('registered_at', registered_at_from, '>='),
+        ('registered_at', registered_at_to, '<='),
+        ('started_at', started_at_from, '>='),
+        ('started_at', started_at_to, '<='),
+        ('issued', issued_min, '>='),
+        ('issued', issued_max, '<='),
+        ('retired', retired_min, '>='),
+        ('retired', retired_max, '<='),
+    ]
 
-    if category:
-        query = query.filter(or_(*[Project.category.ilike(c) for c in category]))
+    for attribute, values, operation in other_filters:
+        query = apply_filters(query, Project, attribute, values, operation)
 
-    if is_arb is not None:
-        query = query.filter(Project.is_arb == is_arb)
-
-    if registered_at_from:
-        query = query.filter(Project.registered_at >= registered_at_from)
-
-    if registered_at_to:
-        query = query.filter(Project.registered_at <= registered_at_to)
-
-    if started_at_from:
-        query = query.filter(Project.started_at >= started_at_from)
-
-    if started_at_to:
-        query = query.filter(Project.started_at <= started_at_to)
-
-    # Add additional filters for issued and retired credits
-    if issued_min:
-        query = query.filter(Project.issued >= issued_min)
-
-    if issued_max:
-        query = query.filter(Project.issued <= issued_max)
-
-    if retired_min:
-        query = query.filter(Project.retired >= retired_min)
-
-    if retired_max:
-        query = query.filter(Project.retired <= retired_max)
-
+    # Handle 'search' filter separately due to its unique logic
     if search:
-        search_pattern = (
-            f'%{search}%'  # Wrapping search string with % to match anywhere in the string
-        )
+        search_pattern = f'%{search}%'
         query = query.filter(
             or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
         )
@@ -174,14 +161,19 @@ def get_project_stats(
 
     query = session.query(ProjectStats)
 
-    if registry:
-        query = query.filter(or_(*[ProjectStats.registry.ilike(r) for r in registry]))
+    # Filters applying 'ilike' operation
+    filterable_attributes = [
+        ('registry', registry, 'ilike'),
+    ]
 
-    if date_from:
-        query = query.filter(ProjectStats.date >= date_from)
+    for attribute, values, operation in filterable_attributes:
+        query = apply_filters(query, ProjectStats, attribute, values, operation)
 
-    if date_to:
-        query = query.filter(ProjectStats.date <= date_to)
+    # Filters applying '>=', or '<=' operations
+    other_filters = [('date', date_from, '>='), ('date', date_to, '<=')]
+
+    for attribute, values, operation in other_filters:
+        query = apply_filters(query, ProjectStats, attribute, values, operation)
 
     if sort:
         query = apply_sorting(query=query, sort=sort, model=ProjectStats)
