@@ -71,9 +71,12 @@ def apply_filters(
     return query
 
 
-def apply_sorting(*, query, sort: list[str], model):
+def apply_sorting(*, query, sort: list[str], model, primary_key: str = 'id'):
     # Define valid column names
     columns = [c.name for c in model.__table__.columns]
+    # Ensure that the primary key field is always included in the sort parameters list to ensure consistent pagination
+    if primary_key not in sort or f'-{primary_key}' not in sort or f'+{primary_key}' not in sort:
+        sort.append(primary_key)
 
     for sort_param in sort:
         sort_param = sort_param.strip()
