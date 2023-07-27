@@ -4,10 +4,17 @@ from fastapi import HTTPException, Request
 from sqlalchemy import asc, desc, or_
 from sqlalchemy.orm import Query
 
-from .models import Credit, Project
+from .models import Credit, CreditStats, Project, ProjectStats
 
 
-def apply_filters(*, query, model: Project | Credit, attribute: str, values: list, operation: str):
+def apply_filters(
+    *,
+    query,
+    model: Project | Credit | ProjectStats | CreditStats,
+    attribute: str,
+    values: list,
+    operation: str,
+):
     """
     Apply filters to the query based on operation type.
     Supports 'ilike', '==', '>=', and '<=' operations.

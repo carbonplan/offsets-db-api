@@ -72,7 +72,9 @@ def get_projects(
     ]
 
     for attribute, values, operation in filterable_attributes:
-        query = apply_filters(query, Project, attribute, values, operation)
+        query = apply_filters(
+            query=query, model=Project, attribute=attribute, values=values, operation=operation
+        )
 
     # Filters applying '==', '>=', or '<=' operations
     other_filters = [
@@ -88,7 +90,9 @@ def get_projects(
     ]
 
     for attribute, values, operation in other_filters:
-        query = apply_filters(query, Project, attribute, values, operation)
+        query = apply_filters(
+            query=query, model=Project, attribute=attribute, values=values, operation=operation
+        )
 
     # Handle 'search' filter separately due to its unique logic
     if search:
@@ -167,13 +171,17 @@ def get_project_stats(
     ]
 
     for attribute, values, operation in filterable_attributes:
-        query = apply_filters(query, ProjectStats, attribute, values, operation)
+        query = apply_filters(
+            query=query, model=ProjectStats, attribute=attribute, values=values, operation=operation
+        )
 
     # Filters applying '>=', or '<=' operations
     other_filters = [('date', date_from, '>='), ('date', date_to, '<=')]
 
     for attribute, values, operation in other_filters:
-        query = apply_filters(query, ProjectStats, attribute, values, operation)
+        query = apply_filters(
+            query=query, model=ProjectStats, attribute=attribute, values=values, operation=operation
+        )
 
     if sort:
         query = apply_sorting(query=query, sort=sort, model=ProjectStats)
