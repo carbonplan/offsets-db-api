@@ -7,7 +7,7 @@ from sqlmodel import Session
 from ..database import get_session
 from ..logging import get_logger
 from ..models import Credit, CreditStats, CreditStatsWithPagination, CreditWithPagination, Project
-from ..query_helpers import apply_sorting, handle_pagination
+from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination, Registries
 
 router = APIRouter()
@@ -47,34 +47,43 @@ def get_credits(
     # join Credit with Project on project_id
     query = session.query(Credit).join(Project, Credit.project_id == Project.project_id)
 
-    if registry:
-        query = query.filter(or_(*[Project.registry.ilike(r) for r in registry]))
+    # Filters applying 'ilike' operation
+    ilike_filters = [
+        ('registry', registry, 'ilike', Project),
+        ('category', category, 'ilike', Project),
+        ('transaction_type', transaction_type, 'ilike', Credit),
+    ]
 
-    if category:
-        query = query.filter(or_(*[Project.category.ilike(c) for c in category]))
-
-    if is_arb is not None:
-        query = query.filter(Project.is_arb == is_arb)
-
-    if search:
-        search_pattern = (
-            f'%{search}%'  # Wrapping search string with % to match anywhere in the string
+    for attribute, values, operation, model in ilike_filters:
+        query = apply_filters(
+            query=query, model=model, attribute=attribute, values=values, operation=operation
         )
+
+    # Filter applying '==' operation
+    equal_filters = [('is_arb', is_arb, '==', Project), ('vintage', vintage, '==', Credit)]
+
+    for attribute, values, operation, model in equal_filters:
+        query = apply_filters(
+            query=query, model=model, attribute=attribute, values=values, operation=operation
+        )
+
+    # Filters applying '>=' or '<=' operations
+    date_filters = [
+        ('transaction_date', transaction_date_from, '>=', Credit),
+        ('transaction_date', transaction_date_to, '<=', Credit),
+    ]
+
+    for attribute, values, operation, model in date_filters:
+        query = apply_filters(
+            query=query, model=model, attribute=attribute, values=values, operation=operation
+        )
+
+    # Handle 'search' filter separately due to its unique logic
+    if search:
+        search_pattern = f'%{search}%'
         query = query.filter(
             or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
         )
-
-    if transaction_type:
-        query = query.filter(or_(*[Credit.transaction_type.ilike(t) for t in transaction_type]))
-
-    if vintage:
-        query = query.filter(or_(*[Credit.vintage == v for v in vintage]))
-
-    if transaction_date_from:
-        query = query.filter(Credit.transaction_date >= transaction_date_from)
-
-    if transaction_date_to:
-        query = query.filter(Credit.transaction_date <= transaction_date_to)
 
     if sort:
         query = apply_sorting(query=query, sort=sort, model=Credit)
@@ -120,19 +129,24 @@ def get_credit_stats(
 
     query = session.query(CreditStats)
 
-    if registry:
-        query = query.filter(or_(*[CreditStats.registry.ilike(r) for r in registry]))
+    # Filters applying 'ilike' operation
+    ilike_filters = [
+        ('registry', registry, 'ilike', CreditStats),
+        ('transaction_type', transaction_type, 'ilike', CreditStats),
+    ]
 
-    if transaction_type:
-        query = query.filter(
-            or_(*[CreditStats.transaction_type.ilike(t) for t in transaction_type])
+    for attribute, values, operation, model in ilike_filters:
+        query = apply_filters(
+            query=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
-    if date_from:
-        query = query.filter(CreditStats.date >= date_from)
+    # Filters applying '>=' or '<=' operations
+    date_filters = [('date', date_from, '>=', CreditStats), ('date', date_to, '<=', CreditStats)]
 
-    if date_to:
-        query = query.filter(CreditStats.date <= date_to)
+    for attribute, values, operation, model in date_filters:
+        query = apply_filters(
+            query=query, model=model, attribute=attribute, values=values, operation=operation
+        )
 
     if sort:
         query = apply_sorting(query=query, sort=sort, model=CreditStats)
