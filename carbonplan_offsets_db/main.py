@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .app_metadata import metadata
 from .logging import get_logger
 from .models import Credit, Project
-from .routers import credits, files, health, projects
+from .routers import charts, credits, files, health, projects
 from .settings import get_settings
 from .tasks import calculate_totals, export_table_to_csv, update_credit_stats, update_project_stats
 
@@ -33,6 +33,7 @@ def create_application() -> FastAPI:
     application.include_router(health.router, prefix='/health', tags=['health'])
     application.include_router(projects.router, prefix='/projects', tags=['projects'])
     application.include_router(credits.router, prefix='/credits', tags=['credits'])
+    application.include_router(charts.router, prefix='/charts', tags=['charts'])
     application.include_router(files.router, prefix='/files', tags=['files'])
 
     return application
