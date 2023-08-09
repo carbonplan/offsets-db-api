@@ -5,7 +5,7 @@ from sqlmodel import Session, and_, case, func, or_
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Project, ProjectBinnedData
+from ..models import Project, ProjectBinnedIssuanceTotals, ProjectBinnedRegistration
 from ..query_helpers import apply_filters
 from ..schemas import Registries
 
@@ -122,7 +122,7 @@ def get_binned_data(*, session, num_bins, binning_attribute, projects=None):
     return formatted_results
 
 
-@router.get('/project_registration', response_model=list[ProjectBinnedData])
+@router.get('/project_registration', response_model=list[ProjectBinnedRegistration])
 def get_project_registration(
     request: Request,
     num_bins: int = Query(15, description='The number of bins'),
@@ -210,7 +210,7 @@ def get_project_registration(
     )
 
 
-@router.get('/issuance_totals', response_model=list[ProjectBinnedData])
+@router.get('/issuance_totals', response_model=list[ProjectBinnedIssuanceTotals])
 def get_issuance_totals(
     request: Request,
     num_bins: int = Query(15, description='The number of bins'),
