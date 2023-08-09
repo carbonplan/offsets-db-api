@@ -12,15 +12,32 @@ logger = get_logger()
 
 
 def get_binned_data(*, session, num_bins):
-    # Get the min and max date from registered_at
+    """
+    This function bins the projects based on their registration date and groups them by category.
+
+    Parameters
+    ----------
+    session: Session
+        SQLAlchemy session for querying the database.
+    num_bins: int,
+        Number of bins to divide the registration dates into.
+
+    Returns
+    -------
+    binned_results: list
+        A list of tuples, each containing the bin label, category, and count of projects.
+    """
+
+    # Determine the earliest and latest registration dates in the database.
     min_date, max_date = session.query(
         func.min(Project.registered_at), func.max(Project.registered_at)
     ).one()
 
-    # Calculate the bin width
+    # Calculate the width of each bin by dividing the total date range by the number of bins.
     bin_width = (max_date - min_date) / num_bins
 
-    # Define the binning logic using a combination of the CASE statement and basic arithmetic
+    # Create conditions for each bin. Each condition checks if a project's registration date
+    # falls within the range defined by a bin's start and end dates. Also, assign a label for each bin.
     conditions = [
         (
             and_(
@@ -31,6 +48,8 @@ def get_binned_data(*, session, num_bins):
         )
         for i in range(num_bins - 1)
     ]
+
+    # Handle the last bin separately to account for the possibility that the max_date is the current year.
     last_bin_label = (
         f'{(min_date + (num_bins-1)*bin_width).year}-present'
         if max_date.year == datetime.datetime.now().year
@@ -40,15 +59,17 @@ def get_binned_data(*, session, num_bins):
         (Project.registered_at >= min_date + (num_bins - 1) * bin_width, last_bin_label)
     )
 
+    # Using the conditions, generate a CASE statement to assign a bin label to each project.
     binned_date = case(conditions, else_='other').label('bin')
 
-    # Query with the binning logic
+    # Execute the main query, grouping projects by bin and category, and counting the number of projects in each group.
     binned_results = (
         session.query(binned_date, Project.category, func.count(Project.id).label('count'))
         .group_by(binned_date, Project.category)
         .all()
     )
 
+    # Validate that the sum of counts from the binned results matches the total number of projects in the database.
     total_projects = session.query(Project).count()
     total_binned_counts = sum(result[2] for result in binned_results)
 
