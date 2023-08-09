@@ -1,6 +1,6 @@
 import datetime
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlmodel import Session, and_, case, func
 
 from ..database import get_session
@@ -11,7 +11,7 @@ router = APIRouter()
 logger = get_logger()
 
 
-def get_binned_data(session, num_bins):
+def get_binned_data(*, session, num_bins):
     # Get the min and max date from registered_at
     min_date, max_date = session.query(
         func.min(Project.registered_at), func.max(Project.registered_at)
@@ -61,9 +61,12 @@ def get_binned_data(session, num_bins):
 
 
 @router.get('/project_registration')
-def get_project_registration(request: Request, session: Session = Depends(get_session)):
-    """Get project registration data"""
+def get_project_registration(
+    request: Request,
+    num_bins: int = Query(15, description='The number of bins'),
+    session: Session = Depends(get_session),
+):
+    """Get aggregated project registration data"""
     logger.info(f'Getting project registration data: {request.url}')
 
-    results = get_binned_data(session, 15)
-    return results
+    return get_binned_data(session=session, num_bins=num_bins)
