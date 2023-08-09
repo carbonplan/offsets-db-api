@@ -139,3 +139,10 @@ class CreditStatsWithPagination(pydantic.BaseModel):
 class ProjectStatsWithPagination(pydantic.BaseModel):
     pagination: Pagination
     data: list[ProjectStats]
+
+
+class ProjectBinnedRegistration(pydantic.BaseModel):
+    start: int | None
+    end: int | None
+    category: str | None
+    count: int | None

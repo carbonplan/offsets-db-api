@@ -3,7 +3,7 @@ from sqlmodel import Session, and_, case, func
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Project
+from ..models import Project, ProjectBinnedRegistration
 
 router = APIRouter()
 logger = get_logger()
@@ -26,6 +26,7 @@ def get_binned_data(*, session, num_bins):
         A list of tuples, each containing the bin label, category, and count of projects.
     """
 
+    logger.info('📊 Generating binned data...')
     # Determine the earliest and latest registration dates in the database.
     min_date, max_date = session.query(
         func.min(Project.registered_at), func.max(Project.registered_at)
@@ -53,23 +54,32 @@ def get_binned_data(*, session, num_bins):
     # Execute the main query, grouping projects by bin and category, and counting the number of projects in each group.
     binned_results = (
         session.query(binned_date, Project.category, func.count(Project.id).label('count'))
-        .group_by(binned_date, Project.category)
+        .group_by('bin', Project.category)
         .all()
     )
 
     # Validate that the sum of counts from the binned results matches the total number of projects in the database.
     total_projects = session.query(Project).count()
     total_binned_counts = sum(result[2] for result in binned_results)
-
     if total_projects != total_binned_counts:
+        logger.error('❌ Mismatch in total counts!')
         raise ValueError(
-            f'Total projects ({total_projects}) does not match sum of binned counts ({total_binned_counts}).'
+            f"Total projects ({total_projects}) doesn't match sum of binned counts ({total_binned_counts})."
         )
 
-    return binned_results
+    # Reformat results to a more concise representation.
+    formatted_results = []
+    for bin_label, category, count in binned_results:
+        start, end = (
+            (int(part) for part in bin_label.split('-')) if '-' in bin_label else (None, None)
+        )
+        formatted_results.append({'start': start, 'end': end, 'category': category, 'count': count})
+
+    logger.info('✅ Binned data generated successfully!')
+    return formatted_results
 
 
-@router.get('/project_registration')
+@router.get('/project_registration', response_model=list[ProjectBinnedRegistration])
 def get_project_registration(
     request: Request,
     num_bins: int = Query(15, description='The number of bins'),
