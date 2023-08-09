@@ -13,69 +13,88 @@ router = APIRouter()
 logger = get_logger()
 
 
-def get_binned_data(*, session, num_bins, projects=None):
+def get_binned_data(*, session, num_bins, binning_attribute, projects=None):
     """
-    This function bins the projects based on their registration date and groups them by category.
+    This function bins the projects based on a specified attribute and groups them by category.
 
     Parameters
     ----------
     session: Session
         SQLAlchemy session for querying the database.
-    num_bins: int,
-        Number of bins to divide the registration dates into.
+    num_bins: int
+        Number of bins to divide the data into.
+    binning_attribute: str
+        Attribute name of the Project model to be used for binning (e.g., 'registered_at' or 'issued').
     projects: list, optional
         List of projects to be binned. If not provided, the function will query the entire Project table.
 
     Returns
     -------
     binned_results: list
-        A list of tuples, each containing the bin label, category, and count of projects.
+        A list of dictionaries, each containing the bin start, end, category, and count of projects.
     """
 
-    logger.info('📊 Generating binned data...')
+    logger.info(f'📊 Generating binned data based on {binning_attribute}...')
+
+    # Dynamically get the attribute from the Project model based on the provided binning_attribute
+    attribute = getattr(Project, binning_attribute)
+
+    # If projects are provided, extract values for the given binning_attribute. Otherwise, query the database.
     if projects:
-        # Extract dates from provided projects, filtering out None values
-        registration_dates = [
-            project.registered_at for project in projects if project.registered_at is not None
+        values = [
+            getattr(project, binning_attribute)
+            for project in projects
+            if getattr(project, binning_attribute) is not None
         ]
-        if not registration_dates:
-            logger.error('❌ No valid registration dates found!')
-            raise ValueError('Provided projects have no valid registration dates.')
-        min_date = min(registration_dates)
-        max_date = max(registration_dates)
+        if not values:
+            logger.error(f'❌ No valid values found for attribute {binning_attribute}!')
+            raise ValueError(f'Provided projects have no valid values for {binning_attribute}.')
+        min_value, max_value = min(values), max(values)
     else:
-        # Determine the earliest and latest registration dates in the database.
-        min_date, max_date = session.query(
-            func.min(Project.registered_at), func.max(Project.registered_at)
-        ).one()
+        # Get the minimum and maximum values for the attribute from the database
+        min_value, max_value = session.query(func.min(attribute), func.max(attribute)).one()
 
-    # Calculate the width of each bin by dividing the total date range by the number of bins.
-    bin_width = (max_date - min_date) / num_bins
+    # Calculate the width for each bin
+    bin_width = (max_value - min_value) / num_bins
 
-    # Create conditions for each bin. Each condition checks if a project's registration date
-    # falls within the range defined by a bin's start and end dates. Also, assign a label for each bin.
-    conditions = [
-        (
-            and_(
-                Project.registered_at >= min_date + i * bin_width,
-                Project.registered_at < min_date + (i + 1) * bin_width,
-            ),
-            f'{(min_date + i*bin_width).year}-{(min_date + (i+1)*bin_width).year}',
-        )
-        for i in range(num_bins)
-    ]
+    # Create conditions for each bin. These conditions will determine which bin a project falls into.
+    # Check if the binning attribute is a date type
+    if isinstance(min_value, datetime.date | datetime.datetime):
+        # Create conditions for each bin. These conditions will determine which bin a project falls into for date attributes.
+        conditions = [
+            (
+                and_(
+                    attribute >= min_value + datetime.timedelta(days=i * bin_width.days),
+                    attribute < min_value + datetime.timedelta(days=(i + 1) * bin_width.days),
+                ),
+                f'{(min_value + datetime.timedelta(days=i * bin_width.days)).year}-{(min_value + datetime.timedelta(days=(i + 1) * bin_width.days)).year}',
+            )
+            for i in range(num_bins)
+        ]
+    else:
+        # Create conditions for each bin. These conditions will determine which bin a project falls into for numerical attributes.
+        conditions = [
+            (
+                and_(
+                    attribute >= min_value + i * bin_width,
+                    attribute < min_value + (i + 1) * bin_width,
+                ),
+                f'{min_value + i*bin_width}-{min_value + (i+1)*bin_width}',
+            )
+            for i in range(num_bins)
+        ]
 
     # Using the conditions, generate a CASE statement to assign a bin label to each project.
-    binned_date = case(conditions, else_='other').label('bin')
+    binned_attribute = case(conditions, else_='other').label('bin')
 
-    # Execute the main query, grouping projects by bin and category, and counting the number of projects in each group.
+    # Query the database, grouping by the calculated bin and category. Count the number of projects in each group.
     binned_results = (
-        session.query(binned_date, Project.category, func.count(Project.id).label('count'))
+        session.query(binned_attribute, Project.category, func.count(Project.id).label('count'))
         .group_by('bin', Project.category)
         .all()
     )
 
-    # Validate that the sum of counts from the binned results matches the total number of projects in the database.
+    # Validate that the counts from binned results match the total number of projects.
     total_projects = session.query(Project).count()
     total_binned_counts = sum(result[2] for result in binned_results)
     if total_projects != total_binned_counts:
@@ -84,12 +103,11 @@ def get_binned_data(*, session, num_bins, projects=None):
             f"Total projects ({total_projects}) doesn't match sum of binned counts ({total_binned_counts})."
         )
 
-    # Reformat results to a more concise representation.
+    # Reformat results to be more user-friendly
     formatted_results = []
     for bin_label, category, count in binned_results:
-        start, end = (
-            (int(part) for part in bin_label.split('-')) if '-' in bin_label else (None, None)
-        )
+        logger.info(bin_label)
+        start, end = (part for part in bin_label.split('-')) if '-' in bin_label else (None, None)
         formatted_results.append({'start': start, 'end': end, 'category': category, 'count': count})
 
     logger.info('✅ Binned data generated successfully!')
@@ -176,4 +194,9 @@ def get_project_registration(
         logger.warning('⚠️ No projects found matching the filtering criteria!')
         return []
 
-    return get_binned_data(session=session, num_bins=num_bins, projects=filtered_projects)
+    return get_binned_data(
+        session=session,
+        num_bins=num_bins,
+        binning_attribute='registered_at',
+        projects=filtered_projects,
+    )
