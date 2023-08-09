@@ -5,7 +5,7 @@ from sqlmodel import Session, and_, case, func, or_
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Project, ProjectBinnedRegistration
+from ..models import Project, ProjectBinnedData
 from ..query_helpers import apply_filters
 from ..schemas import Registries
 
@@ -88,33 +88,41 @@ def get_binned_data(*, session, num_bins, binning_attribute, projects=None):
     binned_attribute = case(conditions, else_='other').label('bin')
 
     # Query the database, grouping by the calculated bin and category. Count the number of projects in each group.
-    binned_results = (
-        session.query(binned_attribute, Project.category, func.count(Project.id).label('count'))
-        .group_by('bin', Project.category)
-        .all()
-    )
+    if binning_attribute == 'issued':
+        query = session.query(
+            binned_attribute, Project.category, func.sum(Project.issued).label('value')
+        )
+        total_values = session.query(func.sum(Project.issued)).scalar()
+
+    else:
+        query = session.query(
+            binned_attribute, Project.category, func.count(Project.id).label('value')
+        )
+        total_values = session.query(func.count(Project.id)).scalar()
+    binned_results = query.group_by('bin', Project.category).all()
 
     # Validate that the counts from binned results match the total number of projects.
-    total_projects = session.query(Project).count()
-    total_binned_counts = sum(result[2] for result in binned_results)
-    if total_projects != total_binned_counts:
-        logger.error('❌ Mismatch in total counts!')
+    total_binned_values = sum(result[2] for result in binned_results)
+    logger.info(f'Total values: {total_values}, Total binned values: {total_binned_values}')
+    if total_values != total_binned_values:
+        logger.error('❌ Mismatch in total values!')
         raise ValueError(
-            f"Total projects ({total_projects}) doesn't match sum of binned counts ({total_binned_counts})."
+            f"Total values ({total_values}) doesn't match sum of binned values ({total_binned_values})."
         )
 
     # Reformat results to be more user-friendly
     formatted_results = []
-    for bin_label, category, count in binned_results:
-        logger.info(bin_label)
-        start, end = (part for part in bin_label.split('-')) if '-' in bin_label else (None, None)
-        formatted_results.append({'start': start, 'end': end, 'category': category, 'count': count})
+    for bin_label, category, value in binned_results:
+        start, end = iter(bin_label.split('-')) if '-' in bin_label else (None, None)
+        if start and end:
+            start, end = int(float(start)), int(float(end))
+        formatted_results.append({'start': start, 'end': end, 'category': category, 'value': value})
 
     logger.info('✅ Binned data generated successfully!')
     return formatted_results
 
 
-@router.get('/project_registration', response_model=list[ProjectBinnedRegistration])
+@router.get('/project_registration', response_model=list[ProjectBinnedData])
 def get_project_registration(
     request: Request,
     num_bins: int = Query(15, description='The number of bins'),
@@ -198,5 +206,93 @@ def get_project_registration(
         session=session,
         num_bins=num_bins,
         binning_attribute='registered_at',
+        projects=filtered_projects,
+    )
+
+
+@router.get('/issuance_totals', response_model=list[ProjectBinnedData])
+def get_issuance_totals(
+    request: Request,
+    num_bins: int = Query(15, description='The number of bins'),
+    registry: list[Registries] | None = Query(None, description='Registry name'),
+    country: list[str] | None = Query(None, description='Country name'),
+    protocol: list[str] | None = Query(None, description='Protocol name'),
+    category: list[str] | None = Query(None, description='Category name'),
+    is_arb: bool | None = Query(None, description='Whether project is an ARB project'),
+    registered_at_from: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    registered_at_to: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    started_at_from: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    started_at_to: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    issued_min: int | None = Query(None, description='Minimum number of issued credits'),
+    issued_max: int | None = Query(None, description='Maximum number of issued credits'),
+    retired_min: int | None = Query(None, description='Minimum number of retired credits'),
+    retired_max: int | None = Query(None, description='Maximum number of retired credits'),
+    search: str
+    | None = Query(
+        None,
+        description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
+    ),
+    session: Session = Depends(get_session),
+):
+    """Get aggregated project registration data"""
+    logger.info(f'Getting project registration data: {request.url}')
+
+    query = session.query(Project)
+
+    # Apply filters
+    filterable_attributes = [
+        ('registry', registry, 'ilike'),
+        ('country', country, 'ilike'),
+        ('protocol', protocol, 'ilike'),
+        ('category', category, 'ilike'),
+    ]
+
+    for attribute, values, operation in filterable_attributes:
+        query = apply_filters(
+            query=query, model=Project, attribute=attribute, values=values, operation=operation
+        )
+
+    other_filters = [
+        ('is_arb', is_arb, '=='),
+        ('registered_at', registered_at_from, '>='),
+        ('registered_at', registered_at_to, '<='),
+        ('started_at', started_at_from, '>='),
+        ('started_at', started_at_to, '<='),
+        ('issued', issued_min, '>='),
+        ('issued', issued_max, '<='),
+        ('retired', retired_min, '>='),
+        ('retired', retired_max, '<='),
+    ]
+
+    for attribute, values, operation in other_filters:
+        query = apply_filters(
+            query=query, model=Project, attribute=attribute, values=values, operation=operation
+        )
+
+    if search:
+        search_pattern = f'%{search}%'
+        query = query.filter(
+            or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
+        )
+
+    # Fetch filtered projects for binning
+    filtered_projects = query.all()
+    # Check if the filtered projects list is empty
+    if not filtered_projects:
+        logger.warning('⚠️ No projects found matching the filtering criteria!')
+        return []
+
+    return get_binned_data(
+        session=session,
+        num_bins=num_bins,
+        binning_attribute='issued',
         projects=filtered_projects,
     )

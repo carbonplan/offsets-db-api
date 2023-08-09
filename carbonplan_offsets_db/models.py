@@ -141,8 +141,8 @@ class ProjectStatsWithPagination(pydantic.BaseModel):
     data: list[ProjectStats]
 
 
-class ProjectBinnedRegistration(pydantic.BaseModel):
-    start: int | None
-    end: int | None
+class ProjectBinnedData(pydantic.BaseModel):
+    start: int | float | None
+    end: int | float | None
     category: str | None
-    count: int | None
+    value: int | float | None
