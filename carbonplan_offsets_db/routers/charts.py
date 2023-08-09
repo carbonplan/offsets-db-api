@@ -1,5 +1,3 @@
-import datetime
-
 from fastapi import APIRouter, Depends, Query, Request
 from sqlmodel import Session, and_, case, func
 
@@ -46,18 +44,8 @@ def get_binned_data(*, session, num_bins):
             ),
             f'{(min_date + i*bin_width).year}-{(min_date + (i+1)*bin_width).year}',
         )
-        for i in range(num_bins - 1)
+        for i in range(num_bins)
     ]
-
-    # Handle the last bin separately to account for the possibility that the max_date is the current year.
-    last_bin_label = (
-        f'{(min_date + (num_bins-1)*bin_width).year}-present'
-        if max_date.year == datetime.datetime.now().year
-        else f'{(min_date + (num_bins-1)*bin_width).year}-{max_date.year}'
-    )
-    conditions.append(
-        (Project.registered_at >= min_date + (num_bins - 1) * bin_width, last_bin_label)
-    )
 
     # Using the conditions, generate a CASE statement to assign a bin label to each project.
     binned_date = case(conditions, else_='other').label('bin')
