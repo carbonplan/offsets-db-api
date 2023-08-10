@@ -142,8 +142,8 @@ class ProjectStatsWithPagination(pydantic.BaseModel):
 
 
 class ProjectBinnedRegistration(pydantic.BaseModel):
-    start: int | None
-    end: int | None
+    start: datetime.date | None
+    end: datetime.date | None
     category: str | None
     value: int | None
 
