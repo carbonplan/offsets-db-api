@@ -3,7 +3,7 @@ import typing
 
 import pandas as pd
 from fastapi import APIRouter, Depends, Query, Request
-from sqlmodel import Session, and_, case, func, or_
+from sqlmodel import Session, and_, case, func, or_, text
 
 from ..database import get_session
 from ..logging import get_logger
@@ -15,91 +15,89 @@ router = APIRouter()
 logger = get_logger()
 
 
-def generate_date_bins(*, min_value, max_value, freq: typing.Literal['D', 'M', 'Y']):
-    # Determine the end-of-period date based on the frequency
-    if freq == 'D':  # Daily frequency
-        end_of_period = pd.Timestamp(max_value)
-    elif freq == 'M':  # Monthly frequency
-        end_of_period = (
-            pd.Timestamp(max_value).replace(day=1) + pd.DateOffset(months=1) - pd.DateOffset(days=1)
-        )
-    elif freq == 'Y':  # Yearly frequency
-        end_of_period = pd.Timestamp(max_value).replace(month=12, day=31)
-    else:
-        raise ValueError("Unsupported frequency. Use 'D', 'M', or 'Y'.")
+def calculate_end_date(start_date, freq):
+    """Calculate the end date based on the start date and frequency."""
+    if freq == 'D':
+        return start_date + pd.DateOffset(days=1)
+    elif freq == 'W':
+        return start_date + pd.DateOffset(weeks=1)
+    elif freq == 'M':
+        return start_date + pd.DateOffset(months=1) + pd.offsets.MonthEnd(0)
+    else:  # freq == 'Y'
+        return start_date + pd.DateOffset(years=1) + pd.offsets.YearEnd(0)
 
-    # Generate date bins with the specified frequency
+
+def generate_date_bins(*, min_value, max_value, freq: typing.Literal['D', 'W', 'M', 'Y']):
+    """Generate date bins with the specified frequency."""
+    end_of_period = pd.Timestamp(max_value)
+    if freq == 'M':
+        end_of_period = (
+            end_of_period.replace(day=1) + pd.DateOffset(months=1) - pd.DateOffset(days=1)
+        )
+    elif freq == 'Y':
+        end_of_period = end_of_period.replace(month=12, day=31)
+
     date_bins = pd.date_range(start=min_value, end=max_value, freq=freq)
 
-    # Ensure that the end-of-period date is included
+    # Ensure the last date is included
     if len(date_bins) == 0 or date_bins[-1] != end_of_period:
         date_bins = date_bins.append(pd.DatetimeIndex([end_of_period]))
 
+    logger.info(f'📅 Binning by date with {len(date_bins)} bins...')
     return date_bins
 
 
-def get_binned_data(*, query, binning_attribute):
+def get_binned_data(*, query, binning_attribute, freq='Y'):
+    """Generate binned data based on the given attribute and frequency."""
     logger.info(f'📊 Generating binned data based on {binning_attribute}...')
-
-    # Dynamically get the attribute from the Project model based on the provided binning_attribute
     attribute = getattr(Project, binning_attribute)
     min_value, max_value = query.with_entities(func.min(attribute), func.max(attribute)).one()
 
-    logger.info(f'📊 Min value: {min_value}, max value: {max_value}')
+    date_bins = generate_date_bins(min_value=min_value, max_value=max_value, freq=freq)
 
-    # Check if the binning attribute is a date type and create yearly bins using pandas date_range
-    if isinstance(min_value, datetime.date) or isinstance(min_value, datetime.datetime):
-        date_bins = generate_date_bins(min_value=min_value, max_value=max_value, freq='Y')
-
-        logger.info(f'📅 Binning by date with {date_bins} bins...')
-
-        conditions = [
-            (
-                and_(
-                    attribute >= date_bins[i],
-                    attribute < date_bins[i + 1],
-                ),
-                str(date_bins[i].year),
-            )
-            for i in range(len(date_bins) - 1)
-        ]
-
-        # Check if there are any conditions
-        if conditions:
-            binned_attribute = case(conditions, else_='other').label('bin')
-        elif len(date_bins) == 1:
-            binned_attribute = func.concat(date_bins[0].year).label(
-                'bin'
-            )  # Use concat to return a string literal
-        else:
-            binned_attribute = 'other'
-
-        # Query the database, grouping by the calculated bin and category. Count the number of projects in each group.
-        query = query.with_entities(
-            binned_attribute, Project.category, func.count(Project.project_id).label('value')
+    # Create conditions for each bin
+    conditions = [
+        (
+            and_(attribute >= date_bins[i], attribute < date_bins[i + 1]),
+            str(date_bins[i].date()),
         )
-        binned_results = query.group_by('bin', Project.category).all()
-        # Reformat results to be more user-friendly
-        formatted_results = []
-        for bin_label, category, value in binned_results:
-            if bin_label == 'other':
-                start, end = None, None
-            else:
-                start, end = datetime.date(int(bin_label), 1, 1), datetime.date(
-                    int(bin_label) + 1, 1, 1
-                )
-            formatted_results.append(
-                ProjectBinnedRegistration(start=start, end=end, category=category, value=value)
-            )
+        for i in range(len(date_bins) - 1)
+    ]
 
-        logger.info('✅ Binned data generated successfully!')
-        return formatted_results
-    return []
+    # Define the binned attribute
+    if conditions:
+        binned_attribute = case(conditions, else_='other').label('bin')
+    elif len(date_bins) == 1:
+        binned_attribute = func.concat(date_bins[0].date()).label(
+            'bin'
+        )  # Use concat to return a string literal
+    else:
+        binned_attribute = text('other')  # Explicitly declare the text literal
+
+    # Query and format the results
+    query = query.with_entities(
+        binned_attribute, Project.category, func.count(Project.project_id).label('value')
+    )
+    binned_results = query.group_by('bin', Project.category).all()
+
+    formatted_results = []
+    for bin_label, category, value in binned_results:
+        start_date = pd.Timestamp(bin_label) if bin_label != 'other' else None
+        end_date = calculate_end_date(start_date, freq).date() if start_date else None
+        formatted_results.append(
+            ProjectBinnedRegistration(
+                start=start_date, end=end_date, category=category, value=value
+            )
+        )
+
+    logger.info('✅ Binned data generated successfully!')
+    return formatted_results
 
 
 @router.get('/projects_by_registration_date', response_model=list[ProjectBinnedRegistration])
 def get_projects_by_registration_date(
     request: Request,
+    freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
     registry: list[Registries] | None = Query(None, description='Registry name'),
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
@@ -169,10 +167,7 @@ def get_projects_by_registration_date(
             or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
         )
 
-    return get_binned_data(
-        binning_attribute='registered_at',
-        query=query,
-    )
+    return get_binned_data(binning_attribute='registered_at', query=query, freq=freq)
 
 
 @router.get('/issuance_totals', response_model=list[ProjectBinnedIssuanceTotals])
