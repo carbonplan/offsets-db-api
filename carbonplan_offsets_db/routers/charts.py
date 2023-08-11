@@ -207,9 +207,9 @@ def get_binned_numeric_data(*, query, binning_attribute):
     return formatted_results
 
 
-def credits_by_issuance_date(*, query, freq='Y'):
-    """Generate binned data based on the issuance date."""
-    logger.info('📊 Generating binned data based on issuance date...')
+def credits_by_transaction_date(*, query, freq='Y'):
+    """Generate binned data based on the transaction date."""
+    logger.info('📊 Generating binned data based on transaction date...')
 
     # Extract the minimum and maximum transaction_date
     min_date, max_date = query.with_entities(
@@ -332,8 +332,8 @@ def get_projects_by_registration_date(
     return get_binned_data(binning_attribute='registered_at', query=query, freq=freq)
 
 
-@router.get('/credits_by_issuance_date', response_model=list[dict])
-def get_credits_by_issuance_date(
+@router.get('/credits_by_transaction_date', response_model=list[dict])
+def get_credits_by_transaction_date(
     request: Request,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
     registry: list[Registries] | None = Query(None, description='Registry name'),
@@ -349,8 +349,8 @@ def get_credits_by_issuance_date(
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
     session: Session = Depends(get_session),
 ):
-    """Get aggregated project registration data"""
-    logger.info(f'Getting project registration data: {request.url}')
+    """Get aggregated credit transaction data"""
+    logger.info(f'Getting credit transaction data: {request.url}')
 
     # join Credit with Project on project_id
     query = session.query(Credit).join(Project, Credit.project_id == Project.project_id)
@@ -386,4 +386,4 @@ def get_credits_by_issuance_date(
             query=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
-    return credits_by_issuance_date(query=query, freq=freq)
+    return credits_by_transaction_date(query=query, freq=freq)
