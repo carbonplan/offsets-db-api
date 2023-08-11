@@ -52,22 +52,17 @@ def generate_date_bins(min_value, max_value, freq: typing.Literal['D', 'W', 'M',
         The generated date bins.
     """
     frequency_mapping = {'Y': 'AS', 'M': 'MS', 'W': 'W', 'D': 'D'}
+    min_value, max_value = pd.Timestamp(min_value), pd.Timestamp(max_value)
     date_bins = pd.date_range(
-        start=pd.Timestamp(min_value), end=pd.Timestamp(max_value), freq=frequency_mapping[freq]
+        start=pd.Timestamp(min_value).replace(month=1, day=1),
+        end=pd.Timestamp(max_value).replace(month=12, day=31),
+        freq=frequency_mapping[freq],
+        normalize=True,
     )
 
     # Ensure the last date is included
-    if freq == 'M':
-        end_of_period = (
-            pd.Timestamp(max_value).replace(day=1) + pd.DateOffset(months=1) - pd.DateOffset(days=1)
-        )
-    elif freq == 'Y':
-        end_of_period = pd.Timestamp(max_value).replace(month=12, day=31)
-    else:
-        end_of_period = pd.Timestamp(max_value)
-
-    if len(date_bins) == 0 or date_bins[-1] != end_of_period:
-        date_bins = date_bins.append(pd.DatetimeIndex([end_of_period]))
+    if len(date_bins) == 0 or date_bins[-1] < max_value:
+        date_bins = date_bins.append(pd.DatetimeIndex([max_value.replace(month=12, day=31)]))
 
     return date_bins
 
@@ -229,15 +224,23 @@ def credits_by_issuance_date(*, query, freq='Y'):
     date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq)
 
     # Create conditions for binning
-    conditions = [
-        (
-            and_(
-                Credit.transaction_date >= date_bins[i], Credit.transaction_date < date_bins[i + 1]
-            ),
-            str(date_bins[i].date()),
+    conditions = []
+    # Handle the case of exactly one non-null date bin
+    if len(date_bins) == 1:
+        conditions.append((Credit.transaction_date.isnot(None), str(date_bins[0].date())))
+    else:
+        conditions.extend(
+            [
+                (
+                    and_(
+                        Credit.transaction_date >= date_bins[i],
+                        Credit.transaction_date < date_bins[i + 1],
+                    ),
+                    str(date_bins[i].date()),
+                )
+                for i in range(len(date_bins) - 1)
+            ]
         )
-        for i in range(len(date_bins) - 1)
-    ]
     conditions.append((Credit.transaction_date.is_(None), 'null'))
 
     # Define the binned attribute
@@ -334,26 +337,16 @@ def get_credits_by_issuance_date(
     request: Request,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
     registry: list[Registries] | None = Query(None, description='Registry name'),
-    country: list[str] | None = Query(None, description='Country name'),
-    protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
     is_arb: bool | None = Query(None, description='Whether project is an ARB project'),
-    registered_at_from: datetime.date
+    transaction_type: list[str] | None = Query(None, description='Transaction type'),
+    vintage: list[int] | None = Query(None, description='Vintage'),
+    transaction_date_from: datetime.date
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
-    registered_at_to: datetime.date
+    transaction_date_to: datetime.date
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
-    started_at_from: datetime.date
-    | datetime.datetime
-    | None = Query(default=None, description='Format: YYYY-MM-DD'),
-    started_at_to: datetime.date
-    | datetime.datetime
-    | None = Query(default=None, description='Format: YYYY-MM-DD'),
-    issued_min: int | None = Query(None, description='Minimum number of issued credits'),
-    issued_max: int | None = Query(None, description='Maximum number of issued credits'),
-    retired_min: int | None = Query(None, description='Minimum number of retired credits'),
-    retired_max: int | None = Query(None, description='Maximum number of retired credits'),
     session: Session = Depends(get_session),
 ):
     """Get aggregated project registration data"""
@@ -362,34 +355,35 @@ def get_credits_by_issuance_date(
     # join Credit with Project on project_id
     query = session.query(Credit).join(Project, Credit.project_id == Project.project_id)
 
-    # Apply filters
-    filterable_attributes = [
-        ('registry', registry, 'ilike'),
-        ('country', country, 'ilike'),
-        ('protocol', protocol, 'ilike'),
-        ('category', category, 'ilike'),
+    # Filters applying 'ilike' operation
+    ilike_filters = [
+        ('registry', registry, 'ilike', Project),
+        ('category', category, 'ilike', Project),
+        ('transaction_type', transaction_type, 'ilike', Credit),
     ]
 
-    for attribute, values, operation in filterable_attributes:
+    for attribute, values, operation, model in ilike_filters:
         query = apply_filters(
-            query=query, model=Project, attribute=attribute, values=values, operation=operation
+            query=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
-    other_filters = [
-        ('is_arb', is_arb, '=='),
-        ('registered_at', registered_at_from, '>='),
-        ('registered_at', registered_at_to, '<='),
-        ('started_at', started_at_from, '>='),
-        ('started_at', started_at_to, '<='),
-        ('issued', issued_min, '>='),
-        ('issued', issued_max, '<='),
-        ('retired', retired_min, '>='),
-        ('retired', retired_max, '<='),
+    # Filter applying '==' operation
+    equal_filters = [('is_arb', is_arb, '==', Project), ('vintage', vintage, '==', Credit)]
+
+    for attribute, values, operation, model in equal_filters:
+        query = apply_filters(
+            query=query, model=model, attribute=attribute, values=values, operation=operation
+        )
+
+    # Filters applying '>=' or '<=' operations
+    date_filters = [
+        ('transaction_date', transaction_date_from, '>=', Credit),
+        ('transaction_date', transaction_date_to, '<=', Credit),
     ]
 
-    for attribute, values, operation in other_filters:
+    for attribute, values, operation, model in date_filters:
         query = apply_filters(
-            query=query, model=Project, attribute=attribute, values=values, operation=operation
+            query=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
     return credits_by_issuance_date(query=query, freq=freq)
