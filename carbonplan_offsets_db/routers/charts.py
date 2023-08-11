@@ -3,7 +3,7 @@ import typing
 
 import pandas as pd
 from fastapi import APIRouter, Depends, Query, Request
-from sqlmodel import Session, and_, case, func, or_, text
+from sqlmodel import Session, and_, case, func, or_
 
 from ..database import get_session
 from ..logging import get_logger
@@ -53,26 +53,33 @@ def get_binned_data(*, query, binning_attribute, freq='Y'):
     attribute = getattr(Project, binning_attribute)
     min_value, max_value = query.with_entities(func.min(attribute), func.max(attribute)).one()
 
+    if min_value is None or max_value is None:
+        logger.info('✅ No data to bin!')
+        return []
+
     date_bins = generate_date_bins(min_value=min_value, max_value=max_value, freq=freq)
 
-    # Create conditions for each bin
-    conditions = [
-        (
-            and_(attribute >= date_bins[i], attribute < date_bins[i + 1]),
-            str(date_bins[i].date()),
+    conditions = []
+    # Handle the case of exactly one non-null date bin
+    if len(date_bins) == 1:
+        conditions.append((attribute.isnot(None), func.concat(date_bins[0].date())))
+
+    # Handle the case of multiple non-null date bins
+    else:
+        conditions.extend(
+            [
+                (
+                    and_(attribute >= date_bins[i], attribute < date_bins[i + 1]),
+                    str(date_bins[i].date()),
+                )
+                for i in range(len(date_bins) - 1)
+            ]
         )
-        for i in range(len(date_bins) - 1)
-    ]
+    # Add condition for null registration dates
+    conditions.append((attribute.is_(None), 'null'))
 
     # Define the binned attribute
-    if conditions:
-        binned_attribute = case(conditions, else_='other').label('bin')
-    elif len(date_bins) == 1:
-        binned_attribute = func.concat(date_bins[0].date()).label(
-            'bin'
-        )  # Use concat to return a string literal
-    else:
-        binned_attribute = text('other')  # Explicitly declare the text literal
+    binned_attribute = case(conditions, else_='other').label('bin')
 
     # Query and format the results
     query = query.with_entities(
@@ -82,7 +89,7 @@ def get_binned_data(*, query, binning_attribute, freq='Y'):
 
     formatted_results = []
     for bin_label, category, value in binned_results:
-        start_date = pd.Timestamp(bin_label) if bin_label != 'other' else None
+        start_date = pd.Timestamp(bin_label) if bin_label not in ['other', 'null'] else None
         end_date = calculate_end_date(start_date, freq).date() if start_date else None
         formatted_results.append(
             ProjectBinnedRegistration(
