@@ -18,43 +18,57 @@ logger = get_logger()
 
 def calculate_end_date(start_date, freq):
     """Calculate the end date based on the start date and frequency."""
-    if freq == 'D':
-        return start_date + pd.DateOffset(days=1)
-    elif freq == 'W':
-        return start_date + pd.DateOffset(weeks=1)
-    elif freq == 'M':
-        return start_date + pd.DateOffset(months=1) - pd.DateOffset(days=1)
-    else:  # freq == 'Y'
-        return start_date + pd.DateOffset(years=1) - pd.DateOffset(days=1)
+
+    offset_mapping = {
+        'D': pd.DateOffset(days=1),
+        'W': pd.DateOffset(weeks=1),
+        'M': pd.DateOffset(months=1),
+        'Y': pd.DateOffset(years=1),
+    }
+
+    end_date = start_date + offset_mapping[freq]
+    if freq in ['M', 'Y']:
+        end_date -= pd.DateOffset(days=1)
+
+    return end_date
 
 
-def generate_date_bins(*, min_value, max_value, freq: typing.Literal['D', 'W', 'M', 'Y']):
-    """Generate date bins with the specified frequency."""
-    start_of_period = pd.Timestamp(min_value)
-    end_of_period = pd.Timestamp(max_value)
-    if freq == 'M':
-        end_of_period = (
-            end_of_period.replace(day=1) + pd.DateOffset(months=1) - pd.DateOffset(days=1)
-        )
-    elif freq == 'Y':
-        start_of_period = start_of_period.replace(month=1, day=1)  # Start of the year
-        end_of_period = end_of_period.replace(month=12, day=31)
+def generate_date_bins(min_value, max_value, freq: typing.Literal['D', 'W', 'M', 'Y']):
+    """
+    Generate date bins with the specified frequency.
 
+    Parameters
+    ----------
+    min_value : datetime.date
+        The minimum date value.
+    max_value : datetime.date
+        The maximum date value.
+    freq : str
+        The frequency for binning. Can be 'D', 'W', 'M', or 'Y'.
+
+    Returns
+    -------
+    pd.DatetimeIndex
+        The generated date bins.
+    """
     frequency_mapping = {'Y': 'AS', 'M': 'MS', 'W': 'W', 'D': 'D'}
-
-    logger.info(
-        f'📅 Binning by date with {freq} frequency, start_period: {start_of_period}, end_of_period: {end_of_period}'
-    )
-
     date_bins = pd.date_range(
-        start=start_of_period, end=end_of_period, freq=frequency_mapping[freq]
+        start=pd.Timestamp(min_value), end=pd.Timestamp(max_value), freq=frequency_mapping[freq]
     )
 
     # Ensure the last date is included
+    if freq == 'M':
+        end_of_period = (
+            pd.Timestamp(max_value).replace(day=1) + pd.DateOffset(months=1) - pd.DateOffset(days=1)
+        )
+    elif freq == 'Y':
+        end_of_period = pd.Timestamp(max_value).replace(month=12, day=31)
+    else:
+        end_of_period = pd.Timestamp(max_value)
+
     if len(date_bins) == 0 or date_bins[-1] != end_of_period:
         date_bins = date_bins.append(pd.DatetimeIndex([end_of_period]))
 
-    logger.info(f'📅 Binning by date with {len(date_bins)} bins...: {date_bins}')
     return date_bins
 
 
