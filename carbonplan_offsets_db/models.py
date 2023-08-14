@@ -139,3 +139,17 @@ class CreditStatsWithPagination(pydantic.BaseModel):
 class ProjectStatsWithPagination(pydantic.BaseModel):
     pagination: Pagination
     data: list[ProjectStats]
+
+
+class ProjectBinnedRegistration(pydantic.BaseModel):
+    start: datetime.date | None
+    end: datetime.date | None
+    category: str | None
+    value: int | None
+
+
+class ProjectBinnedIssuanceTotals(pydantic.BaseModel):
+    start: float | None
+    end: float | None
+    category: str | None
+    value: float | None
