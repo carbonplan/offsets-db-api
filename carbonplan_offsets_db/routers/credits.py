@@ -95,8 +95,6 @@ def get_credits(
     if sort:
         query = apply_sorting(query=query, sort=sort, model=Credit)
 
-    logger.info(request.query_params.multi_items())
-
     total_entries, current_page, total_pages, next_page, results = handle_pagination(
         query=query, current_page=current_page, per_page=per_page, request=request
     )

@@ -33,7 +33,9 @@ def calculate_end_date(start_date, freq):
     return end_date
 
 
-def generate_date_bins(min_value, max_value, freq: typing.Literal['D', 'W', 'M', 'Y']):
+def generate_date_bins(
+    min_value, max_value, freq: typing.Literal['D', 'W', 'M', 'Y'], num_bins: int = None
+):
     """
     Generate date bins with the specified frequency.
 
@@ -45,12 +47,18 @@ def generate_date_bins(min_value, max_value, freq: typing.Literal['D', 'W', 'M',
         The maximum date value.
     freq : str
         The frequency for binning. Can be 'D', 'W', 'M', or 'Y'.
+    num_bins : int
+        The number of bins to generate. If None, bins will be generated based on the frequency.
 
     Returns
     -------
     pd.DatetimeIndex
         The generated date bins.
     """
+
+    if num_bins:
+        # Generate 'num_bins + 1' points and slice off the last one to get exactly 'num_bins' start points
+        return pd.date_range(start=min_value, end=max_value, periods=num_bins + 1)[:-1]
     frequency_mapping = {'Y': 'AS', 'M': 'MS', 'W': 'W', 'D': 'D'}
     min_value, max_value = pd.Timestamp(min_value), pd.Timestamp(max_value)
     date_bins = pd.date_range(
@@ -207,21 +215,35 @@ def get_binned_numeric_data(*, query, binning_attribute):
     return formatted_results
 
 
-def credits_by_transaction_date(*, query, freq='Y'):
+def credits_by_transaction_date(
+    *,
+    query,
+    min_date,
+    max_date,
+    freq: typing.Literal['D', 'W', 'M', 'Y'] = 'Y',
+    num_bins: int = None,
+):
     """Generate binned data based on the transaction date."""
     logger.info('📊 Generating binned data based on transaction date...')
-
-    # Extract the minimum and maximum transaction_date
-    min_date, max_date = query.with_entities(
-        func.min(Credit.transaction_date), func.max(Credit.transaction_date)
-    ).one()
 
     if min_date is None or max_date is None:
         logger.info('✅ No data to bin!')
         return []
 
-    # Generate date bins based on the frequency
-    date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq)
+    if num_bins:
+        date_bins = generate_date_bins(
+            min_value=min_date, max_value=max_date, freq=freq, num_bins=num_bins
+        )
+        logger.info(
+            f'📅 Binning by date with {date_bins} bins... min_value: {min_date}, max_value={max_date}, num_bins={num_bins}'
+        )
+
+    else:
+        # Generate date bins based on the frequency
+        date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq)
+        logger.info(
+            f'📅 Binning by date with {date_bins} bins... min_value: {min_date}, max_value={max_date}, freq={freq}'
+        )
 
     # Create conditions for binning
     conditions = []
@@ -386,4 +408,48 @@ def get_credits_by_transaction_date(
             query=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
-    return credits_by_transaction_date(query=query, freq=freq)
+    # Extract the minimum and maximum transaction_date
+    min_date, max_date = query.with_entities(
+        func.min(Credit.transaction_date), func.max(Credit.transaction_date)
+    ).one()
+
+    return credits_by_transaction_date(query=query, min_date=min_date, max_date=max_date, freq=freq)
+
+
+@router.get('/credits_by_transaction_date/{project_id}', response_model=list[dict])
+def get_credits_by_project_id(
+    project_id: str,
+    num_bins: int = Query(20, description='Number of bins'),
+    session: Session = Depends(get_session),
+):
+    # Join Credit with Project and filter by project_id
+    query = (
+        session.query(Credit)
+        .join(Project, Credit.project_id == Project.project_id)
+        .filter(Project.project_id == project_id)
+    )
+
+    # min_date is between project.registered_at and min(credit.transaction_date)
+    # Query to get project.registered_at
+    query1 = query.with_entities(Project.registered_at)
+    project_registered_at = query1.first()[0] if query1.first() else None
+
+    # Query to get min(Credit.transaction_date)
+    query2 = session.query(func.min(Credit.transaction_date)).filter(
+        Credit.project_id == project_id
+    )
+    min_transaction_date = query2.first()[0] if query2.first() else None
+
+    # Find the minimum date between project_registered_at and min_transaction_date
+    min_date = (
+        min(project_registered_at, min_transaction_date)
+        if project_registered_at and min_transaction_date
+        else project_registered_at or min_transaction_date
+    )
+
+    # Use today's date if the project hasn't wound down yet
+    max_date = datetime.date.today()
+
+    return credits_by_transaction_date(
+        query=query, min_date=min_date, max_date=max_date, freq='D', num_bins=num_bins
+    )
