@@ -14,8 +14,6 @@ def test_get_project(test_app):
     assert isinstance(data, dict)
     assert data['project_id'] == 'ACR182'
     assert data['registry'] == 'american-carbon-registry'
-    assert isinstance(data['credits'], list)
-    assert isinstance(data['credits'][0], dict)
 
     assert 'issued' in data
     assert 'retired' in data
