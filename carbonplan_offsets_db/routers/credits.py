@@ -17,6 +17,7 @@ logger = get_logger()
 @router.get('/', summary='List credits', response_model=CreditWithPagination)
 def get_credits(
     request: Request,
+    project_id: list[str] | None = Query(None, description='Project ID'),
     registry: list[Registries] | None = Query(None, description='Registry name'),
     category: list[str] | None = Query(None, description='Category name'),
     is_arb: bool | None = Query(None, description='Whether project is an ARB project'),
@@ -46,6 +47,12 @@ def get_credits(
 
     # join Credit with Project on project_id
     query = session.query(Credit).join(Project, Credit.project_id == Project.project_id)
+
+    # Filter for project_id
+    if project_id:
+        query = apply_filters(
+            query=query, model=Credit, attribute='project_id', values=project_id, operation='=='
+        )
 
     # Filters applying 'ilike' operation
     ilike_filters = [
@@ -87,6 +94,8 @@ def get_credits(
 
     if sort:
         query = apply_sorting(query=query, sort=sort, model=Credit)
+
+    logger.info(request.query_params.multi_items())
 
     total_entries, current_page, total_pages, next_page, results = handle_pagination(
         query=query, current_page=current_page, per_page=per_page, request=request
