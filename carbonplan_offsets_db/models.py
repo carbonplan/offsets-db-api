@@ -102,7 +102,6 @@ class CreditRead(CreditBase):
 
 class ProjectReadDetails(ProjectRead):
     recorded_at: datetime.datetime
-    credits: list['CreditRead']
 
 
 class ProjectWithPagination(pydantic.BaseModel):
