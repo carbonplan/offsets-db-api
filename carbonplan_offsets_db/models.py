@@ -1,8 +1,8 @@
 import datetime
 
 import pydantic
-from sqlalchemy import BigInteger, Column
-from sqlmodel import Field, Relationship, SQLModel
+from sqlalchemy.dialects import postgresql
+from sqlmodel import BigInteger, Column, Field, Relationship, SQLModel, String
 
 from .schemas import FileCategory, FileStatus, Pagination
 
@@ -32,8 +32,12 @@ class ProjectBase(SQLModel):
     name: str | None = Field(description='Name of the project')
     registry: str = Field(description='Name of the registry')
     proponent: str | None
-    protocol: str | None
-    category: str | None
+    protocol: list[str] | None = Field(
+        description='List of protocols', default=None, sa_column=Column(postgresql.ARRAY(String()))
+    )
+    category: list[str] | None = Field(
+        description='List of categories', default=None, sa_column=Column(postgresql.ARRAY(String()))
+    )
     developer: str | None
     voluntary_status: str | None
     country: str | None
