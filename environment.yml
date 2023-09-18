@@ -20,3 +20,4 @@ dependencies:
   - ujson
   - universal_pathlib
   - uvicorn
+  - fastparquet

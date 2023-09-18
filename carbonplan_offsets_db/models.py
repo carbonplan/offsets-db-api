@@ -2,7 +2,7 @@ import datetime
 
 import pydantic
 from sqlalchemy.dialects import postgresql
-from sqlmodel import BigInteger, Column, Field, Relationship, SQLModel, String
+from sqlmodel import BigInteger, Column, Field, SQLModel, String
 
 from .schemas import FileCategory, FileStatus, Pagination
 
@@ -55,13 +55,6 @@ class ProjectBase(SQLModel):
 class Project(ProjectBase, table=True):
     id: int = Field(default=None, primary_key=True)
 
-    # relationship
-    credits: list['Credit'] = Relationship(
-        sa_relationship_kwargs={
-            'cascade': 'all,delete,delete-orphan',  # Instruct the ORM how to track changes to local objects
-        },
-        back_populates='project',
-    )
     recorded_at: datetime.datetime = Field(
         default_factory=datetime.datetime.now, description='Date project was recorded in database'
     )
@@ -76,10 +69,7 @@ class ProjectRead(ProjectBase):
 
 
 class CreditBase(SQLModel):
-    project_id: str = Field(
-        description='Project id used by registry system',
-        foreign_key='project.project_id',
-    )
+    project_id: str = Field(description='Project id used by registry system')
     quantity: int = Field(description='Number of credits', sa_column=Column(BigInteger()))
     vintage: int | None = Field(description='Vintage year of credits')
     transaction_date: datetime.date | None = Field(description='Date of transaction')
@@ -92,11 +82,6 @@ class Credit(CreditBase, table=True):
     id: int = Field(default=None, primary_key=True)
     recorded_at: datetime.datetime = Field(
         default_factory=datetime.datetime.now, description='Date credit was recorded in database'
-    )
-
-    # relationship
-    project: Project = Relationship(
-        back_populates='credits',
     )
 
 
