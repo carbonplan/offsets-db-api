@@ -57,11 +57,16 @@ def get_credits(
     # Filters applying 'ilike' operation
     ilike_filters = [
         ('registry', registry, 'ilike', Project),
-        ('category', category, 'ilike', Project),
         ('transaction_type', transaction_type, 'ilike', Credit),
     ]
 
     for attribute, values, operation, model in ilike_filters:
+        query = apply_filters(
+            query=query, model=model, attribute=attribute, values=values, operation=operation
+        )
+
+    list_attributes = [('category', category, 'ANY', Project)]
+    for attribute, values, operation, model in list_attributes:
         query = apply_filters(
             query=query, model=model, attribute=attribute, values=values, operation=operation
         )

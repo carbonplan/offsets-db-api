@@ -300,14 +300,15 @@ def get_projects_by_registration_date(
     query = session.query(Project)
 
     # Apply filters
-    filterable_attributes = [
-        ('registry', registry, 'ilike'),
-        ('country', country, 'ilike'),
-        ('protocol', protocol, 'ilike'),
-        ('category', category, 'ilike'),
-    ]
+    filterable_attributes = [('registry', registry, 'ilike'), ('country', country, 'ilike')]
 
     for attribute, values, operation in filterable_attributes:
+        query = apply_filters(
+            query=query, model=Project, attribute=attribute, values=values, operation=operation
+        )
+
+    list_attributes = [('protocol', protocol, 'ANY'), ('category', category, 'ANY')]
+    for attribute, values, operation in list_attributes:
         query = apply_filters(
             query=query, model=Project, attribute=attribute, values=values, operation=operation
         )
@@ -358,11 +359,16 @@ def get_credits_by_transaction_date(
     # Filters applying 'ilike' operation
     ilike_filters = [
         ('registry', registry, 'ilike', Project),
-        ('category', category, 'ilike', Project),
         ('transaction_type', transaction_type, 'ilike', Credit),
     ]
 
     for attribute, values, operation, model in ilike_filters:
+        query = apply_filters(
+            query=query, model=model, attribute=attribute, values=values, operation=operation
+        )
+
+    list_attributes = [('category', category, 'ANY', Project)]
+    for attribute, values, operation, model in list_attributes:
         query = apply_filters(
             query=query, model=model, attribute=attribute, values=values, operation=operation
         )
