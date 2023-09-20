@@ -135,9 +135,11 @@ def get_binned_data(*, query, binning_attribute, freq='Y'):
 
     # Query and format the results
     query = query.with_entities(
-        binned_attribute, Project.category, func.count(Project.project_id).label('value')
+        binned_attribute,
+        func.unnest(Project.category).label('category'),
+        func.count(Project.project_id).label('value'),
     )
-    binned_results = query.group_by('bin', Project.category).all()
+    binned_results = query.group_by('bin', 'category').all()
 
     formatted_results = []
     for bin_label, category, value in binned_results:
@@ -248,8 +250,10 @@ def credits_by_transaction_date(*, query, freq='Y'):
 
     # Query and format the results
     query = query.with_entities(
-        binned_attribute, Project.category, func.sum(Credit.quantity).label('value')
-    ).group_by('bin', Project.category)
+        binned_attribute,
+        func.unnest(Project.category).label('category'),
+        func.sum(Credit.quantity).label('value'),
+    ).group_by('bin', 'category')
 
     binned_results = query.all()
 
