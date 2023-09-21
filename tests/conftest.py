@@ -17,10 +17,23 @@ def test_db_session():
     session.close()
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='module', autouse=True)
 def test_app():
     app = create_application()
     app.dependency_overrides[get_settings] = get_settings_override
 
     with TestClient(app) as test_client:
+        payload = (
+            [
+                {
+                    'url': 's3://carbonplan-share/offsets-db-testing-data/data/processed/latest/verra/transactions.parquet',
+                    'category': 'projects',
+                },
+                {
+                    'url': 's3://carbonplan-share/offsets-db-testing-data/data/processed/latest/verra/transactions.parquet',
+                    'category': 'credits',
+                },
+            ],
+        )
+        test_client.post('/files', json=payload)
         yield test_client
