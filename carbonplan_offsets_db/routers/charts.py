@@ -4,7 +4,7 @@ import typing
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, Query, Request
-from sqlmodel import Session, and_, case, func
+from sqlmodel import Session, and_, case, func, or_
 
 from ..database import get_session
 from ..logging import get_logger
@@ -296,6 +296,11 @@ def get_projects_by_registration_date(
     issued_max: int | None = Query(None, description='Maximum number of issued credits'),
     retired_min: int | None = Query(None, description='Minimum number of retired credits'),
     retired_max: int | None = Query(None, description='Maximum number of retired credits'),
+    search: str
+    | None = Query(
+        None,
+        description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
+    ),
     session: Session = Depends(get_session),
 ):
     """Get aggregated project registration data"""
@@ -334,6 +339,13 @@ def get_projects_by_registration_date(
             query=query, model=Project, attribute=attribute, values=values, operation=operation
         )
 
+    # Handle 'search' filter separately due to its unique logic
+    if search:
+        search_pattern = f'%{search}%'
+        query = query.filter(
+            or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
+        )
+
     return get_binned_data(binning_attribute='registered_at', query=query, freq=freq)
 
 
@@ -342,6 +354,8 @@ def get_credits_by_transaction_date(
     request: Request,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
     registry: list[Registries] | None = Query(None, description='Registry name'),
+    country: list[str] | None = Query(None, description='Country name'),
+    protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
     is_arb: bool | None = Query(None, description='Whether project is an ARB project'),
     transaction_type: list[str] | None = Query(None, description='Transaction type'),
@@ -352,17 +366,25 @@ def get_credits_by_transaction_date(
     transaction_date_to: datetime.date
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    search: str
+    | None = Query(
+        None,
+        description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
+    ),
     session: Session = Depends(get_session),
 ):
     """Get aggregated credit transaction data"""
     logger.info(f'Getting credit transaction data: {request.url}')
 
     # join Credit with Project on project_id
-    query = session.query(Credit).join(Project, Credit.project_id == Project.project_id)
+    query = session.query(Credit).join(
+        Project, Credit.project_id == Project.project_id, isouter=True
+    )
 
     # Filters applying 'ilike' operation
     ilike_filters = [
         ('registry', registry, 'ilike', Project),
+        ('country', country, 'ilike', Project),
         ('transaction_type', transaction_type, 'ilike', Credit),
     ]
 
@@ -371,7 +393,10 @@ def get_credits_by_transaction_date(
             query=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
-    list_attributes = [('category', category, 'ANY', Project)]
+    list_attributes = [
+        ('protocol', protocol, 'ANY', Project),
+        ('category', category, 'ANY', Project),
+    ]
     for attribute, values, operation, model in list_attributes:
         query = apply_filters(
             query=query, model=model, attribute=attribute, values=values, operation=operation
@@ -394,6 +419,13 @@ def get_credits_by_transaction_date(
     for attribute, values, operation, model in date_filters:
         query = apply_filters(
             query=query, model=model, attribute=attribute, values=values, operation=operation
+        )
+
+    # Handle 'search' filter separately due to its unique logic
+    if search:
+        search_pattern = f'%{search}%'
+        query = query.filter(
+            or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
         )
 
     return credits_by_transaction_date(query=query, freq=freq)
