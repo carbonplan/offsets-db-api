@@ -8,12 +8,18 @@ def test_get_project(test_app):
     assert response.status_code == 404
     assert response.json() == {'detail': 'project 123 not found'}
 
-    response = test_app.get('/projects/VCS162')
+    response = test_app.get('/projects')
+    assert response.status_code == 200
+    data = response.json()['data'][0]
+    project_id = data['project_id']
+    registry = data['registry']
+
+    response = test_app.get(f'/projects/{project_id}')
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, dict)
-    assert data['project_id'] == 'VCS162'
-    assert data['registry'] == 'verra'
+    assert data['project_id'] == project_id
+    assert data['registry'] == registry
 
     assert 'issued' in data
     assert 'retired' in data
