@@ -8,19 +8,19 @@ def test_get_project(test_app):
     assert response.status_code == 404
     assert response.json() == {'detail': 'project 123 not found'}
 
-    response = test_app.get('/projects/ACR182')
+    response = test_app.get('/projects/VCS162')
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, dict)
-    assert data['project_id'] == 'ACR182'
-    assert data['registry'] == 'american-carbon-registry'
+    assert data['project_id'] == 'VCS162'
+    assert data['registry'] == 'verra'
 
     assert 'issued' in data
     assert 'retired' in data
 
 
 def test_get_projects(test_app):
-    response = test_app.get('/projects')
+    response = test_app.get('/projects/')
     assert response.status_code == 200
     assert isinstance(response.json()['data'], list)
 

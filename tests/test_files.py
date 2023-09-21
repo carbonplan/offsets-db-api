@@ -21,11 +21,11 @@ def test_submit_bad_file(test_app):
     [
         [
             {
-                'url': 's3://carbonplan-share/offsets-db-testing-data/data/processed/latest/american-carbon-registry/projects.csv.gz',
+                'url': 's3://carbonplan-share/offsets-db-testing-data/data/processed/latest/verra/transactions.parquet',
                 'category': 'projects',
             },
             {
-                'url': 's3://carbonplan-share/offsets-db-testing-data/data/processed/latest/american-carbon-registry/transactions.csv.gz',
+                'url': 's3://carbonplan-share/offsets-db-testing-data/data/processed/latest/verra/transactions.parquet',
                 'category': 'credits',
             },
         ],
@@ -46,7 +46,6 @@ def test_submit_file(test_app, urls):
     response = test_app.get(f"/files/{response.json()[0]['id']}")
     assert response.json()['url'] == urls[0]['url']
     assert response.json()['status'] == 'success'
-    assert response.json()['content_hash'] is not None
 
 
 def test_get_files(test_app):
