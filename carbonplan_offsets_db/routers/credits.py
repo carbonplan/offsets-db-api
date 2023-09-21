@@ -1,8 +1,7 @@
 import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import or_
-from sqlmodel import Session
+from sqlmodel import Session, or_
 
 from ..database import get_session
 from ..logging import get_logger
