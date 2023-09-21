@@ -45,8 +45,10 @@ def get_credits(
     """List credits"""
     logger.info(f'Getting credits: {request.url}')
 
-    # join Credit with Project on project_id
-    query = session.query(Credit).join(Project, Credit.project_id == Project.project_id)
+    #  outter join to get all credits, even if they don't have a project
+    query = session.query(Credit).join(
+        Project, Credit.project_id == Project.project_id, isouter=True
+    )
 
     # Filter for project_id
     if project_id:
@@ -57,11 +59,16 @@ def get_credits(
     # Filters applying 'ilike' operation
     ilike_filters = [
         ('registry', registry, 'ilike', Project),
-        ('category', category, 'ilike', Project),
         ('transaction_type', transaction_type, 'ilike', Credit),
     ]
 
     for attribute, values, operation, model in ilike_filters:
+        query = apply_filters(
+            query=query, model=model, attribute=attribute, values=values, operation=operation
+        )
+
+    list_attributes = [('category', category, 'ANY', Project)]
+    for attribute, values, operation, model in list_attributes:
         query = apply_filters(
             query=query, model=model, attribute=attribute, values=values, operation=operation
         )

@@ -1,7 +1,7 @@
 from urllib.parse import quote
 
 from fastapi import HTTPException, Request
-from sqlalchemy import asc, desc, or_
+from sqlalchemy import and_, asc, desc, or_
 from sqlalchemy.orm import Query
 
 from .models import Credit, CreditStats, Project, ProjectStats
@@ -40,8 +40,20 @@ def apply_filters(
     """
 
     if values is not None:
+        attr_type = getattr(model, attribute).prop.columns[0].type
+        is_array = str(attr_type).startswith('ARRAY')
         # Check if values is a list
         is_list = isinstance(values, list | tuple | set)
+
+        if is_array and is_list:
+            if operation == 'ALL':
+                query = query.filter(
+                    and_(*[getattr(model, attribute).op('@>')(f'{{{v}}}') for v in values])
+                )
+            else:
+                query = query.filter(
+                    or_(*[getattr(model, attribute).op('@>')(f'{{{v}}}') for v in values])
+                )
 
         if operation == 'ilike':
             query = (

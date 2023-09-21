@@ -20,26 +20,6 @@ keys_mapping = {'projects': ['id', 'project_id'], 'credits': ['id', 'transaction
 logger = get_logger()
 
 
-def load_csv_file(file_url: str, **kwargs) -> pd.DataFrame:
-    """
-    Load a CSV file from a URL.
-
-    Parameters
-    ----------
-    file_url : str
-        URL of the file to load.
-    **kwargs : dict
-        Additional keyword arguments to pass to pandas.read_csv.
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame containing the file data.
-    """
-    logger.info(f'📚 Loading file with kwargs: {kwargs}')
-    return pd.read_csv(file_url, **kwargs)
-
-
 def generate_hash(df: pd.DataFrame | str) -> str:
     """
     Generate a SHA256 hash of a DataFrame or string.
@@ -81,7 +61,8 @@ def process_files(*, session: Session, files: list[File]):
                 process_project_records(session=session, model=models[file.category], file=file)
 
                 if file.valid_records_file_url:
-                    df = load_csv_file(file.valid_records_file_url)
+                    logger.info(f'📚 Loading file: {file.valid_records_file_url}')
+                    df = pd.read_parquet(file.valid_records_file_url)
                     valid_ids = df[attribute_names[file.category]].tolist()
                     remove_stale_records(
                         session=session,
@@ -123,7 +104,6 @@ def process_project_records(*, session: Session, model: Project | Credit, file: 
         If there is an error during processing, an exception is raised.
     """
     try:
-        sha_hash = ''
         kwargs = {}
         if file.chunksize is not None and file.chunksize > 0:
             kwargs['chunksize'] = file.chunksize
@@ -132,47 +112,44 @@ def process_project_records(*, session: Session, model: Project | Credit, file: 
 
         batch_size = kwargs['chunksize']
 
-        chunks = load_csv_file(file.url, **kwargs)
+        logger.info(f'📚 Loading file: {file.url}')
+        df = pd.read_parquet(file.url)
         logger.info(f'Processing {file.category} file {file.url}')
-        for df in chunks:
-            if not isinstance(df, pd.DataFrame):
-                raise TypeError(f'Expected a DataFrame, got {type(df)}')
 
-            # Sort columns in ascending order
-            df = df[df.columns.sort_values()]
-            logger.info(f'File chunk has {len(df)} rows')
-            # Convert NaN values to None and convert dataframe to a list of dicts
-            records = df.replace({np.nan: None}).to_dict('records')
-            logger.debug(f'Found {len(records)} records in file chunk')
+        # Sort columns in ascending order
+        df = df[df.columns.sort_values()]
+        logger.info(f'File chunk has {len(df)} rows')
+        # Convert NaN values to None and convert dataframe to a list of dicts
+        records = df.replace({np.nan: None}).to_dict('records')
+        logger.debug(f'Found {len(records)} records in file chunk')
 
-            existing_records = find_existing_records(
+        existing_records = find_existing_records(
+            session=session,
+            model=model,
+            attribute_name=attribute_names[file.category],
+            records=records,
+        )
+
+        if existing_records:
+            update_existing_records(
                 session=session,
                 model=model,
-                attribute_name=attribute_names[file.category],
-                records=records,
-            )
-
-            if existing_records:
-                update_existing_records(
-                    session=session,
-                    model=model,
-                    existing_records=existing_records,
-                    records=records,
-                    attribute_name=attribute_names[file.category],
-                    keys=keys_mapping[file.category],
-                    batch_size=batch_size,
-                )
-
-            if new_records := find_new_records(
                 existing_records=existing_records,
                 records=records,
                 attribute_name=attribute_names[file.category],
-            ):
-                insert_new_records(
-                    session=session, model=model, new_records=new_records, batch_size=batch_size
-                )
-            sha_hash += generate_hash(df)
-        sha = generate_hash(sha_hash)
+                keys=keys_mapping[file.category],
+                batch_size=batch_size,
+            )
+
+        if new_records := find_new_records(
+            existing_records=existing_records,
+            records=records,
+            attribute_name=attribute_names[file.category],
+        ):
+            insert_new_records(
+                session=session, model=model, new_records=new_records, batch_size=batch_size
+            )
+        sha = generate_hash(df)
         update_file_status(session=session, file=file, content_sha=sha)
 
     except Exception as exc:
