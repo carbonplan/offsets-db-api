@@ -45,8 +45,10 @@ def get_credits(
     """List credits"""
     logger.info(f'Getting credits: {request.url}')
 
-    # join Credit with Project on project_id
-    query = session.query(Credit).join(Project, Credit.project_id == Project.project_id)
+    #  outter join to get all credits, even if they don't have a project
+    query = session.query(Credit).join(
+        Project, Credit.project_id == Project.project_id, isouter=True
+    )
 
     # Filter for project_id
     if project_id:
