@@ -342,6 +342,8 @@ def get_credits_by_transaction_date(
     request: Request,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
     registry: list[Registries] | None = Query(None, description='Registry name'),
+    country: list[str] | None = Query(None, description='Country name'),
+    protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
     is_arb: bool | None = Query(None, description='Whether project is an ARB project'),
     transaction_type: list[str] | None = Query(None, description='Transaction type'),
@@ -358,11 +360,14 @@ def get_credits_by_transaction_date(
     logger.info(f'Getting credit transaction data: {request.url}')
 
     # join Credit with Project on project_id
-    query = session.query(Credit).join(Project, Credit.project_id == Project.project_id)
+    query = session.query(Credit).join(
+        Project, Credit.project_id == Project.project_id, isouter=True
+    )
 
     # Filters applying 'ilike' operation
     ilike_filters = [
         ('registry', registry, 'ilike', Project),
+        ('country', country, 'ilike', Project),
         ('transaction_type', transaction_type, 'ilike', Credit),
     ]
 
@@ -371,7 +376,10 @@ def get_credits_by_transaction_date(
             query=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
-    list_attributes = [('category', category, 'ANY', Project)]
+    list_attributes = [
+        ('protocol', protocol, 'ANY', Project),
+        ('category', category, 'ANY', Project),
+    ]
     for attribute, values, operation, model in list_attributes:
         query = apply_filters(
             query=query, model=model, attribute=attribute, values=values, operation=operation
