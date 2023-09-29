@@ -16,6 +16,22 @@ router = APIRouter()
 logger = get_logger()
 
 
+def remove_duplicates(binned_results):
+    seen = set()
+    unique_results = []
+
+    for result in binned_results:
+        # Convert the result to a tuple and add it to the set
+        result_tuple = (result['bin'], result['category'], result['value'])
+
+        # Check if the tuple is in the set (i.e., if it's a duplicate)
+        if result_tuple not in seen:
+            seen.add(result_tuple)
+            unique_results.append(result)
+
+    return unique_results
+
+
 def calculate_end_date(start_date, freq):
     """Calculate the end date based on the start date and frequency."""
 
@@ -278,6 +294,7 @@ def credits_by_transaction_date(
     ).group_by('bin', 'category')
 
     binned_results = query.all()
+    binned_results = remove_duplicates(binned_results)
 
     formatted_results = []
     for bin_label, category, value in binned_results:
@@ -450,4 +467,50 @@ def get_credits_by_transaction_date(
             or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
         )
 
-    return credits_by_transaction_date(query=query, freq=freq)
+    # Extract the minimum and maximum transaction_date
+    min_date, max_date = query.with_entities(
+        func.min(Credit.transaction_date), func.max(Credit.transaction_date)
+    ).one()
+    return credits_by_transaction_date(query=query, freq=freq, min_date=min_date, max_date=max_date)
+
+
+@router.get('/credits_by_transaction_date/{project_id}', response_model=list[dict])
+def get_credits_by_project_id(
+    project_id: str,
+    num_bins: int = Query(20, description='Number of bins'),
+    session: Session = Depends(get_session),
+):
+    # Join Credit with Project and filter by project_id
+    query = (
+        session.query(Credit)
+        .join(Project, Credit.project_id == Project.project_id)
+        .filter(Project.project_id == project_id)
+    )
+
+    # min_date is between project.registered_at and min(credit.transaction_date)
+    # Query to get project.registered_at
+    query1 = query.with_entities(Project.registered_at)
+    project_registered_at = query1.first()[0] if query1.first() else None
+
+    # Query to get min(Credit.transaction_date)
+    query2 = session.query(func.min(Credit.transaction_date)).filter(
+        Credit.project_id == project_id
+    )
+    min_transaction_date = query2.first()[0] if query2.first() else None
+
+    # Find the minimum date between project_registered_at and min_transaction_date
+    if project_registered_at is None and min_transaction_date is None:
+        min_date = datetime.datetime.strptime('1990-01-01', '%Y-%m-%d').date()
+    elif project_registered_at and min_transaction_date:
+        min_date = min(project_registered_at, min_transaction_date)
+    elif project_registered_at is None:
+        min_date = min_transaction_date
+    else:
+        min_date = project_registered_at
+
+    # Use today's date if the project hasn't wound down yet
+    max_date = datetime.date.today()
+
+    return credits_by_transaction_date(
+        query=query, min_date=min_date, max_date=max_date, freq='D', num_bins=num_bins
+    )
