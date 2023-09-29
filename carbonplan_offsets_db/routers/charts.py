@@ -477,6 +477,14 @@ def get_credits_by_transaction_date(
 @router.get('/credits_by_transaction_date/{project_id}', response_model=list[dict])
 def get_credits_by_project_id(
     project_id: str,
+    transaction_type: list[str] | None = Query(None, description='Transaction type'),
+    vintage: list[int] | None = Query(None, description='Vintage'),
+    transaction_date_from: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    transaction_date_to: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
     num_bins: int = Query(20, description='Number of bins'),
     session: Session = Depends(get_session),
 ):
@@ -487,6 +495,36 @@ def get_credits_by_project_id(
         .filter(Project.project_id == project_id)
     )
 
+    # Filters applying 'ilike' operation
+    ilike_filters = [
+        ('transaction_type', transaction_type, 'ilike', Credit),
+    ]
+
+    for attribute, values, operation, model in ilike_filters:
+        query = apply_filters(
+            query=query, model=model, attribute=attribute, values=values, operation=operation
+        )
+
+    # Filters applying '>=' or '<=' operations
+    date_filters = [
+        ('transaction_date', transaction_date_from, '>=', Credit),
+        ('transaction_date', transaction_date_to, '<=', Credit),
+    ]
+
+    for attribute, values, operation, model in date_filters:
+        query = apply_filters(
+            query=query, model=model, attribute=attribute, values=values, operation=operation
+        )
+
+    # Filter applying '==' operation
+    equal_filters = [('vintage', vintage, '==', Credit)]
+
+    for attribute, values, operation, model in equal_filters:
+        query = apply_filters(
+            query=query, model=model, attribute=attribute, values=values, operation=operation
+        )
+    # TODO: revisit this once we have reliable `listed_at`
+    # ref: https://github.com/carbonplan/offsets-db/issues/31#issuecomment-1707434158
     # min_date is between project.registered_at and min(credit.transaction_date)
     # Query to get project.registered_at
     query1 = query.with_entities(Project.registered_at)
