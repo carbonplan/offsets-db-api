@@ -67,11 +67,15 @@ def get_projects(
     filterable_attributes = [
         ('registry', registry, 'ilike'),
         ('country', country, 'ilike'),
-        ('protocol', protocol, 'ilike'),
-        ('category', category, 'ilike'),
     ]
 
     for attribute, values, operation in filterable_attributes:
+        query = apply_filters(
+            query=query, model=Project, attribute=attribute, values=values, operation=operation
+        )
+
+    list_attributes = [('protocol', protocol, 'ANY'), ('category', category, 'ANY')]
+    for attribute, values, operation in list_attributes:
         query = apply_filters(
             query=query, model=Project, attribute=attribute, values=values, operation=operation
         )

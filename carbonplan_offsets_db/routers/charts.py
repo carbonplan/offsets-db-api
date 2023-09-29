@@ -4,7 +4,7 @@ import typing
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, Query, Request
-from sqlmodel import Session, and_, case, func
+from sqlmodel import Session, and_, case, func, or_
 
 from ..database import get_session
 from ..logging import get_logger
@@ -143,9 +143,11 @@ def get_binned_data(*, query, binning_attribute, freq='Y'):
 
     # Query and format the results
     query = query.with_entities(
-        binned_attribute, Project.category, func.count(Project.project_id).label('value')
+        binned_attribute,
+        func.unnest(Project.category).label('category'),
+        func.count(Project.project_id).label('value'),
     )
-    binned_results = query.group_by('bin', Project.category).all()
+    binned_results = query.group_by('bin', 'category').all()
 
     formatted_results = []
     for bin_label, category, value in binned_results:
@@ -270,8 +272,10 @@ def credits_by_transaction_date(
 
     # Query and format the results
     query = query.with_entities(
-        binned_attribute, Project.category, func.sum(Credit.quantity).label('value')
-    ).group_by('bin', Project.category)
+        binned_attribute,
+        func.unnest(Project.category).label('category'),
+        func.sum(Credit.quantity).label('value'),
+    ).group_by('bin', 'category')
 
     binned_results = query.all()
 
@@ -314,6 +318,11 @@ def get_projects_by_registration_date(
     issued_max: int | None = Query(None, description='Maximum number of issued credits'),
     retired_min: int | None = Query(None, description='Minimum number of retired credits'),
     retired_max: int | None = Query(None, description='Maximum number of retired credits'),
+    search: str
+    | None = Query(
+        None,
+        description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
+    ),
     session: Session = Depends(get_session),
 ):
     """Get aggregated project registration data"""
@@ -322,14 +331,15 @@ def get_projects_by_registration_date(
     query = session.query(Project)
 
     # Apply filters
-    filterable_attributes = [
-        ('registry', registry, 'ilike'),
-        ('country', country, 'ilike'),
-        ('protocol', protocol, 'ilike'),
-        ('category', category, 'ilike'),
-    ]
+    filterable_attributes = [('registry', registry, 'ilike'), ('country', country, 'ilike')]
 
     for attribute, values, operation in filterable_attributes:
+        query = apply_filters(
+            query=query, model=Project, attribute=attribute, values=values, operation=operation
+        )
+
+    list_attributes = [('protocol', protocol, 'ANY'), ('category', category, 'ANY')]
+    for attribute, values, operation in list_attributes:
         query = apply_filters(
             query=query, model=Project, attribute=attribute, values=values, operation=operation
         )
@@ -351,6 +361,13 @@ def get_projects_by_registration_date(
             query=query, model=Project, attribute=attribute, values=values, operation=operation
         )
 
+    # Handle 'search' filter separately due to its unique logic
+    if search:
+        search_pattern = f'%{search}%'
+        query = query.filter(
+            or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
+        )
+
     return get_binned_data(binning_attribute='registered_at', query=query, freq=freq)
 
 
@@ -359,6 +376,8 @@ def get_credits_by_transaction_date(
     request: Request,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
     registry: list[Registries] | None = Query(None, description='Registry name'),
+    country: list[str] | None = Query(None, description='Country name'),
+    protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
     is_arb: bool | None = Query(None, description='Whether project is an ARB project'),
     transaction_type: list[str] | None = Query(None, description='Transaction type'),
@@ -369,22 +388,38 @@ def get_credits_by_transaction_date(
     transaction_date_to: datetime.date
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    search: str
+    | None = Query(
+        None,
+        description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
+    ),
     session: Session = Depends(get_session),
 ):
     """Get aggregated credit transaction data"""
     logger.info(f'Getting credit transaction data: {request.url}')
 
     # join Credit with Project on project_id
-    query = session.query(Credit).join(Project, Credit.project_id == Project.project_id)
+    query = session.query(Credit).join(
+        Project, Credit.project_id == Project.project_id, isouter=True
+    )
 
     # Filters applying 'ilike' operation
     ilike_filters = [
         ('registry', registry, 'ilike', Project),
-        ('category', category, 'ilike', Project),
+        ('country', country, 'ilike', Project),
         ('transaction_type', transaction_type, 'ilike', Credit),
     ]
 
     for attribute, values, operation, model in ilike_filters:
+        query = apply_filters(
+            query=query, model=model, attribute=attribute, values=values, operation=operation
+        )
+
+    list_attributes = [
+        ('protocol', protocol, 'ANY', Project),
+        ('category', category, 'ANY', Project),
+    ]
+    for attribute, values, operation, model in list_attributes:
         query = apply_filters(
             query=query, model=model, attribute=attribute, values=values, operation=operation
         )
@@ -408,48 +443,11 @@ def get_credits_by_transaction_date(
             query=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
-    # Extract the minimum and maximum transaction_date
-    min_date, max_date = query.with_entities(
-        func.min(Credit.transaction_date), func.max(Credit.transaction_date)
-    ).one()
+    # Handle 'search' filter separately due to its unique logic
+    if search:
+        search_pattern = f'%{search}%'
+        query = query.filter(
+            or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
+        )
 
-    return credits_by_transaction_date(query=query, min_date=min_date, max_date=max_date, freq=freq)
-
-
-@router.get('/credits_by_transaction_date/{project_id}', response_model=list[dict])
-def get_credits_by_project_id(
-    project_id: str,
-    num_bins: int = Query(20, description='Number of bins'),
-    session: Session = Depends(get_session),
-):
-    # Join Credit with Project and filter by project_id
-    query = (
-        session.query(Credit)
-        .join(Project, Credit.project_id == Project.project_id)
-        .filter(Project.project_id == project_id)
-    )
-
-    # min_date is between project.registered_at and min(credit.transaction_date)
-    # Query to get project.registered_at
-    query1 = query.with_entities(Project.registered_at)
-    project_registered_at = query1.first()[0] if query1.first() else None
-
-    # Query to get min(Credit.transaction_date)
-    query2 = session.query(func.min(Credit.transaction_date)).filter(
-        Credit.project_id == project_id
-    )
-    min_transaction_date = query2.first()[0] if query2.first() else None
-
-    # Find the minimum date between project_registered_at and min_transaction_date
-    min_date = (
-        min(project_registered_at, min_transaction_date)
-        if project_registered_at and min_transaction_date
-        else project_registered_at or min_transaction_date
-    )
-
-    # Use today's date if the project hasn't wound down yet
-    max_date = datetime.date.today()
-
-    return credits_by_transaction_date(
-        query=query, min_date=min_date, max_date=max_date, freq='D', num_bins=num_bins
-    )
+    return credits_by_transaction_date(query=query, freq=freq)

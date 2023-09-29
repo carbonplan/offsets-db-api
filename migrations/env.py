@@ -8,9 +8,9 @@ from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
 from carbonplan_offsets_db.models import (  # (be sure to import all models you need migrated)
+    Credit,
     File,
     Project,
-    Credit,
 )
 from carbonplan_offsets_db.settings import get_settings
 

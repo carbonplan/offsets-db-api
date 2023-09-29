@@ -38,10 +38,10 @@ def test_process_project_records_calls_load_csv_file_with_correct_url(mock_sessi
 
     df = pd.DataFrame([project.dict() for project in generate_mock_projects()])
 
-    with patch('carbonplan_offsets_db.tasks.load_csv_file') as mock_load_csv_file:
-        # Mock the return value of load_csv_file
-        # Instead of returning a single buffer, we return a list of buffers, each representing a chunk of the file
-        mock_load_csv_file.return_value = iter([df])
+    with patch('pandas.read_parquet') as mock_read_parquet:
+        # Mock the return value of pd.read_parquet
+        # return dataframe
+        mock_read_parquet.return_value = df
 
         # Call process_project_records function with the mocked objects
         process_project_records(
@@ -50,8 +50,8 @@ def test_process_project_records_calls_load_csv_file_with_correct_url(mock_sessi
             model=Project,
         )
 
-        # Assert that load_csv_file was called with the correct URL
-        mock_load_csv_file.assert_called_once_with(project_file.url, chunksize=10_000)
+        # Assert that read_parquet was called with the correct URL
+        mock_read_parquet.assert_called_once_with(project_file.url)
 
 
 def test_process_files_calls_process_project_records_with_correct_args_for_project_files(
@@ -137,10 +137,10 @@ def generate_mock_file(file_id=1, file_url='http://example.com/file.csv'):
     )
 
 
-@patch('carbonplan_offsets_db.tasks.load_csv_file')
-def test_insert(mock_load_csv_file, mock_session):
+@patch('pandas.read_parquet')
+def test_insert(mock_read_parquet, mock_session):
     df = pd.DataFrame([project.dict() for project in generate_mock_projects()])
-    mock_load_csv_file.return_value = iter([df])  # Set your mocked dataframe
+    mock_read_parquet.return_value = df  # Set your mocked dataframe
 
     # Mock the database query result with no existing records
     mock_session.exec.return_value.all.return_value = []
@@ -160,13 +160,12 @@ def test_insert(mock_load_csv_file, mock_session):
     assert file.content_hash is not None  # The file content hash should be set
 
 
-@patch('carbonplan_offsets_db.tasks.load_csv_file')
-def test_update(mock_load_csv_file, mock_session):
+@patch('pandas.read_parquet')
+def test_update(mock_read_parquet, mock_session):
     df = pd.DataFrame([project.dict() for project in generate_mock_projects()])
     # add dummy updated values to the dataframe
     df['recorded_at'] = '2021-01-01'
-    mock_load_csv_file.return_value = iter([df])  # Set your mocked dataframe
-
+    mock_read_parquet.return_value = df
     # Mock the database query result with existing records
     mock_session.exec.return_value.all.return_value = generate_mock_projects()
 
