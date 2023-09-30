@@ -17,7 +17,7 @@ def test_db_session():
     session.close()
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope='session', autouse=True)
 def test_app():
     app = create_application()
     app.dependency_overrides[get_settings] = get_settings_override
