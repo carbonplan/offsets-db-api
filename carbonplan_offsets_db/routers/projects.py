@@ -63,39 +63,25 @@ def get_projects(
 
     query = session.query(Project)
 
-    # Filters applying 'ilike' operation
-    filterable_attributes = [
-        ('registry', registry, 'ilike'),
-        ('country', country, 'ilike'),
-    ]
-
-    for attribute, values, operation in filterable_attributes:
-        query = apply_filters(
-            query=query, model=Project, attribute=attribute, values=values, operation=operation
-        )
-
-    list_attributes = [('protocol', protocol, 'ANY'), ('category', category, 'ANY')]
-    for attribute, values, operation in list_attributes:
-        query = apply_filters(
-            query=query, model=Project, attribute=attribute, values=values, operation=operation
-        )
-
-    # Filters applying '==', '>=', or '<=' operations
-    other_filters = [
+    filters = [
+        ('registry', registry, 'ilike', Project),
+        ('country', country, 'ilike', Project),
+        ('protocol', protocol, 'ANY', Project),
+        ('category', category, 'ANY', Project),
         ('is_arb', is_arb, '=='),
-        ('registered_at', registered_at_from, '>='),
-        ('registered_at', registered_at_to, '<='),
-        ('started_at', started_at_from, '>='),
-        ('started_at', started_at_to, '<='),
-        ('issued', issued_min, '>='),
-        ('issued', issued_max, '<='),
-        ('retired', retired_min, '>='),
-        ('retired', retired_max, '<='),
+        ('registered_at', registered_at_from, '>=', Project),
+        ('registered_at', registered_at_to, '<=', Project),
+        ('started_at', started_at_from, '>=', Project),
+        ('started_at', started_at_to, '<=', Project),
+        ('issued', issued_min, '>=', Project),
+        ('issued', issued_max, '<=', Project),
+        ('retired', retired_min, '>=', Project),
+        ('retired', retired_max, '<=', Project),
     ]
 
-    for attribute, values, operation in other_filters:
+    for attribute, values, operation, model in filters:
         query = apply_filters(
-            query=query, model=Project, attribute=attribute, values=values, operation=operation
+            query=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
     # Handle 'search' filter separately due to its unique logic
@@ -169,22 +155,15 @@ def get_project_stats(
 
     query = session.query(ProjectStats)
 
-    # Filters applying 'ilike' operation
-    filterable_attributes = [
-        ('registry', registry, 'ilike'),
+    filters = [
+        ('registry', registry, 'ilike', ProjectStats),
+        ('date', date_from, '>=', ProjectStats),
+        ('date', date_to, '<=', ProjectStats),
     ]
 
-    for attribute, values, operation in filterable_attributes:
+    for attribute, values, operation, model in filters:
         query = apply_filters(
-            query=query, model=ProjectStats, attribute=attribute, values=values, operation=operation
-        )
-
-    # Filters applying '>=', or '<=' operations
-    other_filters = [('date', date_from, '>='), ('date', date_to, '<=')]
-
-    for attribute, values, operation in other_filters:
-        query = apply_filters(
-            query=query, model=ProjectStats, attribute=attribute, values=values, operation=operation
+            query=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
     if sort:

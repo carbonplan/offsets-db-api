@@ -49,44 +49,22 @@ def get_credits(
         Project, Credit.project_id == Project.project_id, isouter=True
     )
 
-    # Filter for project_id
-    if project_id:
-        query = apply_filters(
-            query=query, model=Credit, attribute='project_id', values=project_id, operation='=='
-        )
-
-    # Filters applying 'ilike' operation
-    ilike_filters = [
+    filters = [
         ('registry', registry, 'ilike', Project),
         ('transaction_type', transaction_type, 'ilike', Credit),
-    ]
-
-    for attribute, values, operation, model in ilike_filters:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
-        )
-
-    list_attributes = [('category', category, 'ANY', Project)]
-    for attribute, values, operation, model in list_attributes:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
-        )
-
-    # Filter applying '==' operation
-    equal_filters = [('is_arb', is_arb, '==', Project), ('vintage', vintage, '==', Credit)]
-
-    for attribute, values, operation, model in equal_filters:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
-        )
-
-    # Filters applying '>=' or '<=' operations
-    date_filters = [
+        ('category', category, 'ANY', Project),
+        ('is_arb', is_arb, '==', Project),
+        ('vintage', vintage, '==', Credit),
         ('transaction_date', transaction_date_from, '>=', Credit),
         ('transaction_date', transaction_date_to, '<=', Credit),
     ]
 
-    for attribute, values, operation, model in date_filters:
+    # Filter for project_id
+    if project_id:
+        # insert at the beginning of the list to ensure that it is applied first
+        filters.insert(0, ('project_id', project_id, '==', Project))
+
+    for attribute, values, operation, model in filters:
         query = apply_filters(
             query=query, model=model, attribute=attribute, values=values, operation=operation
         )
@@ -142,21 +120,14 @@ def get_credit_stats(
 
     query = session.query(CreditStats)
 
-    # Filters applying 'ilike' operation
-    ilike_filters = [
+    filters = [
         ('registry', registry, 'ilike', CreditStats),
         ('transaction_type', transaction_type, 'ilike', CreditStats),
+        ('date', date_from, '>=', CreditStats),
+        ('date', date_to, '<=', CreditStats),
     ]
 
-    for attribute, values, operation, model in ilike_filters:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
-        )
-
-    # Filters applying '>=' or '<=' operations
-    date_filters = [('date', date_from, '>=', CreditStats), ('date', date_to, '<=', CreditStats)]
-
-    for attribute, values, operation, model in date_filters:
+    for attribute, values, operation, model in filters:
         query = apply_filters(
             query=query, model=model, attribute=attribute, values=values, operation=operation
         )
