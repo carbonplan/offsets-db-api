@@ -16,6 +16,22 @@ router = APIRouter()
 logger = get_logger()
 
 
+def remove_duplicates(binned_results):
+    seen = set()
+    unique_results = []
+
+    for result in binned_results:
+        # Convert the result to a tuple and add it to the set
+        result_tuple = (result['bin'], result['category'], result['value'])
+
+        # Check if the tuple is in the set (i.e., if it's a duplicate)
+        if result_tuple not in seen:
+            seen.add(result_tuple)
+            unique_results.append(result)
+
+    return unique_results
+
+
 def calculate_end_date(start_date, freq):
     """Calculate the end date based on the start date and frequency."""
 
@@ -33,7 +49,9 @@ def calculate_end_date(start_date, freq):
     return end_date
 
 
-def generate_date_bins(min_value, max_value, freq: typing.Literal['D', 'W', 'M', 'Y']):
+def generate_date_bins(
+    min_value, max_value, freq: typing.Literal['D', 'W', 'M', 'Y'], num_bins: int = None
+):
     """
     Generate date bins with the specified frequency.
 
@@ -45,12 +63,18 @@ def generate_date_bins(min_value, max_value, freq: typing.Literal['D', 'W', 'M',
         The maximum date value.
     freq : str
         The frequency for binning. Can be 'D', 'W', 'M', or 'Y'.
+    num_bins : int
+        The number of bins to generate. If None, bins will be generated based on the frequency.
 
     Returns
     -------
     pd.DatetimeIndex
         The generated date bins.
     """
+
+    if num_bins:
+        # Generate 'num_bins + 1' points and slice off the last one to get exactly 'num_bins' start points
+        return pd.date_range(start=min_value, end=max_value, periods=num_bins + 1)[:-1]
     frequency_mapping = {'Y': 'AS', 'M': 'MS', 'W': 'W', 'D': 'D'}
     min_value, max_value = pd.Timestamp(min_value), pd.Timestamp(max_value)
     date_bins = pd.date_range(
@@ -209,21 +233,35 @@ def get_binned_numeric_data(*, query, binning_attribute):
     return formatted_results
 
 
-def credits_by_transaction_date(*, query, freq='Y'):
+def credits_by_transaction_date(
+    *,
+    query,
+    min_date,
+    max_date,
+    freq: typing.Literal['D', 'W', 'M', 'Y'] = 'Y',
+    num_bins: int = None,
+):
     """Generate binned data based on the transaction date."""
     logger.info('📊 Generating binned data based on transaction date...')
-
-    # Extract the minimum and maximum transaction_date
-    min_date, max_date = query.with_entities(
-        func.min(Credit.transaction_date), func.max(Credit.transaction_date)
-    ).one()
 
     if min_date is None or max_date is None:
         logger.info('✅ No data to bin!')
         return []
 
-    # Generate date bins based on the frequency
-    date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq)
+    if num_bins:
+        date_bins = generate_date_bins(
+            min_value=min_date, max_value=max_date, freq=freq, num_bins=num_bins
+        )
+        logger.info(
+            f'📅 Binning by date with {date_bins} bins... min_value: {min_date}, max_value={max_date}, num_bins={num_bins}'
+        )
+
+    else:
+        # Generate date bins based on the frequency
+        date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq)
+        logger.info(
+            f'📅 Binning by date with {date_bins} bins... min_value: {min_date}, max_value={max_date}, freq={freq}'
+        )
 
     # Create conditions for binning
     conditions = []
@@ -256,6 +294,7 @@ def credits_by_transaction_date(*, query, freq='Y'):
     ).group_by('bin', 'category')
 
     binned_results = query.all()
+    binned_results = remove_duplicates(binned_results)
 
     formatted_results = []
     for bin_label, category, value in binned_results:
@@ -308,35 +347,25 @@ def get_projects_by_registration_date(
 
     query = session.query(Project)
 
-    # Apply filters
-    filterable_attributes = [('registry', registry, 'ilike'), ('country', country, 'ilike')]
-
-    for attribute, values, operation in filterable_attributes:
-        query = apply_filters(
-            query=query, model=Project, attribute=attribute, values=values, operation=operation
-        )
-
-    list_attributes = [('protocol', protocol, 'ANY'), ('category', category, 'ANY')]
-    for attribute, values, operation in list_attributes:
-        query = apply_filters(
-            query=query, model=Project, attribute=attribute, values=values, operation=operation
-        )
-
-    other_filters = [
-        ('is_arb', is_arb, '=='),
-        ('registered_at', registered_at_from, '>='),
-        ('registered_at', registered_at_to, '<='),
-        ('started_at', started_at_from, '>='),
-        ('started_at', started_at_to, '<='),
-        ('issued', issued_min, '>='),
-        ('issued', issued_max, '<='),
-        ('retired', retired_min, '>='),
-        ('retired', retired_max, '<='),
+    filters = [
+        ('registry', registry, 'ilike', Project),
+        ('country', country, 'ilike', Project),
+        ('protocol', protocol, 'ANY', Project),
+        ('category', category, 'ANY', Project),
+        ('is_arb', is_arb, '==', Project),
+        ('registered_at', registered_at_from, '>=', Project),
+        ('registered_at', registered_at_to, '<=', Project),
+        ('started_at', started_at_from, '>=', Project),
+        ('started_at', started_at_to, '<=', Project),
+        ('issued', issued_min, '>=', Project),
+        ('issued', issued_max, '<=', Project),
+        ('retired', retired_min, '>=', Project),
+        ('retired', retired_max, '<=', Project),
     ]
 
-    for attribute, values, operation in other_filters:
+    for attribute, values, operation, model in filters:
         query = apply_filters(
-            query=query, model=Project, attribute=attribute, values=values, operation=operation
+            query=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
     # Handle 'search' filter separately due to its unique logic
@@ -381,42 +410,19 @@ def get_credits_by_transaction_date(
         Project, Credit.project_id == Project.project_id, isouter=True
     )
 
-    # Filters applying 'ilike' operation
-    ilike_filters = [
+    filters = [
         ('registry', registry, 'ilike', Project),
         ('country', country, 'ilike', Project),
         ('transaction_type', transaction_type, 'ilike', Credit),
-    ]
-
-    for attribute, values, operation, model in ilike_filters:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
-        )
-
-    list_attributes = [
         ('protocol', protocol, 'ANY', Project),
         ('category', category, 'ANY', Project),
-    ]
-    for attribute, values, operation, model in list_attributes:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
-        )
-
-    # Filter applying '==' operation
-    equal_filters = [('is_arb', is_arb, '==', Project), ('vintage', vintage, '==', Credit)]
-
-    for attribute, values, operation, model in equal_filters:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
-        )
-
-    # Filters applying '>=' or '<=' operations
-    date_filters = [
+        ('is_arb', is_arb, '==', Project),
+        ('vintage', vintage, '==', Credit),
         ('transaction_date', transaction_date_from, '>=', Credit),
         ('transaction_date', transaction_date_to, '<=', Credit),
     ]
 
-    for attribute, values, operation, model in date_filters:
+    for attribute, values, operation, model in filters:
         query = apply_filters(
             query=query, model=model, attribute=attribute, values=values, operation=operation
         )
@@ -428,4 +434,72 @@ def get_credits_by_transaction_date(
             or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
         )
 
-    return credits_by_transaction_date(query=query, freq=freq)
+    # Extract the minimum and maximum transaction_date
+    min_date, max_date = query.with_entities(
+        func.min(Credit.transaction_date), func.max(Credit.transaction_date)
+    ).one()
+    return credits_by_transaction_date(query=query, freq=freq, min_date=min_date, max_date=max_date)
+
+
+@router.get('/credits_by_transaction_date/{project_id}', response_model=list[dict])
+def get_credits_by_project_id(
+    project_id: str,
+    transaction_type: list[str] | None = Query(None, description='Transaction type'),
+    vintage: list[int] | None = Query(None, description='Vintage'),
+    transaction_date_from: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    transaction_date_to: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    num_bins: int = Query(20, description='Number of bins'),
+    session: Session = Depends(get_session),
+):
+    # Join Credit with Project and filter by project_id
+    query = (
+        session.query(Credit)
+        .join(Project, Credit.project_id == Project.project_id)
+        .filter(Project.project_id == project_id)
+    )
+
+    filters = [
+        ('transaction_type', transaction_type, 'ilike', Credit),
+        ('transaction_date', transaction_date_from, '>=', Credit),
+        ('transaction_date', transaction_date_to, '<=', Credit),
+        ('vintage', vintage, '==', Credit),
+    ]
+
+    for attribute, values, operation, model in filters:
+        query = apply_filters(
+            query=query, model=model, attribute=attribute, values=values, operation=operation
+        )
+
+    # TODO: revisit this once we have reliable `listed_at`
+    # ref: https://github.com/carbonplan/offsets-db/issues/31#issuecomment-1707434158
+    # min_date is between project.registered_at and min(credit.transaction_date)
+    # Query to get project.registered_at
+    query1 = query.with_entities(Project.registered_at)
+    project_registered_at = query1.first()[0] if query1.first() else None
+
+    # Query to get min(Credit.transaction_date)
+    query2 = session.query(func.min(Credit.transaction_date)).filter(
+        Credit.project_id == project_id
+    )
+    min_transaction_date = query2.first()[0] if query2.first() else None
+
+    # Find the minimum date between project_registered_at and min_transaction_date
+    if project_registered_at is None and min_transaction_date is None:
+        min_date = datetime.datetime.strptime('1990-01-01', '%Y-%m-%d').date()
+    elif project_registered_at and min_transaction_date:
+        min_date = min(project_registered_at, min_transaction_date)
+    elif project_registered_at is None:
+        min_date = min_transaction_date
+    else:
+        min_date = project_registered_at
+
+    # Use today's date if the project hasn't wound down yet
+    max_date = datetime.date.today()
+
+    return credits_by_transaction_date(
+        query=query, min_date=min_date, max_date=max_date, freq='D', num_bins=num_bins
+    )
