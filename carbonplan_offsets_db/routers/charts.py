@@ -347,35 +347,25 @@ def get_projects_by_registration_date(
 
     query = session.query(Project)
 
-    # Apply filters
-    filterable_attributes = [('registry', registry, 'ilike'), ('country', country, 'ilike')]
-
-    for attribute, values, operation in filterable_attributes:
-        query = apply_filters(
-            query=query, model=Project, attribute=attribute, values=values, operation=operation
-        )
-
-    list_attributes = [('protocol', protocol, 'ANY'), ('category', category, 'ANY')]
-    for attribute, values, operation in list_attributes:
-        query = apply_filters(
-            query=query, model=Project, attribute=attribute, values=values, operation=operation
-        )
-
-    other_filters = [
-        ('is_arb', is_arb, '=='),
-        ('registered_at', registered_at_from, '>='),
-        ('registered_at', registered_at_to, '<='),
-        ('started_at', started_at_from, '>='),
-        ('started_at', started_at_to, '<='),
-        ('issued', issued_min, '>='),
-        ('issued', issued_max, '<='),
-        ('retired', retired_min, '>='),
-        ('retired', retired_max, '<='),
+    filters = [
+        ('registry', registry, 'ilike', Project),
+        ('country', country, 'ilike', Project),
+        ('protocol', protocol, 'ANY', Project),
+        ('category', category, 'ANY', Project),
+        ('is_arb', is_arb, '==', Project),
+        ('registered_at', registered_at_from, '>=', Project),
+        ('registered_at', registered_at_to, '<=', Project),
+        ('started_at', started_at_from, '>=', Project),
+        ('started_at', started_at_to, '<=', Project),
+        ('issued', issued_min, '>=', Project),
+        ('issued', issued_max, '<=', Project),
+        ('retired', retired_min, '>=', Project),
+        ('retired', retired_max, '<=', Project),
     ]
 
-    for attribute, values, operation in other_filters:
+    for attribute, values, operation, model in filters:
         query = apply_filters(
-            query=query, model=Project, attribute=attribute, values=values, operation=operation
+            query=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
     # Handle 'search' filter separately due to its unique logic
@@ -420,42 +410,19 @@ def get_credits_by_transaction_date(
         Project, Credit.project_id == Project.project_id, isouter=True
     )
 
-    # Filters applying 'ilike' operation
-    ilike_filters = [
+    filters = [
         ('registry', registry, 'ilike', Project),
         ('country', country, 'ilike', Project),
         ('transaction_type', transaction_type, 'ilike', Credit),
-    ]
-
-    for attribute, values, operation, model in ilike_filters:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
-        )
-
-    list_attributes = [
         ('protocol', protocol, 'ANY', Project),
         ('category', category, 'ANY', Project),
-    ]
-    for attribute, values, operation, model in list_attributes:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
-        )
-
-    # Filter applying '==' operation
-    equal_filters = [('is_arb', is_arb, '==', Project), ('vintage', vintage, '==', Credit)]
-
-    for attribute, values, operation, model in equal_filters:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
-        )
-
-    # Filters applying '>=' or '<=' operations
-    date_filters = [
+        ('is_arb', is_arb, '==', Project),
+        ('vintage', vintage, '==', Credit),
         ('transaction_date', transaction_date_from, '>=', Credit),
         ('transaction_date', transaction_date_to, '<=', Credit),
     ]
 
-    for attribute, values, operation, model in date_filters:
+    for attribute, values, operation, model in filters:
         query = apply_filters(
             query=query, model=model, attribute=attribute, values=values, operation=operation
         )
@@ -495,34 +462,18 @@ def get_credits_by_project_id(
         .filter(Project.project_id == project_id)
     )
 
-    # Filters applying 'ilike' operation
-    ilike_filters = [
+    filters = [
         ('transaction_type', transaction_type, 'ilike', Credit),
-    ]
-
-    for attribute, values, operation, model in ilike_filters:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
-        )
-
-    # Filters applying '>=' or '<=' operations
-    date_filters = [
         ('transaction_date', transaction_date_from, '>=', Credit),
         ('transaction_date', transaction_date_to, '<=', Credit),
+        ('vintage', vintage, '==', Credit),
     ]
 
-    for attribute, values, operation, model in date_filters:
+    for attribute, values, operation, model in filters:
         query = apply_filters(
             query=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
-    # Filter applying '==' operation
-    equal_filters = [('vintage', vintage, '==', Credit)]
-
-    for attribute, values, operation, model in equal_filters:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
-        )
     # TODO: revisit this once we have reliable `listed_at`
     # ref: https://github.com/carbonplan/offsets-db/issues/31#issuecomment-1707434158
     # min_date is between project.registered_at and min(credit.transaction_date)
