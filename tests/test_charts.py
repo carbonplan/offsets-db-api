@@ -88,10 +88,7 @@ def test_get_credits_by_transaction_date_by_project(
     transaction_date_from,
     transaction_date_to,
 ):
-    response = test_app.get('/projects')
-    assert response.status_code == 200
-    data = response.json()['data'][0]
-    project_id = data['project_id']
+    project_id = 'ART404'
 
     response = test_app.get(
         f'/charts/credits_by_transaction_date/{project_id}/?num_bins={num_bins}&transaction_type={transaction_type}&vintage={vintage}&transaction_date_from={transaction_date_from}&transaction_date_to={transaction_date_to}'
