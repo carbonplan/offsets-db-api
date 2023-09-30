@@ -68,7 +68,7 @@ def get_projects(
         ('country', country, 'ilike', Project),
         ('protocol', protocol, 'ANY', Project),
         ('category', category, 'ANY', Project),
-        ('is_arb', is_arb, '=='),
+        ('is_arb', is_arb, '==', Project),
         ('registered_at', registered_at_from, '>=', Project),
         ('registered_at', registered_at_to, '<=', Project),
         ('started_at', started_at_from, '>=', Project),
