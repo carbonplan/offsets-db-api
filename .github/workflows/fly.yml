@@ -34,7 +34,7 @@ jobs:
 
     if: ${{ (contains(github.event.pull_request.labels.*.name, 'api') && github.event_name == 'pull_request') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to Staging
