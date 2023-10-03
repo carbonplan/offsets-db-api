@@ -503,3 +503,65 @@ def get_credits_by_project_id(
     return credits_by_transaction_date(
         query=query, min_date=min_date, max_date=max_date, freq='D', num_bins=num_bins
     )
+
+
+def projects_by_credit_totals(*, query, min_value, max_value, credit_type):
+    if min_value is None or max_value is None or min_value == max_value == 0:
+        logger.info('✅ No data to bin!')
+        return []
+
+    # Generate global bins using the utility function
+    bins = generate_dynamic_numeric_bins(min_value=min_value, max_value=max_value).tolist()
+    logger.info(f'min: {min_value}, max: {max_value}, bins: {bins}')
+
+    # Handle the case when there's exactly one non-zero value
+    conditions = []
+    if min_value == max_value and min_value != 0:
+        conditions = [(getattr(Project, credit_type) == min_value, str(min_value))]
+    else:
+        conditions = [
+            (
+                getattr(Project, credit_type).between(bins[i], bins[i + 1]),
+                f'{str(bins[i])}-{str(bins[i + 1])}',
+            )
+            for i in range(len(bins) - 1)
+        ]
+
+    binned_attribute = case(conditions, else_='other').label('bin')
+    query = query.with_entities(
+        binned_attribute,
+        func.unnest(Project.category).label('category'),
+        func.sum(getattr(Project, credit_type)).label('count'),
+    )
+
+    binned_results = query.group_by('bin', 'category').all()
+    formatted_results = []
+    for bin_label, category, value in binned_results:
+        start_value = int(bin_label.split('-')[0]) if bin_label not in ['other', 'null'] else None
+        end_value = int(bin_label.split('-')[1]) if bin_label not in ['other', 'null'] else None
+        formatted_results.append(
+            {'start': start_value, 'end': end_value, 'category': category, 'value': value}
+        )
+
+    logger.info(f'✅ {len(formatted_results)} bins generated')
+
+    return formatted_results
+
+
+@router.get('/projects_by_credit_totals')
+def get_projects_by_credit_totals(
+    credit_type: typing.Literal['issued', 'retired'], session: Session = Depends(get_session)
+):
+    """Get aggregated project credit totals"""
+    logger.info(f'📊 Generating projects by {credit_type} totals...')
+
+    # Calculate global min and max based on credit_type
+    global_min = session.query(func.min(getattr(Project, credit_type))).scalar()
+    global_max = session.query(func.max(getattr(Project, credit_type))).scalar()
+
+    return projects_by_credit_totals(
+        query=session.query(Project),
+        min_value=global_min,
+        max_value=global_max,
+        credit_type=credit_type,
+    )
