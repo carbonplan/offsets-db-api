@@ -96,3 +96,40 @@ def test_get_credits_by_transaction_date_by_project(
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
+
+
+@pytest.mark.parametrize('credit_type', ['issued', 'retired'])
+@pytest.mark.parametrize('registry', ['american-carbon-registry', 'climate-action-reserve'])
+@pytest.mark.parametrize('country', ['US', 'CA'])
+@pytest.mark.parametrize('protocol', [None, 'foo'])
+@pytest.mark.parametrize('category', ['other'])
+@pytest.mark.parametrize('started_at_from', ['2020-01-01'])
+@pytest.mark.parametrize('started_at_to', ['2023-01-01'])
+@pytest.mark.parametrize('search', ['foo'])
+@pytest.mark.parametrize('retired_min', [0])
+@pytest.mark.parametrize('retired_max', [100000])
+@pytest.mark.parametrize('issued_min', [0])
+@pytest.mark.parametrize('issued_max', [100000])
+@pytest.mark.parametrize('is_arb', [True, False])
+def test_get_projects_by_credit_totals(
+    test_app,
+    credit_type,
+    registry,
+    country,
+    protocol,
+    category,
+    started_at_from,
+    started_at_to,
+    search,
+    retired_min,
+    retired_max,
+    issued_min,
+    issued_max,
+    is_arb,
+):
+    response = test_app.get(
+        f'/charts/projects_by_credit_totals?credit_type={credit_type}&registry={registry}&country={country}&protocol={protocol}&category={category}&started_at_from={started_at_from}&started_at_to={started_at_to}&search={search}&retired_min={retired_min}&retired_max={retired_max}&issued_min={issued_min}&issued_max={issued_max}&is_arb={is_arb}'
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
