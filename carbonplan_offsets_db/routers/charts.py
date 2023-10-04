@@ -8,7 +8,7 @@ from sqlmodel import Session, and_, case, func, or_
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Credit, Project, ProjectBinnedIssuanceTotals, ProjectBinnedRegistration
+from ..models import Credit, Project, ProjectBinnedCreditsTotals, ProjectBinnedRegistration
 from ..query_helpers import apply_filters
 from ..schemas import Registries
 
@@ -98,26 +98,15 @@ def generate_dynamic_numeric_bins(*, min_value, max_value, bin_width=None):
         return np.array([min_value])
 
     if bin_width is None:
-        # Calculate the range and order of magnitude
         value_range = max_value - min_value
         order_of_magnitude = int(np.floor(np.log10(value_range)))
+        bin_width = 10 ** (order_of_magnitude - 1)
 
-        # Determine the bin width based on the order of magnitude
-        if order_of_magnitude < 2:
-            bin_width = 10  # Tens for very small ranges
-        elif order_of_magnitude < 3:
-            bin_width = 100  # Hundreds for small ranges
-        elif order_of_magnitude < 4:
-            bin_width = 1000  # Thousands for lower moderate ranges
-        elif order_of_magnitude < 5:
-            bin_width = 10000  # Ten thousands for upper moderate ranges
-        elif order_of_magnitude < 6:
-            bin_width = 100000  # Hundred thousands for large ranges
-        else:
-            bin_width = 1000000  # Millions for very large ranges
-
+    # Round min and max to nearest multiple of bin_width
+    rounded_min = np.floor(min_value / bin_width) * bin_width
+    rounded_max = np.ceil(max_value / bin_width) * bin_width
     # Generate evenly spaced values using the determined bin width
-    numeric_bins = np.arange(min_value, max_value + bin_width, bin_width)
+    numeric_bins = np.arange(rounded_min, rounded_max + bin_width, bin_width).astype(int)
 
     logger.info(f'🔢 Binning by numeric value with {len(numeric_bins)} bins, width: {bin_width}...')
     return numeric_bins
@@ -224,12 +213,68 @@ def get_binned_numeric_data(*, query, binning_attribute):
         start_value = float(bin_label) if bin_label not in ['other', 'null'] else None
         end_value = start_value + 1 if start_value else None
         formatted_results.append(
-            ProjectBinnedIssuanceTotals(
+            ProjectBinnedCreditsTotals(
                 start=start_value, end=end_value, category=category, value=value
             )
         )
 
     logger.info('✅ Binned data generated successfully!')
+    return formatted_results
+
+
+def projects_by_credit_totals(
+    *, query, min_value, max_value, credit_type, bin_width=None, categories=None
+):
+    if min_value is None or max_value is None or min_value == max_value == 0:
+        logger.info('✅ No data to bin!')
+        return []
+
+    # Generate global bins using the utility function
+    bins = generate_dynamic_numeric_bins(
+        min_value=min_value, max_value=max_value, bin_width=bin_width
+    ).tolist()
+    logger.info(f'min: {min_value}, max: {max_value}, bins: {bins}')
+
+    # Handle the case when there's exactly one non-zero value
+    conditions = []
+    if min_value == max_value and min_value != 0:
+        conditions = [(getattr(Project, credit_type) == min_value, str(min_value))]
+    else:
+        conditions = [
+            (
+                getattr(Project, credit_type).between(bins[i], bins[i + 1]),
+                f'{str(bins[i])}-{str(bins[i + 1])}',
+            )
+            for i in range(len(bins) - 1)
+        ]
+
+    binned_attribute = case(conditions, else_='other').label('bin')
+    query = query.with_entities(
+        binned_attribute,
+        func.unnest(Project.category).label('category'),
+        func.count(getattr(Project, 'project_id')).label('count'),
+    ).group_by('bin', 'category')
+
+    binned_results = query.all()
+    formatted_results = []
+
+    for bin_label, category, value in binned_results:
+        if categories and category not in categories:
+            continue
+        else:
+            start_value = (
+                int(bin_label.split('-')[0]) if bin_label not in ['other', 'null'] else None
+            )
+            end_value = int(bin_label.split('-')[1]) if bin_label not in ['other', 'null'] else None
+
+            formatted_results.append(
+                ProjectBinnedCreditsTotals(
+                    start=start_value, end=end_value, category=category, value=value
+                )
+            )
+
+    logger.info(f'✅ {len(formatted_results)} bins generated')
+
     return formatted_results
 
 
@@ -240,6 +285,7 @@ def credits_by_transaction_date(
     max_date,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = 'Y',
     num_bins: int = None,
+    categories=None,
 ):
     """Generate binned data based on the transaction date."""
     logger.info('📊 Generating binned data based on transaction date...')
@@ -298,13 +344,16 @@ def credits_by_transaction_date(
 
     formatted_results = []
     for bin_label, category, value in binned_results:
-        start_date = pd.Timestamp(bin_label) if bin_label not in ['other', 'null'] else None
-        end_date = calculate_end_date(start_date, freq).date() if start_date else None
-        formatted_results.append(
-            ProjectBinnedRegistration(
-                start=start_date, end=end_date, category=category, value=value
+        if categories and category not in categories:
+            continue
+        else:
+            start_date = pd.Timestamp(bin_label) if bin_label not in ['other', 'null'] else None
+            end_date = calculate_end_date(start_date, freq).date() if start_date else None
+            formatted_results.append(
+                ProjectBinnedRegistration(
+                    start=start_date, end=end_date, category=category, value=value
+                )
             )
-        )
 
     logger.info('✅ Binned data generated successfully!')
     return formatted_results
@@ -438,7 +487,9 @@ def get_credits_by_transaction_date(
     min_date, max_date = query.with_entities(
         func.min(Credit.transaction_date), func.max(Credit.transaction_date)
     ).one()
-    return credits_by_transaction_date(query=query, freq=freq, min_date=min_date, max_date=max_date)
+    return credits_by_transaction_date(
+        query=query, freq=freq, min_date=min_date, max_date=max_date, categories=category
+    )
 
 
 @router.get('/credits_by_transaction_date/{project_id}', response_model=list[dict])
@@ -503,3 +554,83 @@ def get_credits_by_project_id(
     return credits_by_transaction_date(
         query=query, min_date=min_date, max_date=max_date, freq='D', num_bins=num_bins
     )
+
+
+@router.get('/projects_by_credit_totals', response_model=list[ProjectBinnedCreditsTotals])
+def get_projects_by_credit_totals(
+    credit_type: typing.Literal['issued', 'retired'] = Query('issued', description='Credit type'),
+    registry: list[Registries] | None = Query(None, description='Registry name'),
+    country: list[str] | None = Query(None, description='Country name'),
+    protocol: list[str] | None = Query(None, description='Protocol name'),
+    category: list[str] | None = Query(None, description='Category name'),
+    is_arb: bool | None = Query(None, description='Whether project is an ARB project'),
+    registered_at_from: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    registered_at_to: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    started_at_from: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    started_at_to: datetime.date
+    | datetime.datetime
+    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    issued_min: int | None = Query(None, description='Minimum number of issued credits'),
+    issued_max: int | None = Query(None, description='Maximum number of issued credits'),
+    retired_min: int | None = Query(None, description='Minimum number of retired credits'),
+    retired_max: int | None = Query(None, description='Maximum number of retired credits'),
+    search: str
+    | None = Query(
+        None,
+        description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
+    ),
+    bin_width: int | None = Query(None, description='Bin width'),
+    session: Session = Depends(get_session),
+):
+    """Get aggregated project credit totals"""
+    logger.info(f'📊 Generating projects by {credit_type} totals...')
+
+    query = session.query(Project)
+
+    filters = [
+        ('registry', registry, 'ilike', Project),
+        ('country', country, 'ilike', Project),
+        ('protocol', protocol, 'ANY', Project),
+        ('category', category, 'ANY', Project),
+        ('is_arb', is_arb, '==', Project),
+        ('registered_at', registered_at_from, '>=', Project),
+        ('registered_at', registered_at_to, '<=', Project),
+        ('started_at', started_at_from, '>=', Project),
+        ('started_at', started_at_to, '<=', Project),
+        ('issued', issued_min, '>=', Project),
+        ('issued', issued_max, '<=', Project),
+        ('retired', retired_min, '>=', Project),
+        ('retired', retired_max, '<=', Project),
+    ]
+
+    for attribute, values, operation, model in filters:
+        query = apply_filters(
+            query=query, model=model, attribute=attribute, values=values, operation=operation
+        )
+
+    # Handle 'search' filter separately due to its unique logic
+    if search:
+        search_pattern = f'%{search}%'
+        query = query.filter(
+            or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
+        )
+
+    minimum = query.with_entities(func.min(getattr(Project, credit_type))).scalar()
+    maximum = query.with_entities(func.max(getattr(Project, credit_type))).scalar()
+
+    results = projects_by_credit_totals(
+        query=query,
+        min_value=minimum,
+        max_value=maximum,
+        credit_type=credit_type,
+        bin_width=bin_width,
+        categories=category,
+    )
+
+    return results

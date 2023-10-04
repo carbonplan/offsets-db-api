@@ -136,7 +136,7 @@ class ProjectBinnedRegistration(pydantic.BaseModel):
     value: int | None
 
 
-class ProjectBinnedIssuanceTotals(pydantic.BaseModel):
+class ProjectBinnedCreditsTotals(pydantic.BaseModel):
     start: float | None
     end: float | None
     category: str | None
