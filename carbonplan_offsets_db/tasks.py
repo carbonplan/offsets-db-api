@@ -1,15 +1,13 @@
-import datetime
 import hashlib
 import traceback
 
 import numpy as np
 import pandas as pd
-from sqlalchemy.orm.exc import NoResultFound
-from sqlmodel import Session, delete, func, select
+from sqlmodel import Session, delete, select
 
 from .database import get_session
 from .logging import get_logger
-from .models import Credit, CreditStats, File, Project, ProjectStats
+from .models import Credit, File, Project
 
 # This dictionary maps each file category to the model class that can be used to process the file.
 
@@ -60,17 +58,6 @@ def process_files(*, session: Session, files: list[File]):
             if file.category in models:
                 process_project_records(session=session, model=models[file.category], file=file)
 
-                if file.valid_records_file_url:
-                    logger.info(f'📚 Loading file: {file.valid_records_file_url}')
-                    df = pd.read_parquet(file.valid_records_file_url)
-                    valid_ids = df[attribute_names[file.category]].tolist()
-                    remove_stale_records(
-                        session=session,
-                        model=models[file.category],
-                        attribute_name=attribute_names[file.category],
-                        valid_ids=valid_ids,
-                    )
-
             else:
                 logger.info('Unknown file category: %s. Skipping file %s', file.category, file.url)
 
@@ -104,11 +91,7 @@ def process_project_records(*, session: Session, model: Project | Credit, file: 
         If there is an error during processing, an exception is raised.
     """
     try:
-        kwargs = {}
-        if file.chunksize is not None and file.chunksize > 0:
-            kwargs['chunksize'] = file.chunksize
-        else:
-            kwargs['chunksize'] = 10_000
+        kwargs = {'chunksize': 10_000}
 
         batch_size = kwargs['chunksize']
 
@@ -379,160 +362,3 @@ def calculate_totals(session: Session = None):
 
     finally:
         session.close()
-
-
-def update_project_stats(session: Session = None):
-    date = datetime.date.today()
-    logger.info(f'📅 Updating project stats for {date}...')
-
-    if not session:
-        session = next(get_session())
-
-    project_registry_counts = (
-        session.query(Project.registry, func.count(Project.id)).group_by(Project.registry).all()
-    )
-
-    for registry, total_projects in project_registry_counts:
-        try:
-            project_stats = (
-                session.query(ProjectStats)
-                .filter(ProjectStats.date == date, ProjectStats.registry == registry)
-                .one()
-            )
-
-            logger.info(
-                f'🔄 Updating existing stats for registry {registry} with {total_projects} total projects.'
-            )
-            project_stats.total_projects = total_projects
-        except NoResultFound:
-            logger.info(
-                f'➕ Adding new stats for registry {registry} with {total_projects} total projects.'
-            )
-            project_stats = ProjectStats(
-                date=date, registry=registry, total_projects=total_projects
-            )
-            session.add(project_stats)
-
-    session.commit()
-    logger.info(f'✅ Project stats updated successfully for {date}.')
-
-
-def update_credit_stats(session: Session = None):
-    date = datetime.date.today()
-    logger.info(f'📅 Updating credit stats for {date}...')
-    if not session:
-        session = next(get_session())
-
-    credit_registry_transaction_type_counts = (
-        session.query(
-            Project.registry,
-            Credit.transaction_type,
-            func.sum(Credit.quantity),
-            func.count(Credit.id),
-        )
-        .join(Project, Credit.project_id == Project.project_id)
-        .group_by(Project.registry, Credit.transaction_type)
-        .all()
-    )
-
-    for (
-        registry,
-        transaction_type,
-        total_credits,
-        total_transactions,
-    ) in credit_registry_transaction_type_counts:
-        try:
-            credit_stats = (
-                session.query(CreditStats)
-                .filter(
-                    CreditStats.date == date,
-                    CreditStats.registry == registry,
-                    CreditStats.transaction_type == transaction_type,
-                )
-                .one()
-            )
-
-            logger.info(
-                f'🔄 Updating existing stats for registry {registry}, transaction type {transaction_type} with {total_credits} total credits from {total_transactions} total transactions.'
-            )
-            credit_stats.total_credits = total_credits
-            credit_stats.total_transactions = total_transactions
-        except NoResultFound:
-            logger.info(
-                f'➕ Adding new stats for registry {registry}, transaction type {transaction_type} with {total_credits} total credits from {total_transactions} total transactions.'
-            )
-            credit_stats = CreditStats(
-                date=date,
-                registry=registry,
-                transaction_type=transaction_type,
-                total_credits=total_credits,
-                total_transactions=total_transactions,
-            )
-            session.add(credit_stats)
-
-    session.commit()
-    logger.info(f'✅ Credit stats updated successfully for {date}.')
-
-
-def export_table_to_csv(*, table, path: str, session: Session = None):
-    """
-    Export a table from the database to a CSV file.
-
-    table: pydantic.BaseModel
-        The SQLAlchemy table class of the table to export.
-    path: str
-        The path of the file to which the table should be exported.
-    session: Session
-        An optional SQLAlchemy session. If not provided, a new session will be created.
-    """
-
-    import datetime
-    import gc
-
-    import upath
-
-    today = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d')
-
-    # Create the filepath
-    directory = upath.UPath(path) / today
-    directory.mkdir(parents=True, exist_ok=True)
-    filepath = f'{directory}/{table.__name__.lower()}s.csv.gz'
-
-    # If no session is provided, create a new one
-    if not session:
-        session = next(get_session())
-
-    # Log the start of the operation
-    logger.info(f'🚀 Starting export of table {table.__name__} to {filepath}...')
-
-    # Execute a SELECT * query on the table
-    rows = session.execute(select(table)).fetchall()
-
-    # If fetchall() returns nothing, log the event and return
-    if not rows:
-        logger.info(f'🚧 No data found in table {table.__name__}. No CSV file will be created.')
-        return
-
-    # Convert the result rows to a list of dictionaries
-    rows_as_dicts = [row[0].dict() for row in rows]
-
-    # Create a pandas DataFrame from the list of dictionaries
-    df = pd.DataFrame(rows_as_dicts)
-
-    # Log the first few rows of the DataFrame
-    logger.info(f"👀 Here's a sneak peek of the data:\n{df.head()}")
-
-    # Write the DataFrame to a CSV file
-    df.to_csv(filepath, index=False)
-
-    # Log the completion of the operation
-    logger.info(f'✅ Successfully exported table {table.__name__} to {filepath}!')
-
-    # Delete the DataFrame to free up memory
-    del df
-
-    # Force Python's garbage collector to release unreferenced memory
-    gc.collect()
-
-    # Log the completion of the garbage collection
-    logger.info('🗑️ Garbage collected!')

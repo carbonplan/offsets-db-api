@@ -261,17 +261,14 @@ def projects_by_credit_totals(
     for bin_label, category, value in binned_results:
         if categories and category not in categories:
             continue
-        else:
-            start_value = (
-                int(bin_label.split('-')[0]) if bin_label not in ['other', 'null'] else None
-            )
-            end_value = int(bin_label.split('-')[1]) if bin_label not in ['other', 'null'] else None
+        start_value = int(bin_label.split('-')[0]) if bin_label not in ['other', 'null'] else None
+        end_value = int(bin_label.split('-')[1]) if bin_label not in ['other', 'null'] else None
 
-            formatted_results.append(
-                ProjectBinnedCreditsTotals(
-                    start=start_value, end=end_value, category=category, value=value
-                )
+        formatted_results.append(
+            ProjectBinnedCreditsTotals(
+                start=start_value, end=end_value, category=category, value=value
             )
+        )
 
     logger.info(f'✅ {len(formatted_results)} bins generated')
 
@@ -346,38 +343,31 @@ def credits_by_transaction_date(
     for bin_label, category, value in binned_results:
         if categories and category not in categories:
             continue
-        else:
-            start_date = pd.Timestamp(bin_label) if bin_label not in ['other', 'null'] else None
-            end_date = calculate_end_date(start_date, freq).date() if start_date else None
-            formatted_results.append(
-                ProjectBinnedRegistration(
-                    start=start_date, end=end_date, category=category, value=value
-                )
+        start_date = pd.Timestamp(bin_label) if bin_label not in ['other', 'null'] else None
+        end_date = calculate_end_date(start_date, freq).date() if start_date else None
+        formatted_results.append(
+            ProjectBinnedRegistration(
+                start=start_date, end=end_date, category=category, value=value
             )
+        )
 
     logger.info('✅ Binned data generated successfully!')
     return formatted_results
 
 
-@router.get('/projects_by_registration_date', response_model=list[ProjectBinnedRegistration])
-def get_projects_by_registration_date(
+@router.get('/projects_by_listing_date', response_model=list[ProjectBinnedRegistration])
+def get_projects_by_listing_date(
     request: Request,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
     registry: list[Registries] | None = Query(None, description='Registry name'),
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
-    is_arb: bool | None = Query(None, description='Whether project is an ARB project'),
-    registered_at_from: datetime.date
+    is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
+    listed_at_from: datetime.date
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
-    registered_at_to: datetime.date
-    | datetime.datetime
-    | None = Query(default=None, description='Format: YYYY-MM-DD'),
-    started_at_from: datetime.date
-    | datetime.datetime
-    | None = Query(default=None, description='Format: YYYY-MM-DD'),
-    started_at_to: datetime.date
+    listed_at_to: datetime.date
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
     issued_min: int | None = Query(None, description='Minimum number of issued credits'),
@@ -401,11 +391,9 @@ def get_projects_by_registration_date(
         ('country', country, 'ilike', Project),
         ('protocol', protocol, 'ANY', Project),
         ('category', category, 'ANY', Project),
-        ('is_arb', is_arb, '==', Project),
-        ('registered_at', registered_at_from, '>=', Project),
-        ('registered_at', registered_at_to, '<=', Project),
-        ('started_at', started_at_from, '>=', Project),
-        ('started_at', started_at_to, '<=', Project),
+        ('is_compliance', is_compliance, '==', Project),
+        ('listed_at', listed_at_from, '>=', Project),
+        ('listed_at', listed_at_to, '<=', Project),
         ('issued', issued_min, '>=', Project),
         ('issued', issued_max, '<=', Project),
         ('retired', retired_min, '>=', Project),
@@ -424,7 +412,7 @@ def get_projects_by_registration_date(
             or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
         )
 
-    return get_binned_data(binning_attribute='registered_at', query=query, freq=freq)
+    return get_binned_data(binning_attribute='listed_at', query=query, freq=freq)
 
 
 @router.get('/credits_by_transaction_date', response_model=list[dict])
@@ -435,7 +423,7 @@ def get_credits_by_transaction_date(
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
-    is_arb: bool | None = Query(None, description='Whether project is an ARB project'),
+    is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
     transaction_type: list[str] | None = Query(None, description='Transaction type'),
     vintage: list[int] | None = Query(None, description='Vintage'),
     transaction_date_from: datetime.date
@@ -465,7 +453,7 @@ def get_credits_by_transaction_date(
         ('transaction_type', transaction_type, 'ilike', Credit),
         ('protocol', protocol, 'ANY', Project),
         ('category', category, 'ANY', Project),
-        ('is_arb', is_arb, '==', Project),
+        ('is_compliance', is_compliance, '==', Project),
         ('vintage', vintage, '==', Credit),
         ('transaction_date', transaction_date_from, '>=', Credit),
         ('transaction_date', transaction_date_to, '<=', Credit),
@@ -527,10 +515,10 @@ def get_credits_by_project_id(
 
     # TODO: revisit this once we have reliable `listed_at`
     # ref: https://github.com/carbonplan/offsets-db/issues/31#issuecomment-1707434158
-    # min_date is between project.registered_at and min(credit.transaction_date)
-    # Query to get project.registered_at
-    query1 = query.with_entities(Project.registered_at)
-    project_registered_at = query1.first()[0] if query1.first() else None
+    # min_date is between project.listed_at and min(credit.transaction_date)
+    # Query to get project.listed_at
+    query1 = query.with_entities(Project.listed_at)
+    project_listed_at = query1.first()[0] if query1.first() else None
 
     # Query to get min(Credit.transaction_date)
     query2 = session.query(func.min(Credit.transaction_date)).filter(
@@ -538,15 +526,15 @@ def get_credits_by_project_id(
     )
     min_transaction_date = query2.first()[0] if query2.first() else None
 
-    # Find the minimum date between project_registered_at and min_transaction_date
-    if project_registered_at is None and min_transaction_date is None:
+    # Find the minimum date between project_listed_at and min_transaction_date
+    if project_listed_at is None and min_transaction_date is None:
         min_date = datetime.datetime.strptime('1990-01-01', '%Y-%m-%d').date()
-    elif project_registered_at and min_transaction_date:
-        min_date = min(project_registered_at, min_transaction_date)
-    elif project_registered_at is None:
+    elif project_listed_at and min_transaction_date:
+        min_date = min(project_listed_at, min_transaction_date)
+    elif project_listed_at is None:
         min_date = min_transaction_date
     else:
-        min_date = project_registered_at
+        min_date = project_listed_at
 
     # Use today's date if the project hasn't wound down yet
     max_date = datetime.date.today()
@@ -563,11 +551,11 @@ def get_projects_by_credit_totals(
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
-    is_arb: bool | None = Query(None, description='Whether project is an ARB project'),
-    registered_at_from: datetime.date
+    is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
+    listed_at_from: datetime.date
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
-    registered_at_to: datetime.date
+    listed_at_to: datetime.date
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
     started_at_from: datetime.date
@@ -598,9 +586,9 @@ def get_projects_by_credit_totals(
         ('country', country, 'ilike', Project),
         ('protocol', protocol, 'ANY', Project),
         ('category', category, 'ANY', Project),
-        ('is_arb', is_arb, '==', Project),
-        ('registered_at', registered_at_from, '>=', Project),
-        ('registered_at', registered_at_to, '<=', Project),
+        ('is_compliance', is_compliance, '==', Project),
+        ('listed_at', listed_at_from, '>=', Project),
+        ('listed_at', listed_at_to, '<=', Project),
         ('started_at', started_at_from, '>=', Project),
         ('started_at', started_at_to, '<=', Project),
         ('issued', issued_min, '>=', Project),

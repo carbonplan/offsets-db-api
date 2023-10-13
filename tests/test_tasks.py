@@ -7,14 +7,8 @@ import pandas as pd
 import pytest
 from sqlmodel import Session
 
-from carbonplan_offsets_db.models import CreditStats, File, Project, ProjectStats
-from carbonplan_offsets_db.tasks import (
-    generate_hash,
-    process_files,
-    process_project_records,
-    update_credit_stats,
-    update_project_stats,
-)
+from carbonplan_offsets_db.models import File, Project
+from carbonplan_offsets_db.tasks import generate_hash, process_files, process_project_records
 
 
 @pytest.fixture
@@ -181,30 +175,3 @@ def test_update(mock_read_parquet, mock_session):
     updated_records = mock_session.bulk_update_mappings.call_args[0][1]
     assert len(updated_records) == len(df)  # The expected number of updated records
     assert file.status == 'success'  # The file status should be set to 'success'
-
-
-def test_update_project_stats(test_db_session):
-    # Call the function you want to test
-    session = next(test_db_session)
-    update_project_stats(session=session)
-
-    # Check if the data was properly updated
-
-    result = session.query(ProjectStats).first()
-
-    # Assertions to check if the values are updated correctly
-    assert result is not None
-    assert result.total_projects > 0
-
-
-def test_update_credit_stats(test_db_session):
-    session = next(test_db_session)
-    # Call the function you want to test
-    update_credit_stats(session=session)
-
-    # Check if the data was properly updated
-    result = session.query(CreditStats).first()
-
-    # Assertions to check if the values are updated correctly
-    assert result is not None
-    assert result.total_credits > 0
