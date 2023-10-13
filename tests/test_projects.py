@@ -44,8 +44,8 @@ def test_get_projects_pagination(test_app):
 @pytest.mark.parametrize('country', ['US', 'CA'])
 @pytest.mark.parametrize('protocol', [None, 'foo'])
 @pytest.mark.parametrize('category', ['other'])
-@pytest.mark.parametrize('started_at_from', ['2020-01-01'])
-@pytest.mark.parametrize('started_at_to', ['2023-01-01'])
+@pytest.mark.parametrize('listed_at_from', ['2020-01-01'])
+@pytest.mark.parametrize('listed_at_to', ['2023-01-01'])
 @pytest.mark.parametrize('search', ['foo'])
 @pytest.mark.parametrize('retired_min', [0])
 @pytest.mark.parametrize('retired_max', [100000])
@@ -57,8 +57,8 @@ def test_get_projects_with_filters(
     country,
     protocol,
     category,
-    started_at_from,
-    started_at_to,
+    listed_at_from,
+    listed_at_to,
     search,
     retired_min,
     retired_max,
@@ -66,7 +66,7 @@ def test_get_projects_with_filters(
     issued_max,
 ):
     response = test_app.get(
-        f'/projects?registry={registry}&country={country}&protocol={protocol}&category={category}&started_at_from={started_at_from}&started_at_to={started_at_to}&search={search}&retired_min={retired_min}&retired_max={retired_max}&issued_min={issued_min}&issued_max={issued_max}'
+        f'/projects?registry={registry}&country={country}&protocol={protocol}&category={category}&listed_at_from={listed_at_from}&listed_at_to={listed_at_to}&search={search}&retired_min={retired_min}&retired_max={retired_max}&issued_min={issued_min}&issued_max={issued_max}'
     )
     assert response.status_code == 200
     data = response.json()['data']
@@ -100,7 +100,7 @@ def test_get_projects_with_sort_errors(test_app):
 
 def test_get_projects_with_sort(test_app):
     # Request sorted data from the endpoint
-    response = test_app.get('/projects?sort=+country&sort=project_id&sort=-registered_at')
+    response = test_app.get('/projects?sort=+country&sort=project_id&sort=-listed_at')
 
     # Assert that the request was successful
     assert response.status_code == 200
@@ -113,15 +113,13 @@ def test_get_projects_with_sort(test_app):
 
     # If there are any projects in the response, check that they are sorted
     if data:
-        prev_country, prev_project_id, prev_registered_at = None, None, None
+        prev_country, prev_project_id, prev_listed_at = None, None, None
         for project in data:
             country = project['country']
             project_id = project['project_id']
-            registered_at_str = project['registered_at']
-            registered_at = (
-                datetime.datetime.strptime(registered_at_str, '%Y-%m-%d')
-                if registered_at_str
-                else None
+            listed_at_str = project['listed_at']
+            listed_at = (
+                datetime.datetime.strptime(listed_at_str, '%Y-%m-%d') if listed_at_str else None
             )
 
             # Check the sorting logic
@@ -133,14 +131,7 @@ def test_get_projects_with_sort(test_app):
                     ), 'Projects are not sorted by project_id within the same country'
                     if project_id == prev_project_id:
                         assert (
-                            registered_at <= prev_registered_at
-                        ), 'Projects are not sorted by registered_at within the same project_id'
+                            listed_at <= prev_listed_at
+                        ), 'Projects are not sorted by listed_at within the same project_id'
 
-            prev_country, prev_project_id, prev_registered_at = country, project_id, registered_at
-
-
-def test_project_stats(test_app):
-    response = test_app.get('/projects/stats/')
-    assert response.status_code == 200
-    data = response.json()['data']
-    assert isinstance(data, list)
+            prev_country, prev_project_id, prev_listed_at = country, project_id, listed_at

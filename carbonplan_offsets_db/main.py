@@ -6,10 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .app_metadata import metadata
 from .logging import get_logger
-from .models import Credit, Project
 from .routers import charts, credits, files, health, projects
-from .settings import get_settings
-from .tasks import calculate_totals, export_table_to_csv, update_credit_stats, update_project_stats
 
 logger = get_logger()
 
@@ -53,37 +50,6 @@ async def startup_event():
     worker_num = int(os.environ.get('APP_WORKER_ID', 9999))
 
     logger.info(f'👷 Worker num: {worker_num}')
-
-    # Only run scheduled jobs in the first worker
-    if worker_num not in [1, 9999]:
-        logger.info(f'👷 Worker {worker_num} is not the first worker, not starting scheduler.')
-        return
-
-    logger.info('🚀 Starting scheduler...')
-    # Add your scheduler jobs here
-    scheduler.add_job(calculate_totals)
-    scheduler.add_job(calculate_totals, 'interval', hours=12)
-    # run at 3am every sunday morning
-    scheduler.add_job(update_project_stats, 'cron', day_of_week=0, hour=3)
-    scheduler.add_job(update_credit_stats, 'cron', day_of_week=0, hour=3)
-
-    settings = get_settings()
-
-    scheduler.add_job(
-        export_table_to_csv,
-        'cron',
-        day_of_week=0,
-        hour=5,
-        kwargs={'table': Project, 'path': settings.export_path},
-    )
-    scheduler.add_job(
-        export_table_to_csv,
-        'cron',
-        day_of_week=0,
-        hour=5,
-        kwargs={'table': Credit, 'path': settings.export_path},
-    )
-    scheduler.start()
 
 
 @app.on_event('shutdown')

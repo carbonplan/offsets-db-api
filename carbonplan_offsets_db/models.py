@@ -7,7 +7,8 @@ from sqlmodel import BigInteger, Column, Field, SQLModel, String
 from .schemas import FileCategory, FileStatus, Pagination
 
 
-class FileBase(SQLModel):
+class File(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True)
     url: pydantic.AnyUrl
     content_hash: str | None = Field(description='Hash of file contents')
     status: FileStatus = Field(default='pending', description='Status of file processing')
@@ -16,19 +17,12 @@ class FileBase(SQLModel):
         default_factory=datetime.datetime.utcnow, description='Date file was recorded in database'
     )
     category: FileCategory = Field(description='Category of file', default='unknown')
-    chunksize: int | None = Field(description='Chunksize used to process file', default=None)
-    valid_records_file_url: pydantic.AnyUrl | None = Field(
-        description='URL to valid records file. This is only used when removing stale records from the database.',
-        default=None,
+
+
+class Project(SQLModel, table=True):
+    project_id: str = Field(
+        description='Project id used by registry system', unique=True, primary_key=True
     )
-
-
-class File(FileBase, table=True):
-    id: int = Field(default=None, primary_key=True)
-
-
-class ProjectBase(SQLModel):
-    project_id: str = Field(description='Project id used by registry system', unique=True)
     name: str | None = Field(description='Name of the project')
     registry: str = Field(description='Name of the registry')
     proponent: str | None
@@ -38,69 +32,42 @@ class ProjectBase(SQLModel):
     category: list[str] | None = Field(
         description='List of categories', default=None, sa_column=Column(postgresql.ARRAY(String()))
     )
-    developer: str | None
-    voluntary_status: str | None
+    status: str | None
     country: str | None
-    started_at: datetime.date | None = Field(description='Date project started')
-    registered_at: datetime.date | None = Field(description='Date project was registered')
-    is_arb: bool | None = Field(description='Whether project is an ARB project')
+    listed_at: datetime.date | None = Field(description='Date project was listed')
+    is_compliance: bool | None = Field(description='Whether project is compliance project')
     retired: int | None = Field(
         description='Total of retired credits', default=0, sa_column=Column(BigInteger())
     )
     issued: int | None = Field(
         description='Total of issued credits', default=0, sa_column=Column(BigInteger())
     )
-
-
-class Project(ProjectBase, table=True):
-    id: int = Field(default=None, primary_key=True)
-
+    details_url: pydantic.HttpUrl | None = Field(description='URL to project details')
     recorded_at: datetime.datetime = Field(
         default_factory=datetime.datetime.now, description='Date project was recorded in database'
     )
-    description: str | None
-    details_url: pydantic.HttpUrl | None = Field(description='URL to project details')
 
 
-class ProjectRead(ProjectBase):
-    id: int
-    description: str | None
-    details_url: pydantic.HttpUrl | None
-
-
-class CreditBase(SQLModel):
+class Credit(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True)
+    recorded_at: datetime.datetime = Field(
+        default_factory=datetime.datetime.now, description='Date credit was recorded in database'
+    )
     project_id: str = Field(description='Project id used by registry system')
     quantity: int = Field(description='Number of credits', sa_column=Column(BigInteger()))
     vintage: int | None = Field(description='Vintage year of credits')
     transaction_date: datetime.date | None = Field(description='Date of transaction')
     transaction_type: str | None = Field(description='Type of transaction')
-    transaction_serial_number: str = Field(description='Transaction serial number', unique=True)
-    details_url: pydantic.HttpUrl | None = Field(description='URL to unit information report')
-
-
-class Credit(CreditBase, table=True):
-    id: int = Field(default=None, primary_key=True)
-    recorded_at: datetime.datetime = Field(
-        default_factory=datetime.datetime.now, description='Date credit was recorded in database'
-    )
-
-
-class CreditRead(CreditBase):
-    id: int
-
-
-class ProjectReadDetails(ProjectRead):
-    recorded_at: datetime.datetime
 
 
 class ProjectWithPagination(pydantic.BaseModel):
     pagination: Pagination
-    data: list[ProjectRead]
+    data: list[Project]
 
 
 class CreditWithPagination(pydantic.BaseModel):
     pagination: Pagination
-    data: list[CreditRead]
+    data: list[Credit]
 
 
 class ProjectStats(SQLModel, table=True):
