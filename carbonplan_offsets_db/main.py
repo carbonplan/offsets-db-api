@@ -1,6 +1,5 @@
 import os
 
-from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,9 +8,6 @@ from .logging import get_logger
 from .routers import charts, credits, files, health, projects
 
 logger = get_logger()
-
-# Initialize scheduler
-scheduler = BackgroundScheduler()
 
 
 def create_application() -> FastAPI:
@@ -55,4 +51,3 @@ async def startup_event():
 @app.on_event('shutdown')
 async def shutdown_event():
     logger.info('Application shutdown...')
-    scheduler.shutdown()

@@ -42,17 +42,11 @@ class Project(SQLModel, table=True):
     issued: int | None = Field(
         description='Total of issued credits', default=0, sa_column=Column(BigInteger())
     )
-    details_url: pydantic.HttpUrl | None = Field(description='URL to project details')
-    recorded_at: datetime.datetime = Field(
-        default_factory=datetime.datetime.now, description='Date project was recorded in database'
-    )
+    project_url: pydantic.HttpUrl | None = Field(description='URL to project details')
 
 
 class Credit(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    recorded_at: datetime.datetime = Field(
-        default_factory=datetime.datetime.now, description='Date credit was recorded in database'
-    )
     project_id: str = Field(description='Project id used by registry system')
     quantity: int = Field(description='Number of credits', sa_column=Column(BigInteger()))
     vintage: int | None = Field(description='Vintage year of credits')
@@ -68,32 +62,6 @@ class ProjectWithPagination(pydantic.BaseModel):
 class CreditWithPagination(pydantic.BaseModel):
     pagination: Pagination
     data: list[Credit]
-
-
-class ProjectStats(SQLModel, table=True):
-    id: int = Field(default=None, primary_key=True)
-    date: datetime.date
-    registry: str
-    total_projects: int
-
-
-class CreditStats(SQLModel, table=True):
-    id: int = Field(default=None, primary_key=True)
-    date: datetime.date
-    registry: str
-    transaction_type: str
-    total_credits: int = Field(sa_column=Column(BigInteger()))
-    total_transactions: int | None
-
-
-class CreditStatsWithPagination(pydantic.BaseModel):
-    pagination: Pagination
-    data: list[CreditStats]
-
-
-class ProjectStatsWithPagination(pydantic.BaseModel):
-    pagination: Pagination
-    data: list[ProjectStats]
 
 
 class ProjectBinnedRegistration(pydantic.BaseModel):

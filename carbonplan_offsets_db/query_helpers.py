@@ -4,13 +4,13 @@ from fastapi import HTTPException, Request
 from sqlalchemy import and_, asc, desc, or_
 from sqlalchemy.orm import Query
 
-from .models import Credit, CreditStats, Project, ProjectStats
+from .models import Credit, Project
 
 
 def apply_filters(
     *,
     query,
-    model: Project | Credit | ProjectStats | CreditStats,
+    model: Project | Credit,
     attribute: str,
     values: list,
     operation: str,

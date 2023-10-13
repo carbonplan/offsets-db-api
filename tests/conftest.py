@@ -38,11 +38,11 @@ def setup_post(test_app):
     payload = (
         [
             {
-                'url': 's3://carbonplan-share/offsets-db-testing-data/data/processed/latest/verra/transactions.parquet',
+                'url': 's3://carbonplan-share/offsets-db-testing-data/final/projects-augmented.parquet',
                 'category': 'projects',
             },
             {
-                'url': 's3://carbonplan-share/offsets-db-testing-data/data/processed/latest/verra/transactions.parquet',
+                'url': 's3://carbonplan-share/offsets-db-testing-data/final/credits-augmented.parquet',
                 'category': 'credits',
             },
         ],
@@ -51,7 +51,7 @@ def setup_post(test_app):
     test_app.post('/files', json=payload)
 
     # Wait until files are processed or 10-second timeout is reached
-    timeout = time.time() + 10  # 10 seconds from now
+    timeout = time.time() + 5  # 10 seconds from now
     while True:
         if time.time() > timeout:
             break  # or raise an exception
