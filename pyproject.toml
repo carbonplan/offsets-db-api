@@ -32,6 +32,7 @@ dependencies = [
     "pydantic>=1.10",
     "s3fs >=2023",
     "sqlmodel >= 0.0.8",
+    "pandera>=0.17"
 ]
 
 [project.urls]

@@ -1,5 +1,7 @@
 import datetime
 
+import pandas as pd
+import pandera as pa
 import pydantic
 from sqlalchemy.dialects import postgresql
 from sqlmodel import BigInteger, Column, Field, SQLModel, String
@@ -45,6 +47,26 @@ class Project(SQLModel, table=True):
     project_url: pydantic.HttpUrl | None = Field(description='URL to project details')
 
 
+# Schema for 'project' table
+project_schema = pa.DataFrameSchema(
+    {
+        'protocol': pa.Column(pa.Object, nullable=True),  # Array of strings
+        'category': pa.Column(pa.Object, nullable=True),  # Array of strings
+        'retired': pa.Column(pa.Int, pa.Check.greater_than_or_equal_to(0), nullable=True),
+        'issued': pa.Column(pa.Int, pa.Check.greater_than_or_equal_to(0), nullable=True),
+        'project_id': pa.Column(pa.String, nullable=False),
+        'name': pa.Column(pa.String, nullable=True),
+        'registry': pa.Column(pa.String, nullable=False),
+        'proponent': pa.Column(pa.String, nullable=True),
+        'status': pa.Column(pa.String, nullable=True),
+        'country': pa.Column(pa.String, nullable=True),
+        'listed_at': pa.Column(pd.Timestamp, nullable=True),
+        'is_compliance': pa.Column(pa.Bool, nullable=True),
+        'project_url': pa.Column(pa.String, nullable=True),
+    }
+)
+
+
 class Credit(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     project_id: str = Field(description='Project id used by registry system')
@@ -52,6 +74,19 @@ class Credit(SQLModel, table=True):
     vintage: int | None = Field(description='Vintage year of credits')
     transaction_date: datetime.date | None = Field(description='Date of transaction')
     transaction_type: str | None = Field(description='Type of transaction')
+
+
+# Schema for 'credit' table
+credit_schema = pa.DataFrameSchema(
+    {
+        'quantity': pa.Column(pa.Int, pa.Check.greater_than_or_equal_to(0), nullable=True),
+        'id': pa.Column(pa.Int, nullable=False),
+        'project_id': pa.Column(pa.String, nullable=False),
+        'vintage': pa.Column(pa.Int, nullable=True, coerce=True),
+        'transaction_date': pa.Column(pd.Timestamp, nullable=True),
+        'transaction_type': pa.Column(pa.String, nullable=True),
+    }
+)
 
 
 class ProjectWithPagination(pydantic.BaseModel):

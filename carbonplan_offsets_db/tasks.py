@@ -4,6 +4,7 @@ import pandas as pd
 from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, String
 
 from .logging import get_logger
+from .models import credit_schema, project_schema
 
 logger = get_logger()
 
@@ -30,10 +31,13 @@ def process_files(*, engine, session, files: list):
         try:
             if file.category == 'credits':
                 logger.info(f'📚 Loading credit file: {file.url}')
-                df = pd.read_parquet(file.url, engine='fastparquet')
-                df = (
-                    df.reset_index(drop=True).reset_index().rename(columns={'index': 'id'})
+                data = (
+                    pd.read_parquet(file.url, engine='fastparquet')
+                    .reset_index(drop=True)
+                    .reset_index()
+                    .rename(columns={'index': 'id'})
                 )  # add id column
+                df = credit_schema(data)
                 credit_dtype_dict = {
                     'recorded_at': DateTime,
                     'project_id': String,
@@ -43,11 +47,12 @@ def process_files(*, engine, session, files: list):
                     'transaction_type': String,
                 }
                 process_dataframe(df, 'credit', engine, credit_dtype_dict)
-                update_file_status(file, session, 'processed')
+                update_file_status(file, session, 'success')
 
             elif file.category == 'projects':
                 logger.info(f'📚 Loading project file: {file.url}')
-                df = pd.read_parquet(file.url, engine='fastparquet')
+                data = pd.read_parquet(file.url, engine='fastparquet')
+                df = project_schema(data)
                 project_dtype_dict = {
                     'project_id': String,
                     'name': String,
@@ -64,7 +69,7 @@ def process_files(*, engine, session, files: list):
                     'project_url': String,
                 }
                 process_dataframe(df, 'project', engine, project_dtype_dict)
-                update_file_status(file, session, 'processed')
+                update_file_status(file, session, 'success')
 
             else:
                 logger.info(f'❓ Unknown file category: {file.category}. Skipping file {file.url}')
