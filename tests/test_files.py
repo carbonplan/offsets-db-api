@@ -21,11 +21,11 @@ def test_submit_bad_file(test_app):
     [
         [
             {
-                'url': 's3://carbonplan-share/offsets-db-testing-data/data/processed/latest/verra/transactions.parquet',
+                'url': 's3://carbonplan-share/offsets-db-testing-data/final/projects-augmented.parquet',
                 'category': 'projects',
             },
             {
-                'url': 's3://carbonplan-share/offsets-db-testing-data/data/processed/latest/verra/transactions.parquet',
+                'url': 's3://carbonplan-share/offsets-db-testing-data/final/credits-augmented.parquet',
                 'category': 'credits',
             },
         ],

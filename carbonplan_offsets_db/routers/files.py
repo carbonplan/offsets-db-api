@@ -3,10 +3,11 @@ import datetime
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlmodel import Session
 
-from ..database import get_session
+from ..database import get_engine, get_session
 from ..logging import get_logger
 from ..models import File, FileCategory, FileStatus
 from ..schemas import FileURLPayload
+from ..settings import get_settings
 from ..tasks import process_files
 
 router = APIRouter()
@@ -31,15 +32,16 @@ def submit_file(
         file_obj = File(
             url=p.url,
             category=p.category,
-            chunksize=p.chunksize,
-            valid_records_file_url=p.valid_records_file_url,
         )
         file_objs.append(file_obj)
         session.add(file_obj)
 
     session.commit()
 
-    background_tasks.add_task(process_files, session=session, files=file_objs)
+    settings = get_settings()
+    engine = get_engine(database_url=settings.database_url)
+
+    background_tasks.add_task(process_files, engine=engine, session=session, files=file_objs)
     return file_objs
 
 

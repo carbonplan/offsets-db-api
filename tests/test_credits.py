@@ -17,7 +17,6 @@ def test_get_credits(test_app):
         assert 'vintage' in credit
         assert 'transaction_date' in credit
         assert 'transaction_type' in credit
-        assert 'details_url' in credit
 
 
 def test_get_credits_with_non_existent_route(test_app):
@@ -44,10 +43,3 @@ def test_get_credits_with_filters(test_app, transaction_type, project_id, vintag
         assert credit['transaction_type'] == transaction_type
         assert credit['project_id'] == project_id
         assert credit['vintage'] == vintage
-
-
-def test_credit_stats(test_app):
-    response = test_app.get('/credits/stats/')
-    assert response.status_code == 200
-    data = response.json()['data']
-    assert isinstance(data, list)

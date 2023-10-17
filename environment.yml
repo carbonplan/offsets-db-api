@@ -21,3 +21,4 @@ dependencies:
   - universal_pathlib
   - uvicorn
   - fastparquet
+  - pandera

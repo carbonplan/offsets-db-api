@@ -5,7 +5,7 @@ from sqlmodel import Session, or_
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Credit, CreditStats, CreditStatsWithPagination, CreditWithPagination, Project
+from ..models import Credit, CreditWithPagination, Project
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination, Registries
 
@@ -19,7 +19,7 @@ def get_credits(
     project_id: list[str] | None = Query(None, description='Project ID'),
     registry: list[Registries] | None = Query(None, description='Registry name'),
     category: list[str] | None = Query(None, description='Category name'),
-    is_arb: bool | None = Query(None, description='Whether project is an ARB project'),
+    is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
     transaction_type: list[str] | None = Query(None, description='Transaction type'),
     vintage: list[int] | None = Query(None, description='Vintage'),
     transaction_date_from: datetime.date
@@ -53,7 +53,7 @@ def get_credits(
         ('registry', registry, 'ilike', Project),
         ('transaction_type', transaction_type, 'ilike', Credit),
         ('category', category, 'ANY', Project),
-        ('is_arb', is_arb, '==', Project),
+        ('is_compliance', is_compliance, '==', Project),
         ('vintage', vintage, '==', Credit),
         ('transaction_date', transaction_date_from, '>=', Credit),
         ('transaction_date', transaction_date_to, '<=', Credit),
@@ -77,69 +77,13 @@ def get_credits(
         )
 
     if sort:
-        query = apply_sorting(query=query, sort=sort, model=Credit)
+        query = apply_sorting(query=query, sort=sort, model=Credit, primary_key='id')
 
     total_entries, current_page, total_pages, next_page, results = handle_pagination(
         query=query, current_page=current_page, per_page=per_page, request=request
     )
 
     return CreditWithPagination(
-        pagination=Pagination(
-            total_entries=total_entries,
-            current_page=current_page,
-            total_pages=total_pages,
-            next_page=next_page,
-        ),
-        data=results,
-    )
-
-
-@router.get(
-    '/stats/',
-    response_model=CreditStatsWithPagination,
-    summary='Get aggregated credits statistics',
-)
-def get_credit_stats(
-    request: Request,
-    registry: list[Registries] | None = Query(None, description='Registry name'),
-    transaction_type: list[str] | None = Query(None, description='Transaction type'),
-    date_from: datetime.date | None = Query(default=None, description='Format: YYYY-MM-DD'),
-    date_to: datetime.date | None = Query(default=None, description='Format: YYYY-MM-DD'),
-    current_page: int = Query(1, description='Page number', ge=1),
-    per_page: int = Query(100, description='Items per page', le=200, ge=1),
-    sort: list[str] = Query(
-        default=['registry'],
-        description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
-    ),
-    session: Session = Depends(get_session),
-):
-    """
-    Returns a list of CreditStats objects containing aggregated statistics for all credits in the database.
-    """
-    logger.info('Getting credits stats')
-
-    query = session.query(CreditStats)
-
-    filters = [
-        ('registry', registry, 'ilike', CreditStats),
-        ('transaction_type', transaction_type, 'ilike', CreditStats),
-        ('date', date_from, '>=', CreditStats),
-        ('date', date_to, '<=', CreditStats),
-    ]
-
-    for attribute, values, operation, model in filters:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
-        )
-
-    if sort:
-        query = apply_sorting(query=query, sort=sort, model=CreditStats)
-
-    total_entries, current_page, total_pages, next_page, results = handle_pagination(
-        query=query, current_page=current_page, per_page=per_page, request=request
-    )
-
-    return CreditStatsWithPagination(
         pagination=Pagination(
             total_entries=total_entries,
             current_page=current_page,
