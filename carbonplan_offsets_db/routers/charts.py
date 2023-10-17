@@ -3,7 +3,7 @@ import typing
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session, and_, case, func, or_
 
 from ..database import get_session
@@ -500,6 +500,10 @@ def get_credits_by_project_id(
         .join(Project, Credit.project_id == Project.project_id)
         .filter(Project.project_id == project_id)
     )
+
+    # check if project exists
+    if not query.first():
+        raise HTTPException(status_code=404, detail=f'Project {project_id} not found')
 
     filters = [
         ('transaction_type', transaction_type, 'ilike', Credit),
