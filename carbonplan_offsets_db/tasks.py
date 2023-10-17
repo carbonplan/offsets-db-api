@@ -37,7 +37,7 @@ def process_files(*, engine, session, files: list):
                     .reset_index()
                     .rename(columns={'index': 'id'})
                 )  # add id column
-                df = credit_schema(data)
+                df = credit_schema.validate(data)
                 credit_dtype_dict = {
                     'recorded_at': DateTime,
                     'project_id': String,
@@ -52,7 +52,7 @@ def process_files(*, engine, session, files: list):
             elif file.category == 'projects':
                 logger.info(f'📚 Loading project file: {file.url}')
                 data = pd.read_parquet(file.url, engine='fastparquet')
-                df = project_schema(data)
+                df = project_schema.validate(data)
                 project_dtype_dict = {
                     'project_id': String,
                     'name': String,

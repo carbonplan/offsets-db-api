@@ -52,15 +52,19 @@ project_schema = pa.DataFrameSchema(
     {
         'protocol': pa.Column(pa.Object, nullable=True),  # Array of strings
         'category': pa.Column(pa.Object, nullable=True),  # Array of strings
-        'retired': pa.Column(pa.Int, pa.Check.greater_than_or_equal_to(0), nullable=True),
-        'issued': pa.Column(pa.Int, pa.Check.greater_than_or_equal_to(0), nullable=True),
+        'retired': pa.Column(
+            pa.Int, pa.Check.greater_than_or_equal_to(0), nullable=True, coerce=True
+        ),
+        'issued': pa.Column(
+            pa.Int, pa.Check.greater_than_or_equal_to(0), nullable=True, coerce=True
+        ),
         'project_id': pa.Column(pa.String, nullable=False),
         'name': pa.Column(pa.String, nullable=True),
         'registry': pa.Column(pa.String, nullable=False),
         'proponent': pa.Column(pa.String, nullable=True),
         'status': pa.Column(pa.String, nullable=True),
         'country': pa.Column(pa.String, nullable=True),
-        'listed_at': pa.Column(pd.Timestamp, nullable=True),
+        'listed_at': pa.Column(pd.DatetimeTZDtype(tz='UTC'), nullable=True, required=False),
         'is_compliance': pa.Column(pa.Bool, nullable=True),
         'project_url': pa.Column(pa.String, nullable=True),
     }
@@ -79,11 +83,13 @@ class Credit(SQLModel, table=True):
 # Schema for 'credit' table
 credit_schema = pa.DataFrameSchema(
     {
-        'quantity': pa.Column(pa.Int, pa.Check.greater_than_or_equal_to(0), nullable=True),
+        'quantity': pa.Column(
+            pa.Int, pa.Check.greater_than_or_equal_to(0), nullable=True, coerce=True
+        ),
         'id': pa.Column(pa.Int, nullable=False),
         'project_id': pa.Column(pa.String, nullable=False),
         'vintage': pa.Column(pa.Int, nullable=True, coerce=True),
-        'transaction_date': pa.Column(pd.Timestamp, nullable=True),
+        'transaction_date': pa.Column(pd.DatetimeTZDtype(tz='UTC'), nullable=True),
         'transaction_type': pa.Column(pa.String, nullable=True),
     }
 )
