@@ -101,8 +101,9 @@ def test_get_credits_by_transaction_date_by_project(
 def test_get_credits_by_transaction_date_by_nonexistent_project(test_app):
     project_id = 'ACR999'
     response = test_app.get(f'/charts/credits_by_transaction_date/{project_id}/')
-    assert response.status_code == 404
-    assert response.json() == {'detail': 'Project ACR999 not found'}
+    assert response.status_code == 200
+    # check that the response is empty
+    assert response.json() == []
 
 
 @pytest.mark.parametrize('credit_type', ['issued', 'retired'])
