@@ -3,7 +3,7 @@ import typing
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlmodel import Session, and_, case, func, or_
 
 from ..database import get_session
@@ -501,10 +501,6 @@ def get_credits_by_project_id(
         .filter(Project.project_id == project_id)
     )
 
-    # check if project exists
-    if not query.first():
-        raise HTTPException(status_code=404, detail=f'Project {project_id} not found')
-
     filters = [
         ('transaction_type', transaction_type, 'ilike', Credit),
         ('transaction_date', transaction_date_from, '>=', Credit),
@@ -616,7 +612,7 @@ def get_projects_by_credit_totals(
     minimum = query.with_entities(func.min(getattr(Project, credit_type))).scalar()
     maximum = query.with_entities(func.max(getattr(Project, credit_type))).scalar()
 
-    results = projects_by_credit_totals(
+    return projects_by_credit_totals(
         query=query,
         min_value=minimum,
         max_value=maximum,
@@ -624,5 +620,3 @@ def get_projects_by_credit_totals(
         bin_width=bin_width,
         categories=category,
     )
-
-    return results
