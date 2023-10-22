@@ -5,7 +5,7 @@ from sqlmodel import Session, or_
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Credit, CreditWithPagination, Project
+from ..models import Credit, PaginatedCredits, Project
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination, Registries
 
@@ -13,7 +13,7 @@ router = APIRouter()
 logger = get_logger()
 
 
-@router.get('/', summary='List credits', response_model=CreditWithPagination)
+@router.get('/', summary='List credits', response_model=PaginatedCredits)
 def get_credits(
     request: Request,
     project_id: list[str] | None = Query(None, description='Project ID'),
@@ -83,7 +83,7 @@ def get_credits(
         query=query, current_page=current_page, per_page=per_page, request=request
     )
 
-    return CreditWithPagination(
+    return PaginatedCredits(
         pagination=Pagination(
             total_entries=total_entries,
             current_page=current_page,
