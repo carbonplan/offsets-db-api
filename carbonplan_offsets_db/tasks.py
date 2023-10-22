@@ -73,7 +73,12 @@ def process_files(*, engine, session, files: list):
 
             elif file.category == 'clips':
                 logger.info(f'📚 Loading clip file: {file.url}')
-                data = pd.read_parquet(file.url, engine='fastparquet')
+                data = (
+                    pd.read_parquet(file.url, engine='fastparquet')
+                    .reset_index(drop=True)
+                    .reset_index()
+                    .rename(columns={'index': 'id'})
+                )
                 df = clip_schema.validate(data)
                 clip_dtype_dict = {'tags': ARRAY(String)}
                 process_dataframe(df, 'clip', engine, clip_dtype_dict)

@@ -44,6 +44,10 @@ def setup_post(test_app):
             'url': 's3://carbonplan-share/offsets-db-testing-data/final/credits-augmented.parquet',
             'category': 'credits',
         },
+        {
+            'url': 's3://carbonplan-share/offsets-db-testing-data/final/clips.parquet',
+            'category': 'clips',
+        },
     ]
 
     # Perform POST request

@@ -13,6 +13,7 @@ def test_get_project(test_app):
     data = response.json()['data'][0]
     project_id = data['project_id']
     registry = data['registry']
+    assert isinstance(data['clips'], list)
 
     response = test_app.get(f'/projects/{project_id}')
     assert response.status_code == 200

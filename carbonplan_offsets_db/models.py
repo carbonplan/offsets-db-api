@@ -35,7 +35,7 @@ class File(SQLModel, table=True):
     category: FileCategory = Field(description='Category of file', default='unknown')
 
 
-class Project(SQLModel, table=True):
+class ProjectBase(SQLModel):
     project_id: str = Field(
         description='Project id used by registry system', unique=True, primary_key=True
     )
@@ -59,6 +59,14 @@ class Project(SQLModel, table=True):
         description='Total of issued credits', default=0, sa_column=Column(BigInteger())
     )
     project_url: pydantic.HttpUrl | None = Field(description='URL to project details')
+
+
+class Project(ProjectBase, table=True):
+    ...
+
+
+class ProjectWithClips(ProjectBase):
+    clips: list[Clip] = Field(default=[], description='List of clips associated with project')
 
 
 class Credit(SQLModel, table=True):
@@ -125,7 +133,7 @@ clip_schema = pa.DataFrameSchema(
 
 class ProjectWithPagination(pydantic.BaseModel):
     pagination: Pagination
-    data: list[Project]
+    data: list[ProjectWithClips]
 
 
 class CreditWithPagination(pydantic.BaseModel):
