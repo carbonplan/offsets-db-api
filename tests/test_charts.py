@@ -34,7 +34,7 @@ def test_get_projects_by_listing_date(
         f'/charts/projects_by_listing_date?freq={freq}&registry={registry}&country={country}&protocol={protocol}&category={category}&listed_at_from={listed_at_from}&listed_at_to={listed_at_to}&search={search}&retired_min={retired_min}&retired_max={retired_max}&issued_min={issued_min}&issued_max={issued_max}&is_compliance={is_compliance}'
     )
     assert response.status_code == 200
-    data = response.json()
+    data = response.json()['data']
     assert isinstance(data, list)
 
 
@@ -71,7 +71,7 @@ def test_get_credits_by_transaction_date(
         f'/charts/credits_by_transaction_date?freq={freq}&registry={registry}&country={country}&protocol={protocol}&category={category}&listed_at_from={listed_at_from}&listed_at_to={listed_at_to}&search={search}&retired_min={retired_min}&retired_max={retired_max}&issued_min={issued_min}&issued_max={issued_max}&is_compliance={is_compliance}'
     )
     assert response.status_code == 200
-    data = response.json()
+    data = response.json()['data']
     assert isinstance(data, list)
 
 
@@ -94,7 +94,7 @@ def test_get_credits_by_transaction_date_by_project(
         f'/charts/credits_by_transaction_date/{project_id}/?num_bins={num_bins}&transaction_type={transaction_type}&vintage={vintage}&transaction_date_from={transaction_date_from}&transaction_date_to={transaction_date_to}'
     )
     assert response.status_code == 200
-    data = response.json()
+    data = response.json()['data']
     assert isinstance(data, list)
 
 
@@ -103,7 +103,7 @@ def test_get_credits_by_transaction_date_by_nonexistent_project(test_app):
     response = test_app.get(f'/charts/credits_by_transaction_date/{project_id}/')
     assert response.status_code == 200
     # check that the response is empty
-    assert response.json() == []
+    assert response.json()['data'] == []
 
 
 @pytest.mark.parametrize('credit_type', ['issued', 'retired'])
@@ -139,5 +139,5 @@ def test_get_projects_by_credit_totals(
         f'/charts/projects_by_credit_totals?credit_type={credit_type}&registry={registry}&country={country}&protocol={protocol}&category={category}&listed_at_from={listed_at_from}&listed_at_to={listed_at_to}&search={search}&retired_min={retired_min}&retired_max={retired_max}&issued_min={issued_min}&issued_max={issued_max}&is_compliance={is_compliance}'
     )
     assert response.status_code == 200
-    data = response.json()
+    data = response.json()['data']
     assert isinstance(data, list)
