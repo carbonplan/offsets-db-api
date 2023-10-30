@@ -131,21 +131,26 @@ clip_schema = pa.DataFrameSchema(
 )
 
 
-class ProjectWithPagination(pydantic.BaseModel):
+class PaginatedProjects(pydantic.BaseModel):
     pagination: Pagination
     data: list[ProjectWithClips]
 
 
-class CreditWithPagination(pydantic.BaseModel):
+class PaginatedCredits(pydantic.BaseModel):
     pagination: Pagination
     data: list[Credit]
 
 
-class ProjectBinnedRegistration(pydantic.BaseModel):
+class BinnedValues(pydantic.BaseModel):
     start: datetime.date | None
     end: datetime.date | None
     category: str | None
     value: int | None
+
+
+class PaginatedBinnedValues(pydantic.BaseModel):
+    pagination: Pagination
+    data: list[BinnedValues]
 
 
 class ProjectBinnedCreditsTotals(pydantic.BaseModel):
@@ -155,6 +160,11 @@ class ProjectBinnedCreditsTotals(pydantic.BaseModel):
     value: float | None
 
 
-class ClipWithPagination(pydantic.BaseModel):
+class PaginatedBinnedCreditTotals(pydantic.BaseModel):
+    pagination: Pagination
+    data: list[ProjectBinnedCreditsTotals]
+
+
+class PaginatedClips(pydantic.BaseModel):
     pagination: Pagination
     data: list[Clip]

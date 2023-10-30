@@ -8,9 +8,9 @@ from sqlmodel import Session, and_, case, func, or_
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Credit, Project, ProjectBinnedCreditsTotals, ProjectBinnedRegistration
+from ..models import Credit, PaginatedBinnedCreditTotals, PaginatedBinnedValues, Project
 from ..query_helpers import apply_filters
-from ..schemas import Registries
+from ..schemas import Pagination, Registries
 
 router = APIRouter()
 logger = get_logger()
@@ -159,9 +159,7 @@ def get_binned_data(*, query, binning_attribute, freq='Y'):
         start_date = pd.Timestamp(bin_label) if bin_label not in ['other', 'null'] else None
         end_date = calculate_end_date(start_date, freq).date() if start_date else None
         formatted_results.append(
-            ProjectBinnedRegistration(
-                start=start_date, end=end_date, category=category, value=value
-            )
+            dict(start=start_date, end=end_date, category=category, value=value)
         )
 
     logger.info('✅ Binned data generated successfully!')
@@ -213,9 +211,7 @@ def get_binned_numeric_data(*, query, binning_attribute):
         start_value = float(bin_label) if bin_label not in ['other', 'null'] else None
         end_value = start_value + 1 if start_value else None
         formatted_results.append(
-            ProjectBinnedCreditsTotals(
-                start=start_value, end=end_value, category=category, value=value
-            )
+            dict(start=start_value, end=end_value, category=category, value=value)
         )
 
     logger.info('✅ Binned data generated successfully!')
@@ -265,9 +261,7 @@ def projects_by_credit_totals(
         end_value = int(bin_label.split('-')[1]) if bin_label not in ['other', 'null'] else None
 
         formatted_results.append(
-            ProjectBinnedCreditsTotals(
-                start=start_value, end=end_value, category=category, value=value
-            )
+            dict(start=start_value, end=end_value, category=category, value=value)
         )
 
     logger.info(f'✅ {len(formatted_results)} bins generated')
@@ -281,7 +275,7 @@ def credits_by_transaction_date(
     min_date,
     max_date,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = 'Y',
-    num_bins: int = None,
+    num_bins: int | None = None,
     categories=None,
 ):
     """Generate binned data based on the transaction date."""
@@ -346,16 +340,14 @@ def credits_by_transaction_date(
         start_date = pd.Timestamp(bin_label) if bin_label not in ['other', 'null'] else None
         end_date = calculate_end_date(start_date, freq).date() if start_date else None
         formatted_results.append(
-            ProjectBinnedRegistration(
-                start=start_date, end=end_date, category=category, value=value
-            )
+            dict(start=start_date, end=end_date, category=category, value=value)
         )
 
     logger.info('✅ Binned data generated successfully!')
     return formatted_results
 
 
-@router.get('/projects_by_listing_date', response_model=list[ProjectBinnedRegistration])
+@router.get('/projects_by_listing_date', response_model=PaginatedBinnedValues)
 def get_projects_by_listing_date(
     request: Request,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
@@ -379,6 +371,8 @@ def get_projects_by_listing_date(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
+    current_page: int = Query(1, description='Page number', ge=1),
+    per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
 ):
     """Get aggregated project registration data"""
@@ -412,10 +406,23 @@ def get_projects_by_listing_date(
             or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
         )
 
-    return get_binned_data(binning_attribute='listed_at', query=query, freq=freq)
+    results = get_binned_data(binning_attribute='listed_at', query=query, freq=freq)
+    total_entries = len(results)
+    total_pages = 1
+    next_page = None
+
+    return PaginatedBinnedValues(
+        pagination=Pagination(
+            total_entries=total_entries,
+            total_pages=total_pages,
+            next_page=next_page,
+            current_page=current_page,
+        ),
+        data=results,
+    )
 
 
-@router.get('/credits_by_transaction_date', response_model=list[dict])
+@router.get('/credits_by_transaction_date', response_model=PaginatedBinnedValues)
 def get_credits_by_transaction_date(
     request: Request,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
@@ -437,6 +444,8 @@ def get_credits_by_transaction_date(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
+    current_page: int = Query(1, description='Page number', ge=1),
+    per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
 ):
     """Get aggregated credit transaction data"""
@@ -475,12 +484,24 @@ def get_credits_by_transaction_date(
     min_date, max_date = query.with_entities(
         func.min(Credit.transaction_date), func.max(Credit.transaction_date)
     ).one()
-    return credits_by_transaction_date(
+    results = credits_by_transaction_date(
         query=query, freq=freq, min_date=min_date, max_date=max_date, categories=category
+    )
+    total_entries = len(results)
+    total_pages = 1
+    next_page = None
+    return PaginatedBinnedValues(
+        pagination=Pagination(
+            total_entries=total_entries,
+            total_pages=total_pages,
+            next_page=next_page,
+            current_page=current_page,
+        ),
+        data=results,
     )
 
 
-@router.get('/credits_by_transaction_date/{project_id}', response_model=list[dict])
+@router.get('/credits_by_transaction_date/{project_id}', response_model=PaginatedBinnedValues)
 def get_credits_by_project_id(
     project_id: str,
     transaction_type: list[str] | None = Query(None, description='Transaction type'),
@@ -492,6 +513,8 @@ def get_credits_by_project_id(
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
     num_bins: int = Query(20, description='Number of bins'),
+    current_page: int = Query(1, description='Page number', ge=1),
+    per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
 ):
     # Join Credit with Project and filter by project_id
@@ -539,12 +562,25 @@ def get_credits_by_project_id(
     # Use today's date if the project hasn't wound down yet
     max_date = datetime.date.today()
 
-    return credits_by_transaction_date(
+    results = credits_by_transaction_date(
         query=query, min_date=min_date, max_date=max_date, freq='D', num_bins=num_bins
     )
 
+    total_entries = len(results)
+    total_pages = 1
+    next_page = None
+    return PaginatedBinnedValues(
+        pagination=Pagination(
+            total_entries=total_entries,
+            total_pages=total_pages,
+            next_page=next_page,
+            current_page=current_page,
+        ),
+        data=results,
+    )
 
-@router.get('/projects_by_credit_totals', response_model=list[ProjectBinnedCreditsTotals])
+
+@router.get('/projects_by_credit_totals', response_model=PaginatedBinnedCreditTotals)
 def get_projects_by_credit_totals(
     credit_type: typing.Literal['issued', 'retired'] = Query('issued', description='Credit type'),
     registry: list[Registries] | None = Query(None, description='Registry name'),
@@ -574,6 +610,8 @@ def get_projects_by_credit_totals(
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
     bin_width: int | None = Query(None, description='Bin width'),
+    current_page: int = Query(1, description='Page number', ge=1),
+    per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
 ):
     """Get aggregated project credit totals"""
@@ -612,11 +650,24 @@ def get_projects_by_credit_totals(
     minimum = query.with_entities(func.min(getattr(Project, credit_type))).scalar()
     maximum = query.with_entities(func.max(getattr(Project, credit_type))).scalar()
 
-    return projects_by_credit_totals(
+    results = projects_by_credit_totals(
         query=query,
         min_value=minimum,
         max_value=maximum,
         credit_type=credit_type,
         bin_width=bin_width,
         categories=category,
+    )
+
+    total_entries = len(results)
+    total_pages = 1
+    next_page = None
+    return PaginatedBinnedCreditTotals(
+        pagination=Pagination(
+            total_entries=total_entries,
+            total_pages=total_pages,
+            next_page=next_page,
+            current_page=current_page,
+        ),
+        data=results,
     )

@@ -6,7 +6,7 @@ from sqlmodel import Session
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Clip, Project, ProjectWithClips, ProjectWithPagination
+from ..models import Clip, PaginatedProjects, Project, ProjectWithClips
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination, Registries
 
@@ -14,7 +14,7 @@ router = APIRouter()
 logger = get_logger()
 
 
-@router.get('/', response_model=ProjectWithPagination)
+@router.get('/', response_model=PaginatedProjects)
 def get_projects(
     request: Request,
     registry: list[Registries] | None = Query(None, description='Registry name'),
@@ -84,7 +84,7 @@ def get_projects(
         query=query, current_page=current_page, per_page=per_page, request=request
     )
 
-    return ProjectWithPagination(
+    return PaginatedProjects(
         pagination=Pagination(
             total_entries=total_entries,
             current_page=current_page,

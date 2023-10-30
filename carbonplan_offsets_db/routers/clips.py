@@ -5,7 +5,7 @@ from sqlmodel import Session, or_
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Clip, ClipWithPagination
+from ..models import Clip, PaginatedClips
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination
 
@@ -13,7 +13,7 @@ router = APIRouter()
 logger = get_logger()
 
 
-@router.get('/', response_model=ClipWithPagination)
+@router.get('/', response_model=PaginatedClips)
 def get_clips(
     request: Request,
     project_id: list[str] | None = Query(None, description='Project ID'),
@@ -72,7 +72,7 @@ def get_clips(
         query=query, current_page=current_page, per_page=per_page, request=request
     )
 
-    return ClipWithPagination(
+    return PaginatedClips(
         pagination=Pagination(
             total_entries=total_entries,
             current_page=current_page,
