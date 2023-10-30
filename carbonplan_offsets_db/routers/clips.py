@@ -17,6 +17,7 @@ logger = get_logger()
 def get_clips(
     request: Request,
     project_id: list[str] | None = Query(None, description='Project ID'),
+    tags: list[str] | None = Query(None, description='Tags'),
     article_type: list[str] | None = Query(None, description='Article type'),
     published_at_from: datetime.date
     | datetime.datetime
@@ -27,7 +28,7 @@ def get_clips(
     search: str
     | None = Query(
         None,
-        description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
+        description='Case insensitive search string. Currently searches on `project_id` and `title` fields only.',
     ),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
@@ -44,9 +45,10 @@ def get_clips(
 
     filters = [
         ('article_type', article_type, 'ilike', Clip),
+        ('tags', tags, 'ANY', Clip),
         ('published_at', published_at_from, '>=', Clip),
         ('published_at', published_at_to, '<=', Clip),
-        ('project_id', project_id, 'in', Clip),
+        ('project_id', project_id, 'ilike', Clip),
     ]
 
     query = session.query(Clip)
