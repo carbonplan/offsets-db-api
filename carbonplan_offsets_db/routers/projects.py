@@ -6,8 +6,7 @@ from sqlmodel import Session
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import PaginatedProjects, Project
-from ..models import Clip, Project, ProjectWithClips, ProjectWithPagination
+from ..models import Clip, PaginatedProjects, Project, ProjectWithClips
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination, Registries
 
