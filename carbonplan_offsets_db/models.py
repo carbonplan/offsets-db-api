@@ -153,3 +153,8 @@ class ProjectBinnedCreditsTotals(pydantic.BaseModel):
     end: float | None
     category: str | None
     value: float | None
+
+
+class ClipWithPagination(pydantic.BaseModel):
+    pagination: Pagination
+    data: list[Clip]

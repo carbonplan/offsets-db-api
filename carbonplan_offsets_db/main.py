@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .app_metadata import metadata
 from .logging import get_logger
-from .routers import charts, credits, files, health, projects
+from .routers import charts, clips, credits, files, health, projects
 
 logger = get_logger()
 
@@ -27,6 +27,7 @@ def create_application() -> FastAPI:
     application.include_router(projects.router, prefix='/projects', tags=['projects'])
     application.include_router(credits.router, prefix='/credits', tags=['credits'])
     application.include_router(charts.router, prefix='/charts', tags=['charts'])
+    application.include_router(clips.router, prefix='/clips', tags=['clips'])
     application.include_router(files.router, prefix='/files', tags=['files'])
 
     return application
