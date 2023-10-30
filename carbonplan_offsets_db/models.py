@@ -165,6 +165,6 @@ class PaginatedBinnedCreditTotals(pydantic.BaseModel):
     data: list[ProjectBinnedCreditsTotals]
 
 
-class ClipWithPagination(pydantic.BaseModel):
+class PaginatedClips(pydantic.BaseModel):
     pagination: Pagination
     data: list[Clip]
