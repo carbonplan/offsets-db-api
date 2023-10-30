@@ -4,7 +4,7 @@ import pandas as pd
 from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, String
 
 from .logging import get_logger
-from .models import credit_schema, project_schema
+from .models import clip_schema, credit_schema, project_schema
 
 logger = get_logger()
 
@@ -69,6 +69,19 @@ def process_files(*, engine, session, files: list):
                     'project_url': String,
                 }
                 process_dataframe(df, 'project', engine, project_dtype_dict)
+                update_file_status(file, session, 'success')
+
+            elif file.category == 'clips':
+                logger.info(f'📚 Loading clip file: {file.url}')
+                data = (
+                    pd.read_parquet(file.url, engine='fastparquet')
+                    .reset_index(drop=True)
+                    .reset_index()
+                    .rename(columns={'index': 'id'})
+                )
+                df = clip_schema.validate(data)
+                clip_dtype_dict = {'tags': ARRAY(String)}
+                process_dataframe(df, 'clip', engine, clip_dtype_dict)
                 update_file_status(file, session, 'success')
 
             else:
