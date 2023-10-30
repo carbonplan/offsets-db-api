@@ -24,6 +24,7 @@ class FileStatus(str, enum.Enum):
 class FileCategory(str, enum.Enum):
     projects = 'projects'
     credits = 'credits'
+    clips = 'clips'
     unknown = 'unknown'
 
 

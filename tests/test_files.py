@@ -28,6 +28,10 @@ def test_submit_bad_file(test_app):
                 'url': 's3://carbonplan-share/offsets-db-testing-data/final/credits-augmented.parquet',
                 'category': 'credits',
             },
+            {
+                'url': 's3://carbonplan-share/offsets-db-testing-data/final/clips.parquet',
+                'category': 'clips',
+            },
         ],
     ],
 )
