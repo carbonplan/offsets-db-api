@@ -58,3 +58,21 @@ python -m alembic downgrade base
 ```
 
 source: [stackoverflow](https://stackoverflow.com/questions/30507853/how-to-clear-history-and-run-all-migrations-from-the-beginning)
+
+### Deleting all tables in the database
+
+```shell
+fly pg connect --app offsets-db-postgres-staging
+```
+
+```sql
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public')
+    LOOP
+        EXECUTE 'DROP TABLE IF EXISTS public.' || quote_ident(r.tablename) || ' CASCADE;';
+    END LOOP;
+END $$;
+```
