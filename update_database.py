@@ -47,7 +47,7 @@ def post_data_to_environment(env):
             },
             {
                 # 'url': f's3://carbonplan-offsets-db/final/{date_str}/clips.parquet',
-                's3://carbonplan-share/offsets-db-testing-data/final/clips.parquet'
+                'url': 's3://carbonplan-share/offsets-db-testing-data/final/clips.parquet',
                 'category': 'clips',
             },
         ],

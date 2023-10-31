@@ -12,6 +12,7 @@ Registries = typing.Literal[
     'american-carbon-registry',
     'climate-action-reserve',
     'art-trees',
+    'none',
 ]
 
 
