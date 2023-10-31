@@ -42,7 +42,17 @@ jobs:
         run: |
           flyctl deploy --remote-only --config fly.staging.toml
 
+      - name: Seed Staging database
+        if: github.ref != 'refs/heads/main'
+        run: |
+          STAGING_URL='https://offsets-db-staging.fly.dev/files' python update_database.py staging
+
       - name: Deploy to Production
         if: github.ref == 'refs/heads/main'
         run: |
           flyctl deploy --remote-only --config fly.prod.toml
+
+      - name: Seed Production database
+        if: github.ref == 'refs/heads/main'
+        run: |
+          PRODUCTION_URL='https://offsets-db.fly.dev/files' python update_database.py production
