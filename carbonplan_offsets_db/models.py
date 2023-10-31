@@ -4,23 +4,9 @@ import pandas as pd
 import pandera as pa
 import pydantic
 from sqlalchemy.dialects import postgresql
-from sqlmodel import BigInteger, Column, Field, SQLModel, String
+from sqlmodel import BigInteger, Column, Field, Relationship, SQLModel, String
 
 from .schemas import FileCategory, FileStatus, Pagination
-
-
-class Clip(SQLModel, table=True):
-    id: int = Field(default=None, primary_key=True)
-    project_id: str = Field(description='Project id used by registry system')
-    published_at: datetime.datetime = Field(description='Date the clip was published')
-    title: str | None = Field(description='Title of the clip')
-    url: pydantic.AnyUrl | None = Field(description='URL to the clip')
-    tags: list[str] | None = Field(
-        description='Tags associated with the clip', sa_column=Column(postgresql.ARRAY(String()))
-    )
-    notes: str | None = Field(description='Notes associated with the clip')
-    is_waybacked: bool = Field(default=False, description='Whether the clip is a waybacked clip')
-    article_type: str = Field(description='Type of clip', default='unknown')
 
 
 class File(SQLModel, table=True):
@@ -37,7 +23,7 @@ class File(SQLModel, table=True):
 
 class ProjectBase(SQLModel):
     project_id: str = Field(
-        description='Project id used by registry system', unique=True, primary_key=True
+        description='Project id used by registry system', primary_key=True, index=True, unique=True
     )
     name: str | None = Field(description='Name of the project')
     registry: str = Field(description='Name of the registry')
@@ -62,20 +48,59 @@ class ProjectBase(SQLModel):
 
 
 class Project(ProjectBase, table=True):
-    ...
+    clips: list['Clip'] = Relationship(
+        back_populates='project',
+        sa_relationship_kwargs={
+            'cascade': 'all,delete,delete-orphan',  # Instruct the ORM how to track changes to local objects
+        },
+    )
+    credits: list['Credit'] = Relationship(
+        back_populates='project',
+        sa_relationship_kwargs={
+            'cascade': 'all,delete,delete-orphan',  # Instruct the ORM how to track changes to local objects
+        },
+    )
+
+
+class Clip(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True)
+    project_id: str | None = Field(
+        description='Project id used by registry system',
+        index=True,
+        foreign_key='project.project_id',
+    )
+    published_at: datetime.datetime = Field(description='Date the clip was published')
+    title: str | None = Field(description='Title of the clip')
+    url: pydantic.AnyUrl | None = Field(description='URL to the clip')
+    tags: list[str] | None = Field(
+        description='Tags associated with the clip', sa_column=Column(postgresql.ARRAY(String()))
+    )
+    notes: str | None = Field(description='Notes associated with the clip')
+    is_waybacked: bool = Field(default=False, description='Whether the clip is a waybacked clip')
+    article_type: str = Field(description='Type of clip', default='unknown')
+    project: Project | None = Relationship(back_populates='clips')
 
 
 class ProjectWithClips(ProjectBase):
-    clips: list[Clip] = Field(default=[], description='List of clips associated with project')
+    ...
+
+    clips: list[Clip] = Field(default=None, description='List of clips associated with project')
 
 
 class Credit(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    project_id: str = Field(description='Project id used by registry system')
+    project_id: str | None = Field(
+        description='Project id used by registry system',
+        index=True,
+        foreign_key='project.project_id',
+    )
     quantity: int = Field(description='Number of credits', sa_column=Column(BigInteger()))
     vintage: int | None = Field(description='Vintage year of credits')
     transaction_date: datetime.date | None = Field(description='Date of transaction')
     transaction_type: str | None = Field(description='Type of transaction')
+    project: Project | None = Relationship(
+        back_populates='credits',
+    )
 
 
 # Schema for 'project' table

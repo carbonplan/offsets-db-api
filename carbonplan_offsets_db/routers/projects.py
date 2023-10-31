@@ -6,7 +6,7 @@ from sqlmodel import Session
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Clip, PaginatedProjects, Project, ProjectWithClips
+from ..models import PaginatedProjects, Project, ProjectWithClips
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination, Registries
 
@@ -49,7 +49,7 @@ def get_projects(
 
     logger.info(f'Getting projects: {request.url}')
 
-    query = session.query(Project).join(Clip, Clip.project_id == Project.project_id, isouter=True)
+    query = session.query(Project)
 
     filters = [
         ('registry', registry, 'ilike', Project),
@@ -107,12 +107,7 @@ def get_project(
     """Get a project by registry and project_id"""
     logger.info('Getting project %s', project_id)
 
-    if (
-        project_obj := session.query(Project)
-        .filter_by(project_id=project_id)
-        .join(Clip, Clip.project_id == Project.project_id, isouter=True)
-        .one_or_none()
-    ):
+    if project_obj := session.query(Project).filter_by(project_id=project_id).one_or_none():
         return project_obj
     else:
         raise HTTPException(

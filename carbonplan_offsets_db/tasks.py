@@ -1,10 +1,10 @@
 import traceback
 
 import pandas as pd
-from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, String
+from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, String, text
 
 from .logging import get_logger
-from .models import clip_schema, credit_schema, project_schema
+from .models import File, clip_schema, credit_schema, project_schema
 
 logger = get_logger()
 
@@ -26,8 +26,18 @@ def process_dataframe(df, table_name, engine, dtype_dict=None):
     logger.info(f'✅ Written 🧬 shape {df.shape} to {table_name}')
 
 
-def process_files(*, engine, session, files: list):
+def process_files(*, engine, session, files: list[File]):
+    # loop over files and make sure projects are first in the list to ensure the delete cascade works
+    ordered_files = []
     for file in files:
+        if file.category == 'projects':
+            ordered_files.insert(0, file)
+        else:
+            ordered_files.append(file)
+
+    logger.info(f'📚 Loading files: {ordered_files}')
+
+    for file in ordered_files:
         try:
             if file.category == 'credits':
                 logger.info(f'📚 Loading credit file: {file.url}')
@@ -68,6 +78,12 @@ def process_files(*, engine, session, files: list):
                     'issued': BigInteger,
                     'project_url': String,
                 }
+
+                # Execute raw SQL to drop dependent tables and the project table
+                with engine.begin() as conn:
+                    # conn.execute(text("DROP TABLE IF EXISTS clip, credit, project;"))
+                    conn.execute(text('DROP TABLE IF EXISTS project CASCADE;'))
+
                 process_dataframe(df, 'project', engine, project_dtype_dict)
                 update_file_status(file, session, 'success')
 
