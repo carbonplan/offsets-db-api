@@ -9,16 +9,12 @@ import requests
 def post_data_to_environment(env):
     # Determine the URL based on the environment
     url = os.environ.get(f'{env.upper()}_URL', f'https://offsets-db-{env}.fly.dev/files/')
-    print(url)
-
-    # Get the API token from environment variables
-    api_token = os.environ.get('FLY_API_TOKEN')
+    print(f'URL: {url}')
 
     # Set up the headers for the request
     headers = {
         'accept': 'application/json',
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {api_token}',
     }
 
     # Determine the date for the URL
@@ -50,7 +46,8 @@ def post_data_to_environment(env):
                 'category': 'projects',
             },
             {
-                'url': f's3://carbonplan-offsets-db/final/{date_str}/clips.parquet',
+                # 'url': f's3://carbonplan-offsets-db/final/{date_str}/clips.parquet',
+                's3://carbonplan-share/offsets-db-testing-data/final/clips.parquet'
                 'category': 'clips',
             },
         ],
