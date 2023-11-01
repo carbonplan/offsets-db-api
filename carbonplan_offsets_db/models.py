@@ -183,9 +183,20 @@ class ProjectCounts(pydantic.BaseModel):
     value: int
 
 
+class CreditCounts(pydantic.BaseModel):
+    category: str
+    retired: int
+    issued: int
+
+
 class PaginatedProjectCounts(pydantic.BaseModel):
     pagination: Pagination
     data: list[ProjectCounts]
+
+
+class PaginatedCreditCounts(pydantic.BaseModel):
+    pagination: Pagination
+    data: list[CreditCounts]
 
 
 class ProjectBinnedCreditsTotals(pydantic.BaseModel):
