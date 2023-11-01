@@ -178,6 +178,16 @@ class PaginatedBinnedValues(pydantic.BaseModel):
     data: list[BinnedValues]
 
 
+class ProjectCounts(pydantic.BaseModel):
+    category: str
+    value: int
+
+
+class PaginatedProjectCounts(pydantic.BaseModel):
+    pagination: Pagination
+    data: list[ProjectCounts]
+
+
 class ProjectBinnedCreditsTotals(pydantic.BaseModel):
     start: float | None
     end: float | None
