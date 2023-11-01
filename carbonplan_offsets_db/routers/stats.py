@@ -15,28 +15,26 @@ router = APIRouter()
 logger = get_logger()
 
 
-def projects_by_category(*, df: pd.DataFrame, categories: list = None) -> list[dict[str, int]]:
-    # If no categories are provided, return all of them
+def filter_valid_projects(df: pd.DataFrame, categories: list | None = None) -> pd.DataFrame:
     if not categories:
-        counts = df['category'].value_counts()
+        # If no categories are provided, return all of them
+        return df
+    # Filter the dataframe to include only rows with the specified categories
+    valid_projects = df[df['category'].isin(categories)]
 
-    else:
-        # Filter the dataframe to include only rows with the specified categories
-        valid_projects = df[df['category'].isin(categories)]
+    # Group by project and filter out projects that have different categories outside the given list
+    grouped = valid_projects.groupby('project_id')
+    valid_project_ids = grouped.filter(
+        lambda x: x['category'].nunique() == len(x)
+    ).project_id.unique()
+    return valid_projects[valid_projects['project_id'].isin(valid_project_ids)]
 
-        # Group by project and filter out projects that have different categories outside the given list
-        grouped = valid_projects.groupby('project_id')
-        valid_project_ids = grouped.filter(
-            lambda x: x['category'].nunique() == len(x)
-        ).project_id.unique()
 
-        # Return the count of projects by category
-        counts = valid_projects[valid_projects['project_id'].isin(valid_project_ids)][
-            'category'
-        ].value_counts()
-
-    logger.info(f'Counts: {counts}')
-
+def projects_by_category(
+    *, df: pd.DataFrame, categories: list | None = None
+) -> list[dict[str, int]]:
+    valid_projects = filter_valid_projects(df, categories)
+    counts = valid_projects.groupby('category').count()['project_id']
     return [{'category': category, 'value': count} for category, count in counts.items()]
 
 
@@ -102,8 +100,8 @@ def get_projects_by_category(
     engine = get_engine(database_url=settings.database_url)
 
     df = pd.read_sql_query(query.statement, engine).explode('category')
+    logger.info(f'Sample of the dataframe with size: {df.shape}\n{df.head()}')
     results = projects_by_category(df=df, categories=category)
-    logger.info(results)
 
     return PaginatedProjectCounts(
         data=results,
