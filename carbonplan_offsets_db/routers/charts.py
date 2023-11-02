@@ -79,7 +79,11 @@ def calculate_end_date(start_date, freq):
 
 
 def generate_date_bins(
-    *, min_value, max_value, freq: typing.Literal['D', 'W', 'M', 'Y'] = 'Y', num_bins: int = None
+    *,
+    min_value,
+    max_value,
+    freq: typing.Literal['D', 'W', 'M', 'Y'] | None = None,
+    num_bins: int = None,
 ):
     """
     Generate date bins with the specified frequency.
@@ -101,29 +105,26 @@ def generate_date_bins(
         The generated date bins.
     """
 
+    # freq and num_bins are mutually exclusive
+    if freq and num_bins:
+        raise ValueError('freq and num_bins are mutually exclusive')
+
     min_value, max_value = (
         pd.Timestamp(min_value),
         pd.Timestamp(max_value),
     )
+
+    # Adjust min_value based on frequency
+    if freq == 'M':
+        min_value = min_value.replace(day=1)
+    elif freq == 'Y':
+        min_value = min_value.replace(month=1, day=1)
+
     if num_bins:
-        # Adjust max_value based on frequency before generating bins
-        if freq == 'M':
-            adjusted_max_value = (max_value + pd.DateOffset(months=1)).replace(day=1)
-        elif freq == 'Y':
-            adjusted_max_value = (max_value + pd.DateOffset(years=1)).replace(
-                month=1, day=1
-            ) - pd.Timedelta(days=1)
-        else:
-            adjusted_max_value = max_value
-
-        # Generate 'num_bins' bins using the adjusted max_value
-        date_bins = pd.date_range(
-            start=min_value.replace(day=1), end=adjusted_max_value, periods=num_bins, normalize=True
-        )
-
+        # Generate 'num_bins' bins
+        date_bins = pd.date_range(start=min_value, end=max_value, periods=num_bins, normalize=True)
     else:
         frequency_mapping = {'Y': 'AS', 'M': 'MS', 'W': 'W', 'D': 'D'}
-
         date_bins = pd.date_range(
             start=min_value,
             end=max_value,
@@ -131,19 +132,17 @@ def generate_date_bins(
             normalize=True,
         )
 
-        # Ensure the last date is included
-        if len(date_bins) == 0 or date_bins[-1] < max_value:
-            if freq == 'M':
-                last_bin = (max_value + pd.DateOffset(months=1)).replace(day=1)
-            elif freq == 'Y':
-                last_bin = (max_value + pd.DateOffset(years=1)).replace(
-                    month=1, day=1
-                ) - pd.Timedelta(days=1)
-            else:
-                last_bin = max_value
+    # Append the necessary last bin based on the frequency
+    if freq == 'M':
+        last_bin = (date_bins[-1] + pd.DateOffset(months=1)).replace(day=1)
+    elif freq == 'Y':
+        last_bin = (date_bins[-1] + pd.DateOffset(years=1)).replace(month=1, day=1)
+    else:
+        last_bin = max_value
 
-            if date_bins[-1] != last_bin:
-                date_bins = date_bins.append(pd.DatetimeIndex([last_bin]))
+    if date_bins[-1] != last_bin:
+        date_bins = date_bins.append(pd.DatetimeIndex([last_bin]))
+
     logger.info(f'✅ Bins generated successfully: {date_bins}')
     return date_bins
 
