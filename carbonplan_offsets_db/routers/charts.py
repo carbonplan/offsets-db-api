@@ -102,8 +102,8 @@ def generate_date_bins(
     """
 
     min_value, max_value = (
-        pd.Timestamp(min_value).replace(month=1, day=1),
-        pd.Timestamp(max_value).replace(month=12, day=31),
+        pd.Timestamp(min_value),  # .replace(month=1, day=1),
+        pd.Timestamp(max_value),  # .replace(month=12, day=31),
     )
     if num_bins:
         # Generate 'num_bins + 1' points and slice off the last one to get exactly 'num_bins' start points
@@ -119,7 +119,15 @@ def generate_date_bins(
 
     # Ensure the last date is included
     if len(date_bins) == 0 or date_bins[-1] < max_value:
-        date_bins = date_bins.append(pd.DatetimeIndex([max_value.replace(month=12, day=31)]))
+        if freq == 'M':
+            last_bin = max_value.replace(day=1)
+        elif freq == 'Y':
+            last_bin = max_value.replace(month=12, day=31)
+        else:
+            last_bin = max_value
+
+        if date_bins[-1] != last_bin:
+            date_bins = date_bins.append(pd.DatetimeIndex([last_bin]))
 
     return date_bins
 
