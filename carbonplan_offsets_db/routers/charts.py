@@ -14,6 +14,7 @@ from ..models import (
     PaginatedBinnedValues,
     PaginatedCreditCounts,
     PaginatedProjectCounts,
+    PaginatedProjectCreditTotals,
     Project,
 )
 from ..query_helpers import apply_filters
@@ -24,20 +25,40 @@ router = APIRouter()
 logger = get_logger()
 
 
-def remove_duplicates(binned_results):
-    seen = set()
-    unique_results = []
+def filter_valid_projects(df: pd.DataFrame, categories: list | None = None) -> pd.DataFrame:
+    if not categories:
+        # If no categories are provided, return all of them
+        return df
+    # Filter the dataframe to include only rows with the specified categories
+    valid_projects = df[df['category'].isin(categories)]
 
-    for result in binned_results:
-        # Convert the result to a tuple and add it to the set
-        result_tuple = (result['bin'], result['category'], result['value'])
+    # Group by project and filter out projects that have different categories outside the given list
+    grouped = valid_projects.groupby('project_id')
+    valid_project_ids = grouped.filter(
+        lambda x: x['category'].nunique() == len(x)
+    ).project_id.unique()
+    return valid_projects[valid_projects['project_id'].isin(valid_project_ids)]
 
-        # Check if the tuple is in the set (i.e., if it's a duplicate)
-        if result_tuple not in seen:
-            seen.add(result_tuple)
-            unique_results.append(result)
 
-    return unique_results
+def projects_by_category(
+    *, df: pd.DataFrame, categories: list | None = None
+) -> list[dict[str, int]]:
+    valid_projects = filter_valid_projects(df, categories)
+    counts = valid_projects.groupby('category').count()['project_id']
+    return [{'category': category, 'value': count} for category, count in counts.items()]
+
+
+def credits_by_category(
+    *, df: pd.DataFrame, categories: list | None = None
+) -> list[dict[str, int]]:
+    valid_projects = filter_valid_projects(df, categories)
+    credits = (
+        valid_projects.groupby('category').agg({'issued': 'sum', 'retired': 'sum'}).reset_index()
+    )
+    return [
+        {'category': row['category'], 'issued': row['issued'], 'retired': row['retired']}
+        for _, row in credits.iterrows()
+    ]
 
 
 def calculate_end_date(start_date, freq):
@@ -80,14 +101,18 @@ def generate_date_bins(
         The generated date bins.
     """
 
+    min_value, max_value = (
+        pd.Timestamp(min_value).replace(month=1, day=1),
+        pd.Timestamp(max_value).replace(month=12, day=31),
+    )
     if num_bins:
         # Generate 'num_bins + 1' points and slice off the last one to get exactly 'num_bins' start points
         return pd.date_range(start=min_value, end=max_value, periods=num_bins + 1)[:-1]
     frequency_mapping = {'Y': 'AS', 'M': 'MS', 'W': 'W', 'D': 'D'}
-    min_value, max_value = pd.Timestamp(min_value), pd.Timestamp(max_value)
+
     date_bins = pd.date_range(
-        start=pd.Timestamp(min_value).replace(month=1, day=1),
-        end=pd.Timestamp(max_value).replace(month=12, day=31),
+        start=min_value,
+        end=max_value,
         freq=frequency_mapping[freq],
         normalize=True,
     )
@@ -174,58 +199,6 @@ def get_binned_data(*, query, binning_attribute, freq='Y'):
     return formatted_results
 
 
-def get_binned_numeric_data(*, query, binning_attribute):
-    """Generate binned data based on the given numeric attribute."""
-    logger.info(f'📊 Generating binned data based on {binning_attribute}...')
-    attribute = getattr(Credit, binning_attribute)
-    min_value, max_value = query.with_entities(func.min(attribute), func.max(attribute)).one()
-
-    if min_value is None or max_value is None:
-        logger.info('✅ No data to bin!')
-        return []
-
-    numeric_bins = generate_dynamic_numeric_bins(min_value=min_value, max_value=max_value)
-
-    conditions = []
-    # Handle the case of exactly one non-null bin
-    if len(numeric_bins) == 1:
-        conditions.append((attribute.isnot(None), str(int(numeric_bins[0]))))
-
-    # Handle the case of multiple non-null bins
-    else:
-        conditions.extend(
-            [
-                (
-                    and_(attribute >= int(numeric_bins[i]), attribute < int(numeric_bins[i + 1])),
-                    str(int(numeric_bins[i])),
-                )
-                for i in range(len(numeric_bins) - 1)
-            ]
-        )
-    # Add condition for null attributes
-    conditions.append((attribute.is_(None), 'null'))
-
-    # Define the binned attribute
-    binned_attribute = case(conditions, else_='other').label('bin')
-
-    # Query and format the results
-    query = query.with_entities(
-        binned_attribute, Project.category, func.sum(Credit.quantity).label('value')
-    )
-    binned_results = query.group_by('bin', Project.category).all()
-
-    formatted_results = []
-    for bin_label, category, value in binned_results:
-        start_value = float(bin_label) if bin_label not in ['other', 'null'] else None
-        end_value = start_value + 1 if start_value else None
-        formatted_results.append(
-            dict(start=start_value, end=end_value, category=category, value=value)
-        )
-
-    logger.info('✅ Binned data generated successfully!')
-    return formatted_results
-
-
 def projects_by_credit_totals(
     *, query, min_value, max_value, credit_type, bin_width=None, categories=None
 ):
@@ -274,84 +247,6 @@ def projects_by_credit_totals(
 
     logger.info(f'✅ {len(formatted_results)} bins generated')
 
-    return formatted_results
-
-
-def credits_by_transaction_date(
-    *,
-    query,
-    min_date,
-    max_date,
-    freq: typing.Literal['D', 'W', 'M', 'Y'] = 'Y',
-    num_bins: int | None = None,
-    categories=None,
-):
-    """Generate binned data based on the transaction date."""
-    logger.info('📊 Generating binned data based on transaction date...')
-
-    if min_date is None or max_date is None:
-        logger.info('✅ No data to bin!')
-        return []
-
-    if num_bins:
-        date_bins = generate_date_bins(
-            min_value=min_date, max_value=max_date, freq=freq, num_bins=num_bins
-        )
-        logger.info(
-            f'📅 Binning by date with {date_bins} bins... min_value: {min_date}, max_value={max_date}, num_bins={num_bins}'
-        )
-
-    else:
-        # Generate date bins based on the frequency
-        date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq)
-        logger.info(
-            f'📅 Binning by date with {date_bins} bins... min_value: {min_date}, max_value={max_date}, freq={freq}'
-        )
-
-    # Create conditions for binning
-    conditions = []
-    # Handle the case of exactly one non-null date bin
-    if len(date_bins) == 1:
-        conditions.append((Credit.transaction_date.isnot(None), str(date_bins[0].date())))
-    else:
-        conditions.extend(
-            [
-                (
-                    and_(
-                        Credit.transaction_date >= date_bins[i],
-                        Credit.transaction_date < date_bins[i + 1],
-                    ),
-                    str(date_bins[i].date()),
-                )
-                for i in range(len(date_bins) - 1)
-            ]
-        )
-    conditions.append((Credit.transaction_date.is_(None), 'null'))
-
-    # Define the binned attribute
-    binned_attribute = case(conditions, else_='other').label('bin')
-
-    # Query and format the results
-    query = query.with_entities(
-        binned_attribute,
-        func.unnest(Project.category).label('category'),
-        func.sum(Credit.quantity).label('value'),
-    ).group_by('bin', 'category')
-
-    binned_results = query.all()
-    binned_results = remove_duplicates(binned_results)
-
-    formatted_results = []
-    for bin_label, category, value in binned_results:
-        if categories and category not in categories:
-            continue
-        start_date = pd.Timestamp(bin_label) if bin_label not in ['other', 'null'] else None
-        end_date = calculate_end_date(start_date, freq).date() if start_date else None
-        formatted_results.append(
-            dict(start=start_date, end=end_date, category=category, value=value)
-        )
-
-    logger.info('✅ Binned data generated successfully!')
     return formatted_results
 
 
@@ -430,6 +325,100 @@ def get_projects_by_listing_date(
     )
 
 
+def single_project_credits_by_transaction_date(*, df: pd.DataFrame, num_bins: int | None = None):
+    min_date, max_date = df.transaction_date.agg(['min', 'max'])
+    if pd.isna(min_date) or pd.isna(max_date):
+        logger.info('✅ No data to bin!')
+        return []
+
+    date_diff = max_date - min_date
+    if date_diff < datetime.timedelta(days=7):
+        freq = 'D'
+    elif date_diff < datetime.timedelta(days=30):  # Approximating a month to 30 days for simplicity
+        freq = 'W'
+    elif date_diff < datetime.timedelta(
+        days=365
+    ):  # Approximating a year to 365 days for simplicity
+        freq = 'M'
+    else:
+        freq = 'Y'
+
+    # Check if all events fall within the same year or month
+    if min_date.year == max_date.year:
+        freq = 'Y'
+        if min_date.month == max_date.month:
+            freq = 'M'
+
+    if num_bins:
+        date_bins = generate_date_bins(min_date, max_date, freq, num_bins)
+    else:
+        date_bins = generate_date_bins(min_date, max_date, freq)
+
+    # Binning logic
+    df['bin'] = pd.cut(df['transaction_date'], bins=date_bins, labels=date_bins[:-1], right=True)
+    df['bin'] = df['bin'].astype(str)
+    grouped = df.groupby(['bin'])['quantity'].sum().reset_index()
+    formatted_results = []
+    for _, row in grouped.iterrows():
+        bin_label = row['bin']
+        value = row['quantity']
+
+        start_date = pd.Timestamp(bin_label).date() if bin_label else None
+        end_date = calculate_end_date(start_date, freq).date() if start_date else None
+
+        formatted_results.append(dict(start=start_date, end=end_date, value=value))
+    return formatted_results
+
+
+def credits_by_transaction_date(
+    *,
+    df: pd.DataFrame,
+    freq: typing.Literal['D', 'W', 'M', 'Y'] = 'Y',
+    num_bins: int | None = None,
+    categories: list[str] | None = None,
+):
+    """
+    Get credits by transaction date.
+    """
+    valid_df = filter_valid_projects(df, categories=categories)
+
+    min_date, max_date = valid_df.transaction_date.agg(['min', 'max'])
+
+    if pd.isna(min_date) or pd.isna(max_date):
+        logger.info('✅ No data to bin!')
+        return []
+    if num_bins:
+        date_bins = generate_date_bins(
+            min_date, max_date, freq, num_bins
+        )  # Assuming this function returns a list of date ranges
+    else:
+        date_bins = generate_date_bins(min_date, max_date, freq)
+
+    # Binning logic
+    valid_df['bin'] = pd.cut(
+        valid_df['transaction_date'], bins=date_bins, labels=date_bins[:-1], right=False
+    )
+    valid_df['bin'] = valid_df['bin'].astype(str)
+
+    # Aggregate the data
+    grouped = valid_df.groupby(['bin', 'category'])['quantity'].sum().reset_index()
+
+    # Formatting the results
+    formatted_results = []
+    for _, row in grouped.iterrows():
+        bin_label = row['bin']
+        category = row['category']
+        value = row['quantity']
+
+        start_date = pd.Timestamp(bin_label).date() if bin_label else None
+        end_date = calculate_end_date(start_date, freq).date() if start_date else None
+
+        formatted_results.append(
+            dict(start=start_date, end=end_date, category=category, value=value)
+        )
+    return formatted_results
+
+
 @router.get('/credits_by_transaction_date', response_model=PaginatedBinnedValues)
 def get_credits_by_transaction_date(
     request: Request,
@@ -460,7 +449,7 @@ def get_credits_by_transaction_date(
     logger.info(f'Getting credit transaction data: {request.url}')
 
     # join Credit with Project on project_id
-    query = session.query(Credit).join(
+    query = session.query(Credit, Project.category).join(
         Project, Credit.project_id == Project.project_id, isouter=True
     )
 
@@ -488,13 +477,16 @@ def get_credits_by_transaction_date(
             or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
         )
 
-    # Extract the minimum and maximum transaction_date
-    min_date, max_date = query.with_entities(
-        func.min(Credit.transaction_date), func.max(Credit.transaction_date)
-    ).one()
-    results = credits_by_transaction_date(
-        query=query, freq=freq, min_date=min_date, max_date=max_date, categories=category
-    )
+    settings = get_settings()
+    engine = get_engine(database_url=settings.database_url)
+
+    logger.info(f'Query statement: {query.statement}')
+
+    df = pd.read_sql_query(query.statement, engine).explode('category')
+    # fix the data types
+    df = df.astype({'transaction_date': 'datetime64[ns]'})
+    results = credits_by_transaction_date(df=df, freq=freq, categories=category)
+
     total_entries = len(results)
     total_pages = 1
     next_page = None
@@ -509,7 +501,9 @@ def get_credits_by_transaction_date(
     )
 
 
-@router.get('/credits_by_transaction_date/{project_id}', response_model=PaginatedBinnedValues)
+@router.get(
+    '/credits_by_transaction_date/{project_id}', response_model=PaginatedProjectCreditTotals
+)
 def get_credits_by_project_id(
     project_id: str,
     transaction_type: list[str] | None = Query(None, description='Transaction type'),
@@ -527,7 +521,7 @@ def get_credits_by_project_id(
 ):
     # Join Credit with Project and filter by project_id
     query = (
-        session.query(Credit)
+        session.query(Credit, Project.category, Project.listed_at)
         .join(Project, Credit.project_id == Project.project_id)
         .filter(Project.project_id == project_id)
     )
@@ -544,40 +538,20 @@ def get_credits_by_project_id(
             query=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
-    # TODO: revisit this once we have reliable `listed_at`
-    # ref: https://github.com/carbonplan/offsets-db/issues/31#issuecomment-1707434158
-    # min_date is between project.listed_at and min(credit.transaction_date)
-    # Query to get project.listed_at
-    query1 = query.with_entities(Project.listed_at)
-    project_listed_at = query1.first()[0] if query1.first() else None
+    settings = get_settings()
+    engine = get_engine(database_url=settings.database_url)
 
-    # Query to get min(Credit.transaction_date)
-    query2 = session.query(func.min(Credit.transaction_date)).filter(
-        Credit.project_id == project_id
-    )
-    min_transaction_date = query2.first()[0] if query2.first() else None
+    logger.info(f'Query statement: {query.statement}')
 
-    # Find the minimum date between project_listed_at and min_transaction_date
-    if project_listed_at is None and min_transaction_date is None:
-        min_date = datetime.datetime.strptime('1990-01-01', '%Y-%m-%d').date()
-    elif project_listed_at and min_transaction_date:
-        min_date = min(project_listed_at, min_transaction_date)
-    elif project_listed_at is None:
-        min_date = min_transaction_date
-    else:
-        min_date = project_listed_at
-
-    # Use today's date if the project hasn't wound down yet
-    max_date = datetime.date.today()
-
-    results = credits_by_transaction_date(
-        query=query, min_date=min_date, max_date=max_date, freq='D', num_bins=num_bins
-    )
+    df = pd.read_sql_query(query.statement, engine)
+    # fix the data types
+    df = df.astype({'transaction_date': 'datetime64[ns]'})
+    results = single_project_credits_by_transaction_date(df=df, num_bins=num_bins)
 
     total_entries = len(results)
     total_pages = 1
     next_page = None
-    return PaginatedBinnedValues(
+    return PaginatedProjectCreditTotals(
         pagination=Pagination(
             total_entries=total_entries,
             total_pages=total_pages,
@@ -679,42 +653,6 @@ def get_projects_by_credit_totals(
         ),
         data=results,
     )
-
-
-def filter_valid_projects(df: pd.DataFrame, categories: list | None = None) -> pd.DataFrame:
-    if not categories:
-        # If no categories are provided, return all of them
-        return df
-    # Filter the dataframe to include only rows with the specified categories
-    valid_projects = df[df['category'].isin(categories)]
-
-    # Group by project and filter out projects that have different categories outside the given list
-    grouped = valid_projects.groupby('project_id')
-    valid_project_ids = grouped.filter(
-        lambda x: x['category'].nunique() == len(x)
-    ).project_id.unique()
-    return valid_projects[valid_projects['project_id'].isin(valid_project_ids)]
-
-
-def projects_by_category(
-    *, df: pd.DataFrame, categories: list | None = None
-) -> list[dict[str, int]]:
-    valid_projects = filter_valid_projects(df, categories)
-    counts = valid_projects.groupby('category').count()['project_id']
-    return [{'category': category, 'value': count} for category, count in counts.items()]
-
-
-def credits_by_category(
-    *, df: pd.DataFrame, categories: list | None = None
-) -> list[dict[str, int]]:
-    valid_projects = filter_valid_projects(df, categories)
-    credits = (
-        valid_projects.groupby('category').agg({'issued': 'sum', 'retired': 'sum'}).reset_index()
-    )
-    return [
-        {'category': row['category'], 'issued': row['issued'], 'retired': row['retired']}
-        for _, row in credits.iterrows()
-    ]
 
 
 @router.get('/projects_by_category', response_model=PaginatedProjectCounts)

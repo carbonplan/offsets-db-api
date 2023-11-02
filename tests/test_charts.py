@@ -143,9 +143,6 @@ def test_get_projects_by_credit_totals(
     assert isinstance(data, list)
 
 
-import pytest
-
-
 @pytest.mark.parametrize('category', ['forest', None])
 def test_get_projects_by_category(test_app, category):
     response = test_app.get(f'/charts/projects_by_category?category={category}')
