@@ -79,7 +79,7 @@ def calculate_end_date(start_date, freq):
 
 
 def generate_date_bins(
-    min_value, max_value, freq: typing.Literal['D', 'W', 'M', 'Y'], num_bins: int = None
+    *, min_value, max_value, freq: typing.Literal['D', 'W', 'M', 'Y'] = 'Y', num_bins: int = None
 ):
     """
     Generate date bins with the specified frequency.
@@ -102,33 +102,49 @@ def generate_date_bins(
     """
 
     min_value, max_value = (
-        pd.Timestamp(min_value),  # .replace(month=1, day=1),
-        pd.Timestamp(max_value),  # .replace(month=12, day=31),
+        pd.Timestamp(min_value),
+        pd.Timestamp(max_value),
     )
     if num_bins:
-        # Generate 'num_bins + 1' points and slice off the last one to get exactly 'num_bins' start points
-        return pd.date_range(start=min_value, end=max_value, periods=num_bins + 1)[:-1]
-    frequency_mapping = {'Y': 'AS', 'M': 'MS', 'W': 'W', 'D': 'D'}
-
-    date_bins = pd.date_range(
-        start=min_value,
-        end=max_value,
-        freq=frequency_mapping[freq],
-        normalize=True,
-    )
-
-    # Ensure the last date is included
-    if len(date_bins) == 0 or date_bins[-1] < max_value:
+        # Adjust max_value based on frequency before generating bins
         if freq == 'M':
-            last_bin = max_value.replace(day=1)
+            adjusted_max_value = (max_value + pd.DateOffset(months=1)).replace(day=1)
         elif freq == 'Y':
-            last_bin = max_value.replace(month=12, day=31)
+            adjusted_max_value = (max_value + pd.DateOffset(years=1)).replace(
+                month=1, day=1
+            ) - pd.Timedelta(days=1)
         else:
-            last_bin = max_value
+            adjusted_max_value = max_value
 
-        if date_bins[-1] != last_bin:
-            date_bins = date_bins.append(pd.DatetimeIndex([last_bin]))
+        # Generate 'num_bins' bins using the adjusted max_value
+        date_bins = pd.date_range(
+            start=min_value.replace(day=1), end=adjusted_max_value, periods=num_bins, normalize=True
+        )
 
+    else:
+        frequency_mapping = {'Y': 'AS', 'M': 'MS', 'W': 'W', 'D': 'D'}
+
+        date_bins = pd.date_range(
+            start=min_value,
+            end=max_value,
+            freq=frequency_mapping[freq],
+            normalize=True,
+        )
+
+        # Ensure the last date is included
+        if len(date_bins) == 0 or date_bins[-1] < max_value:
+            if freq == 'M':
+                last_bin = (max_value + pd.DateOffset(months=1)).replace(day=1)
+            elif freq == 'Y':
+                last_bin = (max_value + pd.DateOffset(years=1)).replace(
+                    month=1, day=1
+                ) - pd.Timedelta(days=1)
+            else:
+                last_bin = max_value
+
+            if date_bins[-1] != last_bin:
+                date_bins = date_bins.append(pd.DatetimeIndex([last_bin]))
+    logger.info(f'✅ Bins generated successfully: {date_bins}')
     return date_bins
 
 
@@ -358,9 +374,9 @@ def single_project_credits_by_transaction_date(*, df: pd.DataFrame, num_bins: in
             freq = 'M'
 
     if num_bins:
-        date_bins = generate_date_bins(min_date, max_date, freq, num_bins)
+        date_bins = generate_date_bins(min_value=min_date, max_value=max_date, num_bins=num_bins)
     else:
-        date_bins = generate_date_bins(min_date, max_date, freq)
+        date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq)
 
     # Binning logic
     df['bin'] = pd.cut(df['transaction_date'], bins=date_bins, labels=date_bins[:-1], right=True)
@@ -397,10 +413,10 @@ def credits_by_transaction_date(
         return []
     if num_bins:
         date_bins = generate_date_bins(
-            min_date, max_date, freq, num_bins
+            min_value=min_date, max_value=max_date, num_bins=num_bins
         )  # Assuming this function returns a list of date ranges
     else:
-        date_bins = generate_date_bins(min_date, max_date, freq)
+        date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq)
 
     # Binning logic
     valid_df['bin'] = pd.cut(
