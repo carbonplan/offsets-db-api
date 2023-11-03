@@ -348,34 +348,36 @@ def get_projects_by_listing_date(
     )
 
 
-def single_project_credits_by_transaction_date(*, df: pd.DataFrame, num_bins: int | None = None):
+def single_project_credits_by_transaction_date(
+    *, df: pd.DataFrame, freq: typing.Literal['D', 'W', 'M', 'Y'] | None = None
+):
     min_date, max_date = df.transaction_date.agg(['min', 'max'])
     if pd.isna(min_date) or pd.isna(max_date):
         logger.info('✅ No data to bin!')
         return []
 
-    date_diff = max_date - min_date
-    if date_diff < datetime.timedelta(days=7):
-        freq = 'D'
-    elif date_diff < datetime.timedelta(days=30):  # Approximating a month to 30 days for simplicity
-        freq = 'W'
-    elif date_diff < datetime.timedelta(
-        days=365
-    ):  # Approximating a year to 365 days for simplicity
-        freq = 'M'
-    else:
-        freq = 'Y'
-
-    # Check if all events fall within the same year or month
-    if min_date.year == max_date.year:
-        freq = 'Y'
-        if min_date.month == max_date.month:
+    if freq is None:
+        date_diff = max_date - min_date
+        if date_diff < datetime.timedelta(days=7):
+            freq = 'D'
+        elif date_diff < datetime.timedelta(
+            days=30
+        ):  # Approximating a month to 30 days for simplicity
+            freq = 'W'
+        elif date_diff < datetime.timedelta(
+            days=365
+        ):  # Approximating a year to 365 days for simplicity
             freq = 'M'
+        else:
+            freq = 'Y'
 
-    if num_bins:
-        date_bins = generate_date_bins(min_value=min_date, max_value=max_date, num_bins=num_bins)
-    else:
-        date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq)
+        # Check if all events fall within the same year or month
+        if min_date.year == max_date.year:
+            freq = 'Y'
+            if min_date.month == max_date.month:
+                freq = 'M'
+
+    date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq)
 
     # Binning logic
     df['bin'] = pd.cut(df['transaction_date'], bins=date_bins, labels=date_bins[:-1], right=True)
@@ -537,7 +539,7 @@ def get_credits_by_project_id(
     transaction_date_to: datetime.date
     | datetime.datetime
     | None = Query(default=None, description='Format: YYYY-MM-DD'),
-    num_bins: int = Query(20, description='Number of bins'),
+    freq: typing.Literal['D', 'W', 'M', 'Y'] = Query(None, description='Frequency of bins'),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
@@ -569,7 +571,7 @@ def get_credits_by_project_id(
     df = pd.read_sql_query(query.statement, engine)
     # fix the data types
     df = df.astype({'transaction_date': 'datetime64[ns]'})
-    results = single_project_credits_by_transaction_date(df=df, num_bins=num_bins)
+    results = single_project_credits_by_transaction_date(df=df, freq=freq)
 
     total_entries = len(results)
     total_pages = 1
