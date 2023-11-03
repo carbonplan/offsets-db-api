@@ -1,7 +1,7 @@
 from urllib.parse import quote
 
 from fastapi import HTTPException, Request
-from sqlalchemy import and_, asc, desc, or_
+from sqlalchemy import and_, asc, desc, nullslast, or_
 from sqlalchemy.orm import Query
 
 from .models import Credit, Project
@@ -112,7 +112,7 @@ def apply_sorting(*, query, sort: list[str], model, primary_key: str):
             )
 
         # Apply sorting to the query
-        query = query.order_by(order(getattr(model, field)))
+        query = query.order_by(nullslast(order(getattr(model, field))))
 
     return query
 
