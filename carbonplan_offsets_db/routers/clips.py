@@ -5,7 +5,7 @@ from sqlmodel import Session, or_
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Clip, PaginatedClips
+from ..models import Clip, ClipProject, PaginatedClips
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination
 
@@ -13,18 +13,16 @@ router = APIRouter()
 logger = get_logger()
 
 
-@router.get('/', response_model=PaginatedClips)
+@router.get('/')
 def get_clips(
     request: Request,
     project_id: list[str] | None = Query(None, description='Project ID'),
     tags: list[str] | None = Query(None, description='Tags'),
-    article_type: list[str] | None = Query(None, description='Article type'),
-    published_at_from: datetime.date
+    type: list[str] | None = Query(None, description='Article type'),
+    date_from: datetime.date
     | datetime.datetime
     | None = Query(None, description='Published at from'),
-    published_at_to: datetime.date
-    | datetime.datetime
-    | None = Query(None, description='Published at to'),
+    date_to: datetime.date | datetime.datetime | None = Query(None, description='Published at to'),
     search: str
     | None = Query(
         None,
@@ -33,7 +31,7 @@ def get_clips(
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     sort: list[str] = Query(
-        default=['project_id'],
+        default=['id'],
         description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
     ),
     session: Session = Depends(get_session),
@@ -44,14 +42,19 @@ def get_clips(
     logger.info(f'Getting clips: {request.url}')
 
     filters = [
-        ('article_type', article_type, 'ilike', Clip),
+        ('type', type, 'ilike', Clip),
         ('tags', tags, 'ANY', Clip),
-        ('published_at', published_at_from, '>=', Clip),
-        ('published_at', published_at_to, '<=', Clip),
-        ('project_id', project_id, 'ilike', Clip),
+        ('date', date_from, '>=', Clip),
+        ('date', date_to, '<=', Clip),
     ]
 
-    query = session.query(Clip)
+    query = session.query(Clip, ClipProject.project_id).join(
+        ClipProject, Clip.id == ClipProject.clip_id
+    )
+    return query.all()
+    # Handle 'project_id' filter separately due to its relationship
+    if project_id:
+        query = query.join(ClipProject).filter(ClipProject.project_id.in_(project_id))
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
@@ -62,7 +65,7 @@ def get_clips(
     if search:
         search_pattern = f'%{search}%'
         query = query.filter(
-            or_(Clip.project_id.ilike(search_pattern), Clip.title.ilike(search_pattern))
+            or_(ClipProject.project_id.ilike(search_pattern), Clip.title.ilike(search_pattern))
         )
 
     if sort:
@@ -71,6 +74,7 @@ def get_clips(
     total_entries, current_page, total_pages, next_page, results = handle_pagination(
         query=query, current_page=current_page, per_page=per_page, request=request
     )
+    return results
 
     return PaginatedClips(
         pagination=Pagination(

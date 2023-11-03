@@ -11,6 +11,8 @@ from carbonplan_offsets_db.models import (  # (be sure to import all models you 
     Credit,
     File,
     Project,
+    Clip,
+    ClipProject,
 )
 from carbonplan_offsets_db.settings import get_settings
 

@@ -48,43 +48,46 @@ class ProjectBase(SQLModel):
 
 
 class Project(ProjectBase, table=True):
-    clips: list['Clip'] = Relationship(
-        back_populates='project',
-        sa_relationship_kwargs={
-            'cascade': 'all,delete,delete-orphan',  # Instruct the ORM how to track changes to local objects
-        },
-    )
     credits: list['Credit'] = Relationship(
         back_populates='project',
         sa_relationship_kwargs={
             'cascade': 'all,delete,delete-orphan',  # Instruct the ORM how to track changes to local objects
         },
     )
+    clip_relationships: list['ClipProject'] = Relationship(
+        back_populates='project', sa_relationship_kwargs={'cascade': 'all,delete,delete-orphan'}
+    )
 
 
 class Clip(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    project_id: str | None = Field(
-        description='Project id used by registry system',
-        index=True,
-        foreign_key='project.project_id',
-    )
-    published_at: datetime.datetime = Field(description='Date the clip was published')
+    date: datetime.datetime = Field(description='Date the clip was published')
     title: str | None = Field(description='Title of the clip')
     url: pydantic.AnyUrl | None = Field(description='URL to the clip')
+    source: str | None = Field(description='Source of the clip')
     tags: list[str] | None = Field(
         description='Tags associated with the clip', sa_column=Column(postgresql.ARRAY(String()))
     )
     notes: str | None = Field(description='Notes associated with the clip')
     is_waybacked: bool = Field(default=False, description='Whether the clip is a waybacked clip')
-    article_type: str = Field(description='Type of clip', default='unknown')
-    project: Project | None = Relationship(back_populates='clips')
+    type: str = Field(description='Type of clip', default='unknown')
+    project_relationships: list['ClipProject'] = Relationship(
+        back_populates='clip', sa_relationship_kwargs={'cascade': 'all,delete,delete-orphan'}
+    )
+
+
+class ClipProject(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True)
+    clip_id: int = Field(description='Id of clip', foreign_key='clip.id')
+    project_id: str = Field(description='Id of project', foreign_key='project.project_id')
+    clip: Clip | None = Relationship(back_populates='project_relationships')
+    project: Project | None = Relationship(back_populates='clip_relationships')
 
 
 class ProjectWithClips(ProjectBase):
     ...
 
-    clips: list[Clip] = Field(default=None, description='List of clips associated with project')
+    clips: list[Clip] = Field(default=[], description='List of clips associated with project')
 
 
 class Credit(SQLModel, table=True):
