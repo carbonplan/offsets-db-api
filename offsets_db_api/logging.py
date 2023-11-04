@@ -3,7 +3,7 @@ import sys
 
 
 def get_logger() -> logging.Logger:
-    logger = logging.getLogger('offsets-db')
+    logger = logging.getLogger('offsets-db-api')
 
     if not logger.handlers:
         handler = logging.StreamHandler(stream=sys.stdout)

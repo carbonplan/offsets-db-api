@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 
 [project]
-name = "carbonplan-offsets-db"
+name = "offsets-db-api"
 description = "Monitoring the global carbon market"
 readme = "README.md"
 license = { text = "MIT" }
@@ -32,14 +32,14 @@ dependencies = [
     "pydantic>=1.10",
     "s3fs >=2023",
     "sqlmodel >= 0.0.8",
-    "pandera>=0.17"
+    "pandera>=0.17",
 ]
 
 [project.urls]
-repository = "https://github.com/carbonplan/offsets-db"
+repository = "https://github.com/carbonplan/offsets-db-api"
 
 [tool.setuptools.packages.find]
-include = ["carbonplan_offsets_db*"]
+include = ["offsets_db_api*"]
 
 [tool.setuptools_scm]
 version_scheme = "post-release"
@@ -49,8 +49,6 @@ fallback_version = "999"
 [tool.coverage.run]
 omit = ["tests/*", "gunicorn_config.py"]
 branch = true
-
-
 
 
 [tool.ruff]

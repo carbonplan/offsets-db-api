@@ -131,7 +131,7 @@ dmypy.json
 # mac
 .DS_Store
 
-carbonplan_offsets_db/_version.py
+offsets_db_api/_version.py
 .vscode/
 *.sqlite
 *.csv
