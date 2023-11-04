@@ -19,14 +19,13 @@ def get_clips(
     project_id: list[str] | None = Query(None, description='Project ID'),
     tags: list[str] | None = Query(None, description='Tags'),
     article_type: list[str] | None = Query(None, description='Article type'),
-    published_at_from: datetime.date
-    | datetime.datetime
-    | None = Query(None, description='Published at from'),
-    published_at_to: datetime.date
-    | datetime.datetime
-    | None = Query(None, description='Published at to'),
-    search: str
-    | None = Query(
+    published_at_from: datetime.date | datetime.datetime | None = Query(
+        None, description='Published at from'
+    ),
+    published_at_to: datetime.date | datetime.datetime | None = Query(
+        None, description='Published at to'
+    ),
+    search: str | None = Query(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `title` fields only.',
     ),

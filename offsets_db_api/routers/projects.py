@@ -22,18 +22,17 @@ def get_projects(
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
     is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
-    listed_at_from: datetime.date
-    | datetime.datetime
-    | None = Query(default=None, description='Format: YYYY-MM-DD'),
-    listed_at_to: datetime.date
-    | datetime.datetime
-    | None = Query(default=None, description='Format: YYYY-MM-DD'),
+    listed_at_from: datetime.date | datetime.datetime | None = Query(
+        default=None, description='Format: YYYY-MM-DD'
+    ),
+    listed_at_to: datetime.date | datetime.datetime | None = Query(
+        default=None, description='Format: YYYY-MM-DD'
+    ),
     issued_min: int | None = Query(None, description='Minimum number of issued credits'),
     issued_max: int | None = Query(None, description='Maximum number of issued credits'),
     retired_min: int | None = Query(None, description='Minimum number of retired credits'),
     retired_max: int | None = Query(None, description='Maximum number of retired credits'),
-    search: str
-    | None = Query(
+    search: str | None = Query(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
