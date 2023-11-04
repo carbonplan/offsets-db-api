@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 
 [project]
-name = "carbonplan-offsets-db"
+name = "offsets-db-api"
 description = "Monitoring the global carbon market"
 readme = "README.md"
 license = { text = "MIT" }
@@ -32,14 +32,14 @@ dependencies = [
     "pydantic>=1.10",
     "s3fs >=2023",
     "sqlmodel >= 0.0.8",
-    "pandera>=0.17"
+    "pandera>=0.17",
 ]
 
 [project.urls]
-repository = "https://github.com/carbonplan/offsets-db"
+repository = "https://github.com/carbonplan/offsets-db-api"
 
 [tool.setuptools.packages.find]
-include = ["carbonplan_offsets_db*"]
+include = ["offsets_db_api*"]
 
 [tool.setuptools_scm]
 version_scheme = "post-release"
@@ -49,12 +49,6 @@ fallback_version = "999"
 [tool.coverage.run]
 omit = ["tests/*", "gunicorn_config.py"]
 branch = true
-
-
-[tool.black]
-line-length = 100
-target-version = ['py310']
-skip-string-normalization = true
 
 
 [tool.ruff]
@@ -84,10 +78,11 @@ exclude = [
     "venv",
 ]
 per-file-ignores = {}
-# E402: module level import not at top of file
-# E501: line too long - let black worry about that
-# E731: do not assign a lambda expression, use a def
-ignore = ["E402", "E501", "E731"]
+ignore = [
+    "E721", # Comparing types instead of isinstance
+    "E741", # Ambiguous variable names
+    "E501", # Conflicts with ruff format
+]
 select = [
     # Pyflakes
     "F",
@@ -101,11 +96,18 @@ select = [
 ]
 
 
-[tool.ruff.mccabe]
+[tool.ruff.lint.mccabe]
 max-complexity = 18
 
-[tool.ruff.isort]
-known-first-party = ["carbonplan_offsets_db"]
+[tool.ruff.lint.isort]
+known-first-party = ["offsets_db_api"]
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
 
 [tool.pytest.ini_options]
 console_output_style = "count"

@@ -21,7 +21,7 @@ The database contains information about carbon offsets projects, credits.
 It also contains information about the offset credits that have been issued for each project.
 The raw data are retrieved from the following registries:
 
-- [art-trees](https://www.artredd.org/trees/)
+- [art-trees](https://art.apx.com/)
 - [climate action reserve](https://thereserve2.apx.com)
 - [american carbon registry](https://acr2.apx.com/)
 - [verra](https://registry.verra.org/)
@@ -34,9 +34,9 @@ If you have any questions or feedback, please open an issue in that repository.
 
 
 metadata = dict(
-    title='CarbonPlan Offsets Database',
+    title='CarbonPlan Offsets-DB API',
     description=description,
-    contact=dict(name='CarbonPlan', url='https://github.com/carbonplan/offsets-db/issues'),
+    contact=dict(name='CarbonPlan', url='https://github.com/carbonplan/offsets-db-api/issues'),
     license_info=dict(name='MIT License', url='https://spdx.org/licenses/MIT.html'),
     version=version,
 )

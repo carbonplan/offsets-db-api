@@ -1,5 +1,5 @@
 api:
-  - carbonplan_offsets_db/**/*
+  - offsets_db_api/**/*
   - migrations/**/*
   - Procfile
   - environment.yml

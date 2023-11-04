@@ -35,7 +35,7 @@ After that, update the `migrations/env.py` file to point to the correct database
 ```python
 import os
 from sqlmodel import SQLModel
-from carbonplan_offsets_db.models import Project
+from offsets_db_api.models import Project
 
 
 # https://stackoverflow.com/questions/37890284/ini-file-load-environment-variable

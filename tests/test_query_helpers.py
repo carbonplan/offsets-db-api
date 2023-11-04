@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 from starlette.datastructures import URL, QueryParams
 
-from carbonplan_offsets_db.query_helpers import _generate_next_page_url, custom_urlencode
+from offsets_db_api.query_helpers import _generate_next_page_url, custom_urlencode
 
 
 @pytest.mark.parametrize(
