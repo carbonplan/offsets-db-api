@@ -126,11 +126,12 @@ def get_projects(
     summary='Get project details by project_id',
 )
 def get_project(
+    request: Request,
     project_id: str,
     session: Session = Depends(get_session),
 ):
     """Get a project by registry and project_id"""
-    logger.info('Getting project %s', project_id)
+    logger.info(f'Getting project: {request.url}')
 
     # Start the query to get the project and related clips
     project_with_clips = (
