@@ -105,23 +105,28 @@ class ProjectWithClips(ProjectBase):
     )
 
 
-class Credit(SQLModel, table=True):
+class CreditBase(SQLModel):
+    quantity: int = Field(description='Number of credits', sa_column=Column(BigInteger()))
+    vintage: int | None = Field(description='Vintage year of credits')
+    transaction_date: datetime.date | None = Field(description='Date of transaction')
+    transaction_type: str | None = Field(description='Type of transaction')
+
+
+class Credit(CreditBase, table=True):
     id: int = Field(default=None, primary_key=True)
     project_id: str | None = Field(
         description='Project id used by registry system',
         index=True,
         foreign_key='project.project_id',
     )
-    quantity: int = Field(description='Number of credits', sa_column=Column(BigInteger()))
-    vintage: int | None = Field(description='Vintage year of credits')
-    transaction_date: datetime.date | None = Field(description='Date of transaction')
-    transaction_type: str | None = Field(description='Type of transaction')
     project: Project | None = Relationship(
         back_populates='credits',
     )
 
 
-class CreditWithCategory(Credit):
+class CreditWithCategory(CreditBase):
+    id: int
+    project_id: str | None
     category: list[str] | None = Field(description='List of categories', default=None)
 
 
