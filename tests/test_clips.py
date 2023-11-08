@@ -23,4 +23,5 @@ def test_get_filtered_clips(test_app, source, type, tags, search, project_id):
     assert tags in data[0]['tags']
     assert search in data[0]['title'].lower()
     assert source in data[0]['source']
-    assert project_id in data[0]['project_ids']
+    projects = data[0]['projects']
+    assert project_id == projects[0]['project_id']
