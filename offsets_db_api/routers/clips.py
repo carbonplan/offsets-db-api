@@ -1,4 +1,5 @@
 import datetime
+from collections import defaultdict
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlmodel import Session, or_
@@ -13,7 +14,7 @@ router = APIRouter()
 logger = get_logger()
 
 
-@router.get('/')
+@router.get('/', response_model=PaginatedClips)
 def get_clips(
     request: Request,
     project_id: list[str] | None = Query(None, description='Project ID'),
@@ -45,15 +46,12 @@ def get_clips(
         ('tags', tags, 'ANY', Clip),
         ('date', date_from, '>=', Clip),
         ('date', date_to, '<=', Clip),
+        ('project_id', project_id, '==', ClipProject),
     ]
 
     query = session.query(Clip, ClipProject.project_id).join(
         ClipProject, Clip.id == ClipProject.clip_id
     )
-    return query.all()
-    # Handle 'project_id' filter separately due to its relationship
-    if project_id:
-        query = query.join(ClipProject).filter(ClipProject.project_id.in_(project_id))
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
@@ -70,10 +68,23 @@ def get_clips(
     if sort:
         query = apply_sorting(query=query, sort=sort, model=Clip, primary_key='id')
 
-    total_entries, current_page, total_pages, next_page, results = handle_pagination(
+    total_entries, current_page, total_pages, next_page, query_results = handle_pagination(
         query=query, current_page=current_page, per_page=per_page, request=request
     )
-    return results
+
+    # Organize clips with their associated project_ids
+    clips_dict = defaultdict(lambda: {'clip': None, 'project_ids': []})
+    for clip, project_id in query_results:
+        clip_id = clip.id
+        if clips_dict[clip_id]['clip'] is None:
+            clips_dict[clip_id]['clip'] = clip
+        clips_dict[clip_id]['project_ids'].append(project_id)
+
+    # Flatten the dictionary into a list of clip data with project_ids
+    clips_with_projects = [
+        dict(clip_data['clip'], project_ids=clip_data['project_ids'])
+        for clip_data in clips_dict.values()
+    ]
 
     return PaginatedClips(
         pagination=Pagination(
@@ -82,5 +93,5 @@ def get_clips(
             total_pages=total_pages,
             next_page=next_page,
         ),
-        data=results,
+        data=clips_with_projects,
     )

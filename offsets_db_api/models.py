@@ -59,8 +59,7 @@ class Project(ProjectBase, table=True):
     )
 
 
-class Clip(SQLModel, table=True):
-    id: int = Field(default=None, primary_key=True)
+class ClipBase(SQLModel):
     date: datetime.datetime = Field(description='Date the clip was published')
     title: str | None = Field(description='Title of the clip')
     url: pydantic.AnyUrl | None = Field(description='URL to the clip')
@@ -69,10 +68,23 @@ class Clip(SQLModel, table=True):
         description='Tags associated with the clip', sa_column=Column(postgresql.ARRAY(String()))
     )
     notes: str | None = Field(description='Notes associated with the clip')
-    is_waybacked: bool = Field(default=False, description='Whether the clip is a waybacked clip')
+    is_waybacked: bool | None = Field(
+        default=False, description='Whether the clip is a waybacked clip'
+    )
     type: str = Field(description='Type of clip', default='unknown')
+
+
+class Clip(ClipBase, table=True):
+    id: int = Field(default=None, primary_key=True)
     project_relationships: list['ClipProject'] = Relationship(
         back_populates='clip', sa_relationship_kwargs={'cascade': 'all,delete,delete-orphan'}
+    )
+
+
+class ClipwithProjects(ClipBase):
+    id: int
+    project_ids: list[str] = Field(
+        default=[], description='List of project ids associated with clip'
     )
 
 
@@ -227,4 +239,4 @@ class PaginatedBinnedCreditTotals(pydantic.BaseModel):
 
 class PaginatedClips(pydantic.BaseModel):
     pagination: Pagination
-    data: list[Clip]
+    data: list[ClipwithProjects]
