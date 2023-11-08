@@ -26,18 +26,20 @@ logger = get_logger()
 
 
 def filter_valid_projects(df: pd.DataFrame, categories: list | None = None) -> pd.DataFrame:
-    if not categories:
-        # If no categories are provided, return all of them
+    if categories is None:
         return df
     # Filter the dataframe to include only rows with the specified categories
     valid_projects = df[df['category'].isin(categories)]
 
-    # Group by project and filter out projects that have different categories outside the given list
-    grouped = valid_projects.groupby('project_id')
-    valid_project_ids = grouped.filter(
-        lambda x: x['category'].nunique() == len(x)
-    ).project_id.unique()
-    return valid_projects[valid_projects['project_id'].isin(valid_project_ids)]
+    # Group by project and filter out projects that have any categories outside the given list
+    def all_categories_valid(group):
+        return all(category in categories for category in group['category'].unique())
+
+    valid_project_ids = (
+        valid_projects.groupby('project_id').filter(all_categories_valid).project_id.unique()
+    )
+
+    return df[df['project_id'].isin(valid_project_ids)]
 
 
 def projects_by_category(
@@ -506,9 +508,11 @@ def get_credits_by_transaction_date(
     logger.info(f'Query statement: {query.statement}')
 
     df = pd.read_sql_query(query.statement, engine).explode('category')
+    logger.info(f'Sample of the dataframe with size: {df.shape}\n{df.category.unique()}')
     # fix the data types
     df = df.astype({'transaction_date': 'datetime64[ns]'})
     results = credits_by_transaction_date(df=df, freq=freq, categories=category)
+    logger.info(f'Sample of results: {len(results)}\n{results[:2]}')
 
     total_entries = len(results)
     total_pages = 1
@@ -811,6 +815,7 @@ def get_credits_by_category(
 
     df = pd.read_sql_query(query.statement, engine).explode('category')
     logger.info(f'Sample of the dataframe with size: {df.shape}\n{df.head()}')
+
     results = credits_by_category(df=df, categories=category)
 
     return PaginatedCreditCounts(
