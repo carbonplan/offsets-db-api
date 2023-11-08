@@ -4,7 +4,7 @@ import pandas as pd
 from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, String, text
 
 from .logging import get_logger
-from .models import File, clip_schema, credit_schema, project_schema
+from .models import File, credit_schema, project_schema
 
 logger = get_logger()
 
@@ -28,7 +28,7 @@ def process_dataframe(df, table_name, engine, dtype_dict=None):
 
 def process_files(*, engine, session, files: list[File]):
     # loop over files and make sure projects are first in the list to ensure the delete cascade works
-    ordered_files = []
+    ordered_files: list[File] = []
     for file in files:
         if file.category == 'projects':
             ordered_files.insert(0, file)
@@ -88,6 +88,8 @@ def process_files(*, engine, session, files: list[File]):
                 update_file_status(file, session, 'success')
 
             elif file.category == 'clips':
+                with engine.begin() as conn:
+                    conn.execute(text('DROP TABLE IF EXISTS clip, clipproject CASCADE;'))
                 logger.info(f'📚 Loading clip file: {file.url}')
                 data = (
                     pd.read_parquet(file.url, engine='fastparquet')
@@ -95,9 +97,27 @@ def process_files(*, engine, session, files: list[File]):
                     .reset_index()
                     .rename(columns={'index': 'id'})
                 )
-                df = clip_schema.validate(data)
+
+                clips_df = data.drop(columns=['project_ids'])
                 clip_dtype_dict = {'tags': ARRAY(String)}
-                process_dataframe(df, 'clip', engine, clip_dtype_dict)
+                process_dataframe(clips_df, 'clip', engine, clip_dtype_dict)
+
+                # Prepare ClipProject data
+                clip_projects_data = []
+                index = 0
+                for _, row in data.iterrows():
+                    clip_id = row['id']  # Assuming 'id' is the primary key in Clip model
+                    project_ids = row['project_ids']
+                    for project_id in project_ids:
+                        clip_projects_data.append(
+                            {'id': index, 'clip_id': clip_id, 'project_id': project_id}
+                        )
+                        index += 1
+
+                # Convert to DataFrame
+                clip_projects_df = pd.DataFrame(clip_projects_data)
+
+                process_dataframe(clip_projects_df, 'clipproject', engine)
                 update_file_status(file, session, 'success')
 
             else:

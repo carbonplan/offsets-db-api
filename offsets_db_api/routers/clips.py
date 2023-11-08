@@ -1,11 +1,12 @@
 import datetime
+from collections import defaultdict
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlmodel import Session, or_
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Clip, PaginatedClips
+from ..models import Clip, ClipProject, PaginatedClips
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination
 
@@ -17,14 +18,13 @@ logger = get_logger()
 def get_clips(
     request: Request,
     project_id: list[str] | None = Query(None, description='Project ID'),
+    source: list[str] | None = Query(None, description='Source'),
     tags: list[str] | None = Query(None, description='Tags'),
-    article_type: list[str] | None = Query(None, description='Article type'),
-    published_at_from: datetime.date | datetime.datetime | None = Query(
+    type: list[str] | None = Query(None, description='Article type'),
+    date_from: datetime.date | datetime.datetime | None = Query(
         None, description='Published at from'
     ),
-    published_at_to: datetime.date | datetime.datetime | None = Query(
-        None, description='Published at to'
-    ),
+    date_to: datetime.date | datetime.datetime | None = Query(None, description='Published at to'),
     search: str | None = Query(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `title` fields only.',
@@ -32,7 +32,7 @@ def get_clips(
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     sort: list[str] = Query(
-        default=['project_id'],
+        default=['date'],
         description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
     ),
     session: Session = Depends(get_session),
@@ -43,14 +43,17 @@ def get_clips(
     logger.info(f'Getting clips: {request.url}')
 
     filters = [
-        ('article_type', article_type, 'ilike', Clip),
+        ('type', type, 'ilike', Clip),
+        ('source', source, 'ilike', Clip),
         ('tags', tags, 'ANY', Clip),
-        ('published_at', published_at_from, '>=', Clip),
-        ('published_at', published_at_to, '<=', Clip),
-        ('project_id', project_id, 'ilike', Clip),
+        ('date', date_from, '>=', Clip),
+        ('date', date_to, '<=', Clip),
+        ('project_id', project_id, '==', ClipProject),
     ]
 
-    query = session.query(Clip)
+    query = session.query(Clip, ClipProject.project_id).join(
+        ClipProject, Clip.id == ClipProject.clip_id
+    )
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
@@ -61,15 +64,29 @@ def get_clips(
     if search:
         search_pattern = f'%{search}%'
         query = query.filter(
-            or_(Clip.project_id.ilike(search_pattern), Clip.title.ilike(search_pattern))
+            or_(ClipProject.project_id.ilike(search_pattern), Clip.title.ilike(search_pattern))
         )
 
     if sort:
         query = apply_sorting(query=query, sort=sort, model=Clip, primary_key='id')
 
-    total_entries, current_page, total_pages, next_page, results = handle_pagination(
+    total_entries, current_page, total_pages, next_page, query_results = handle_pagination(
         query=query, current_page=current_page, per_page=per_page, request=request
     )
+
+    # Organize clips with their associated project_ids
+    clips_dict = defaultdict(lambda: {'clip': None, 'project_ids': []})
+    for clip, project_id in query_results:
+        clip_id = clip.id
+        if clips_dict[clip_id]['clip'] is None:
+            clips_dict[clip_id]['clip'] = clip
+        clips_dict[clip_id]['project_ids'].append(project_id)
+
+    # Flatten the dictionary into a list of clip data with project_ids
+    clips_with_projects = [
+        dict(clip_data['clip'], project_ids=clip_data['project_ids'])
+        for clip_data in clips_dict.values()
+    ]
 
     return PaginatedClips(
         pagination=Pagination(
@@ -78,5 +95,5 @@ def get_clips(
             total_pages=total_pages,
             next_page=next_page,
         ),
-        data=results,
+        data=clips_with_projects,
     )

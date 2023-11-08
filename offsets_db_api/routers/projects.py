@@ -1,12 +1,14 @@
 import datetime
+from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import or_
+from sqlalchemy.orm import contains_eager
 from sqlmodel import Session
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import PaginatedProjects, Project, ProjectWithClips
+from ..models import Clip, ClipProject, PaginatedProjects, Project, ProjectWithClips
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination, Registries
 
@@ -48,7 +50,12 @@ def get_projects(
 
     logger.info(f'Getting projects: {request.url}')
 
-    query = session.query(Project)
+    query = (
+        session.query(Project, Clip)
+        .join(Project.clip_relationships, isouter=True)
+        .join(ClipProject.clip, isouter=True)
+        .options(contains_eager(Project.clip_relationships).contains_eager(ClipProject.clip))
+    )
 
     filters = [
         ('registry', registry, 'ilike', Project),
@@ -83,6 +90,25 @@ def get_projects(
         query=query, current_page=current_page, per_page=per_page, request=request
     )
 
+    # Execute the query
+    project_clip_pairs = results
+
+    # Group clips by project using a dictionary and project_id as the key
+    project_to_clips = defaultdict(list)
+    projects = {}
+    for project, clip in project_clip_pairs:
+        if project.project_id not in projects:
+            projects[project.project_id] = project
+        project_to_clips[project.project_id].append(clip)
+
+    # Transform the dictionary into a list of projects with clips
+    projects_with_clips = []
+    for project_id, clips in project_to_clips.items():
+        project = projects[project_id]
+        project_data = project.dict()
+        project_data['clips'] = [clip.dict() for clip in clips if clip is not None]
+        projects_with_clips.append(project_data)
+
     return PaginatedProjects(
         pagination=Pagination(
             total_entries=total_entries,
@@ -90,7 +116,7 @@ def get_projects(
             total_pages=total_pages,
             next_page=next_page,
         ),
-        data=results,
+        data=projects_with_clips,
     )
 
 
@@ -100,16 +126,33 @@ def get_projects(
     summary='Get project details by project_id',
 )
 def get_project(
+    request: Request,
     project_id: str,
     session: Session = Depends(get_session),
 ):
     """Get a project by registry and project_id"""
-    logger.info('Getting project %s', project_id)
+    logger.info(f'Getting project: {request.url}')
 
-    if project_obj := session.query(Project).filter_by(project_id=project_id).one_or_none():
-        return project_obj
+    # Start the query to get the project and related clips
+    project_with_clips = (
+        session.query(Project)
+        .join(Project.clip_relationships, isouter=True)
+        .join(ClipProject.clip, isouter=True)
+        .options(contains_eager(Project.clip_relationships).contains_eager(ClipProject.clip))
+        .filter(Project.project_id == project_id)
+        .one_or_none()
+    )
+
+    if project_with_clips:
+        # Extract the Project and related Clips from the query result
+        project_data = project_with_clips.dict()
+        project_data['clips'] = [
+            clip_project.clip.dict()
+            for clip_project in project_with_clips.clip_relationships
+            if clip_project.clip
+        ]
+        return project_data
     else:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f'project {project_id} not found',
+            status_code=status.HTTP_404_NOT_FOUND, detail=f'project {project_id} not found'
         )

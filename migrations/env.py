@@ -11,6 +11,8 @@ from offsets_db_api.models import (  # (be sure to import all models you need mi
     Credit,
     File,
     Project,
+    Clip,
+    ClipProject,
 )
 from offsets_db_api.settings import get_settings
 
