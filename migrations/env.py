@@ -7,14 +7,14 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
-from carbonplan_offsets_db.models import (  # (be sure to import all models you need migrated)
+from offsets_db_api.models import (  # (be sure to import all models you need migrated)
     Credit,
     File,
     Project,
     Clip,
     ClipProject,
 )
-from carbonplan_offsets_db.settings import get_settings
+from offsets_db_api.settings import get_settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -3,9 +3,9 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from carbonplan_offsets_db.database import get_session
-from carbonplan_offsets_db.main import create_application
-from carbonplan_offsets_db.settings import Settings, get_settings
+from offsets_db_api.database import get_session
+from offsets_db_api.main import create_application
+from offsets_db_api.settings import Settings, get_settings
 
 
 # Override settings for tests
