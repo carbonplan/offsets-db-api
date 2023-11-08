@@ -6,7 +6,7 @@ from sqlmodel import Session, or_
 
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Clip, ClipProject, PaginatedClips
+from ..models import Clip, ClipProject, PaginatedClips, Project
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination
 
@@ -51,8 +51,10 @@ def get_clips(
         ('project_id', project_id, '==', ClipProject),
     ]
 
-    query = session.query(Clip, ClipProject.project_id).join(
-        ClipProject, Clip.id == ClipProject.clip_id
+    query = (
+        session.query(Clip)
+        .join(ClipProject, Clip.id == ClipProject.clip_id)
+        .join(Project, ClipProject.project_id == Project.project_id, isouter=True)
     )
 
     for attribute, values, operation, model in filters:
@@ -74,18 +76,27 @@ def get_clips(
         query=query, current_page=current_page, per_page=per_page, request=request
     )
 
-    # Organize clips with their associated project_ids
-    clips_dict = defaultdict(lambda: {'clip': None, 'project_ids': []})
-    for clip, project_id in query_results:
+    # Group clips by their id and collect project IDs and categories
+    clip_data_dict = defaultdict(lambda: {'clip': None, 'project_ids': set(), 'category': set()})
+    for clip in query_results:
         clip_id = clip.id
-        if clips_dict[clip_id]['clip'] is None:
-            clips_dict[clip_id]['clip'] = clip
-        clips_dict[clip_id]['project_ids'].append(project_id)
+        clip_data = clip_data_dict[clip_id]
+        if clip_data['clip'] is None:
+            clip_data['clip'] = clip
+        # Here we gather project_ids and categories from the ClipProject relationship
+        for clip_project in clip.project_relationships:
+            clip_data['project_ids'].add(clip_project.project_id)
+            if clip_project.project and clip_project.project.category:
+                clip_data['category'].update(clip_project.project.category)
 
-    # Flatten the dictionary into a list of clip data with project_ids
-    clips_with_projects = [
-        dict(clip_data['clip'], project_ids=clip_data['project_ids'])
-        for clip_data in clips_dict.values()
+    # Convert to the desired list of dicts format including categories
+    clips_with_projects_and_categories = [
+        {
+            **clip_data['clip'].dict(),
+            'project_ids': list(clip_data['project_ids']),
+            'category': list(clip_data['category']),
+        }
+        for clip_data in clip_data_dict.values()
     ]
 
     return PaginatedClips(
@@ -95,5 +106,5 @@ def get_clips(
             total_pages=total_pages,
             next_page=next_page,
         ),
-        data=clips_with_projects,
+        data=clips_with_projects_and_categories,
     )

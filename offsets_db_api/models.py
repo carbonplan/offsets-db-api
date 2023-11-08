@@ -84,7 +84,10 @@ class Clip(ClipBase, table=True):
 class ClipwithProjects(ClipBase):
     id: int
     project_ids: list[str] = Field(
-        default=[], description='List of project ids associated with clip'
+        default_factory=list, description='List of project ids associated with clip'
+    )
+    category: list[str] = Field(
+        default_factory=list, description='List of categories from associated projects'
     )
 
 
