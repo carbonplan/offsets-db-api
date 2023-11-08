@@ -43,8 +43,8 @@ def get_credits(
     """List credits"""
     logger.info(f'Getting credits: {request.url}')
 
-    #  outter join to get all credits, even if they don't have a project
-    query = session.query(Credit).join(
+    # Outer join to get all credits, even if they don't have a project
+    query = session.query(Credit, Project.category).join(
         Project, Credit.project_id == Project.project_id, isouter=True
     )
 
@@ -82,6 +82,10 @@ def get_credits(
         query=query, current_page=current_page, per_page=per_page, request=request
     )
 
+    credits_with_category = [
+        {**credit.dict(), 'category': category} for credit, category in results
+    ]
+
     return PaginatedCredits(
         pagination=Pagination(
             total_entries=total_entries,
@@ -89,5 +93,5 @@ def get_credits(
             total_pages=total_pages,
             next_page=next_page,
         ),
-        data=results,
+        data=credits_with_category,
     )
