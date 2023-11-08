@@ -154,5 +154,5 @@ def get_project(
         return project_data
     else:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f'Project {project_id} not found'
+            status_code=status.HTTP_404_NOT_FOUND, detail=f'project {project_id} not found'
         )

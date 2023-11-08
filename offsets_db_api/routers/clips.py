@@ -18,6 +18,7 @@ logger = get_logger()
 def get_clips(
     request: Request,
     project_id: list[str] | None = Query(None, description='Project ID'),
+    source: list[str] | None = Query(None, description='Source'),
     tags: list[str] | None = Query(None, description='Tags'),
     type: list[str] | None = Query(None, description='Article type'),
     date_from: datetime.date | datetime.datetime | None = Query(
@@ -31,7 +32,7 @@ def get_clips(
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     sort: list[str] = Query(
-        default=['id'],
+        default=['date'],
         description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
     ),
     session: Session = Depends(get_session),
@@ -43,6 +44,7 @@ def get_clips(
 
     filters = [
         ('type', type, 'ilike', Clip),
+        ('source', source, 'ilike', Clip),
         ('tags', tags, 'ANY', Clip),
         ('date', date_from, '>=', Clip),
         ('date', date_to, '<=', Clip),

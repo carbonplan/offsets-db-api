@@ -24,12 +24,18 @@ def test_get_project(test_app):
 
     assert 'issued' in data
     assert 'retired' in data
+    assert 'clips' in data
 
 
 def test_get_projects(test_app):
     response = test_app.get('/projects/')
     assert response.status_code == 200
-    assert isinstance(response.json()['data'], list)
+    data = response.json()['data']
+    assert isinstance(data, list)
+    assert len(data) > 1
+    assert isinstance(data[0]['clips'], list)
+    assert data[0]['retired'] >= 0
+    assert data[0]['issued'] >= 0
 
 
 def test_get_projects_pagination(test_app):

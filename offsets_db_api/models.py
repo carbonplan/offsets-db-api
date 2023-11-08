@@ -97,9 +97,9 @@ class ClipProject(SQLModel, table=True):
 
 
 class ProjectWithClips(ProjectBase):
-    ...
-
-    clips: list[Clip] = Field(default=[], description='List of clips associated with project')
+    clips: list[Clip] | None = Field(
+        default=None, description='List of clips associated with project'
+    )
 
 
 class Credit(SQLModel, table=True):
