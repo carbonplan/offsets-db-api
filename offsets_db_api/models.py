@@ -81,14 +81,14 @@ class Clip(ClipBase, table=True):
     )
 
 
+class ProjectInfo(pydantic.BaseModel):
+    project_id: str
+    category: list[str] | None = Field(description='List of categories', default=None)
+
+
 class ClipwithProjects(ClipBase):
     id: int
-    project_ids: list[str] = Field(
-        default_factory=list, description='List of project ids associated with clip'
-    )
-    category: list[str] = Field(
-        default_factory=list, description='List of categories from associated projects'
-    )
+    projects: list[ProjectInfo]
 
 
 class ClipProject(SQLModel, table=True):

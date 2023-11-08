@@ -1,5 +1,4 @@
 import datetime
-from collections import defaultdict
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlmodel import Session, or_
@@ -76,28 +75,22 @@ def get_clips(
         query=query, current_page=current_page, per_page=per_page, request=request
     )
 
-    # Group clips by their id and collect project IDs and categories
-    clip_data_dict = defaultdict(lambda: {'clip': None, 'project_ids': set(), 'category': set()})
-    for clip in query_results:
-        clip_id = clip.id
-        clip_data = clip_data_dict[clip_id]
-        if clip_data['clip'] is None:
-            clip_data['clip'] = clip
-        # Here we gather project_ids and categories from the ClipProject relationship
+    # Collect clip information with associated projects and their categories
+    clips_info = []
+    for result in query_results:
+        clip = result  # Assuming Clip is the first object returned by the query
+        projects_info = []
+        # Loop through the ClipProjects related to the clip to collect project info
         for clip_project in clip.project_relationships:
-            clip_data['project_ids'].add(clip_project.project_id)
-            if clip_project.project and clip_project.project.category:
-                clip_data['category'].update(clip_project.project.category)
+            project_info = {
+                'project_id': clip_project.project_id,
+                'category': clip_project.project.category if clip_project.project else [],
+            }
+            projects_info.append(project_info)
 
-    # Convert to the desired list of dicts format including categories
-    clips_with_projects_and_categories = [
-        {
-            **clip_data['clip'].dict(),
-            'project_ids': list(clip_data['project_ids']),
-            'category': list(clip_data['category']),
-        }
-        for clip_data in clip_data_dict.values()
-    ]
+        clip_dict = clip.dict()
+        clip_dict['projects'] = projects_info
+        clips_info.append(clip_dict)
 
     return PaginatedClips(
         pagination=Pagination(
@@ -106,5 +99,5 @@ def get_clips(
             total_pages=total_pages,
             next_page=next_page,
         ),
-        data=clips_with_projects_and_categories,
+        data=clips_info,
     )
