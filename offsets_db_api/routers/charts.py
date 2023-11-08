@@ -26,18 +26,20 @@ logger = get_logger()
 
 
 def filter_valid_projects(df: pd.DataFrame, categories: list | None = None) -> pd.DataFrame:
-    if not categories:
-        # If no categories are provided, return all of them
+    if categories is None:
         return df
     # Filter the dataframe to include only rows with the specified categories
     valid_projects = df[df['category'].isin(categories)]
 
-    # Group by project and filter out projects that have different categories outside the given list
-    grouped = valid_projects.groupby('project_id')
-    valid_project_ids = grouped.filter(
-        lambda x: x['category'].nunique() == len(x)
-    ).project_id.unique()
-    return valid_projects[valid_projects['project_id'].isin(valid_project_ids)]
+    # Group by project and filter out projects that have any categories outside the given list
+    def all_categories_valid(group):
+        return all(category in categories for category in group['category'].unique())
+
+    valid_project_ids = (
+        valid_projects.groupby('project_id').filter(all_categories_valid).project_id.unique()
+    )
+
+    return df[df['project_id'].isin(valid_project_ids)]
 
 
 def projects_by_category(
@@ -506,6 +508,7 @@ def get_credits_by_transaction_date(
     logger.info(f'Query statement: {query.statement}')
 
     df = pd.read_sql_query(query.statement, engine).explode('category')
+    logger.info(f'Sample of the dataframe with size: {df.shape}\n{df.head()}')
     # fix the data types
     df = df.astype({'transaction_date': 'datetime64[ns]'})
     results = credits_by_transaction_date(df=df, freq=freq, categories=category)
@@ -528,6 +531,7 @@ def get_credits_by_transaction_date(
     '/credits_by_transaction_date/{project_id}', response_model=PaginatedProjectCreditTotals
 )
 def get_credits_by_project_id(
+    request: Request,
     project_id: str,
     transaction_type: list[str] | None = Query(None, description='Transaction type'),
     vintage: list[int] | None = Query(None, description='Vintage'),
@@ -542,6 +546,8 @@ def get_credits_by_project_id(
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
 ):
+    """Get aggregated credit transaction data"""
+    logger.info(f'Getting credit transaction data: {request.url}')
     # Join Credit with Project and filter by project_id
     query = (
         session.query(Credit, Project.category, Project.listed_at)
@@ -587,6 +593,7 @@ def get_credits_by_project_id(
 
 @router.get('/projects_by_credit_totals', response_model=PaginatedBinnedCreditTotals)
 def get_projects_by_credit_totals(
+    request: Request,
     credit_type: typing.Literal['issued', 'retired'] = Query('issued', description='Credit type'),
     registry: list[Registries] | None = Query(None, description='Registry name'),
     country: list[str] | None = Query(None, description='Country name'),
@@ -619,7 +626,7 @@ def get_projects_by_credit_totals(
     session: Session = Depends(get_session),
 ):
     """Get aggregated project credit totals"""
-    logger.info(f'📊 Generating projects by {credit_type} totals...')
+    logger.info(f'📊 Generating projects by {credit_type} totals...: {request.url}')
 
     query = session.query(Project)
 
@@ -811,6 +818,7 @@ def get_credits_by_category(
 
     df = pd.read_sql_query(query.statement, engine).explode('category')
     logger.info(f'Sample of the dataframe with size: {df.shape}\n{df.head()}')
+
     results = credits_by_category(df=df, categories=category)
 
     return PaginatedCreditCounts(
