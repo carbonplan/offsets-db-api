@@ -13,12 +13,44 @@
   </a>
 </p>
 
-# carbonplan / offsets-db
+# carbonplan / offsets-db-api
 
-**accounting of voluntary and compliance offset programs**
+This backend service provides an FastAPI for accessing the CarbonPlan Offsets Database.
+The database contains information about carbon offsets projects, credits.
+It also contains information about the offset credits that have been issued for each project.
 
-[![Fly.io Deployment](https://github.com/carbonplan/offsets-db/actions/workflows/fly.yml/badge.svg)](https://github.com/carbonplan/offsets-db/actions/workflows/fly.yml)
+[![Fly.io Deployment](https://github.com/carbonplan/offsets-db-api/actions/workflows/fly.yml/badge.svg)](https://github.com/carbonplan/offsets-db-api/actions/workflows/fly.yml)
 ![MIT License](https://badgen.net/badge/license/MIT/blue)
+
+| Project         | GitHub Repo                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------------- |
+| offsets-db-web  | [https://github.com/carbonplan/offsets-db-web](https://github.com/carbonplan/offsets-db-web)   |
+| offsets-db-api  | [https://github.com/carbonplan/offsets-db-api](https://github.com/carbonplan/offsets-db-api)   |
+| offsets-db-data | [https://github.com/carbonplan/offsets-db-data](https://github.com/carbonplan/offsets-db-data) |
+
+## Installation
+
+To install the package, you can use pip:
+
+```console
+python -m pip install git+https://github.com/carbonplan/offsets-db-api
+```
+
+You can also install the package locally by cloning the repository and running:
+
+```console
+git clone https://github.com/carbonplan/offsets-db-api
+cd offsets-db-api
+python -m pip install -e .
+```
+
+## Run locally
+
+To run the API locally, you can use the following command:
+
+```console
+uvicorn offsets_db_api.main:app --reload
+```
 
 ## license
 
