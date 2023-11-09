@@ -13,6 +13,9 @@ on:
     branches:
       - main
   workflow_dispatch:
+  schedule:
+    # Run the job every day at 3am
+    - cron: '0 3 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -48,11 +51,11 @@ jobs:
           STAGING_URL='https://offsets-db-staging.fly.dev/files' python update_database.py staging
 
       - name: Deploy to Production
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         run: |
           flyctl deploy --remote-only --config fly.prod.toml
 
       - name: Seed Production database
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         run: |
           PRODUCTION_URL='https://offsets-db.fly.dev/files' python update_database.py production
