@@ -12,7 +12,7 @@ def test_get_credits(test_app):
         # Verify the structure of a single returned credit
         credit = data[0]
         assert 'id' in credit
-        assert 'project_id' in credit
+        assert 'project_id' in credit['projects'][0]
         assert 'quantity' in credit
         assert 'vintage' in credit
         assert 'transaction_date' in credit
@@ -41,5 +41,5 @@ def test_get_credits_with_filters(test_app, transaction_type, project_id, vintag
     # Verify that all returned credits match the filters
     for credit in response.json()['data']:
         assert credit['transaction_type'] == transaction_type
-        assert credit['project_id'] == project_id
+        assert credit['projects'][0]['project_id'] == project_id
         assert credit['vintage'] == vintage
