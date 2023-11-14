@@ -1,10 +1,11 @@
 import traceback
 
 import pandas as pd
+from offsets_db_data.models import clip_schema, credit_schema, project_schema
 from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, String, text
 
 from .logging import get_logger
-from .models import File, credit_schema, project_schema
+from .models import File
 
 logger = get_logger()
 
@@ -97,6 +98,8 @@ def process_files(*, engine, session, files: list[File]):
                     .reset_index()
                     .rename(columns={'index': 'id'})
                 )
+
+                data = clip_schema.validate(data)
 
                 clips_df = data.drop(columns=['project_ids'])
                 clip_dtype_dict = {'tags': ARRAY(String)}
