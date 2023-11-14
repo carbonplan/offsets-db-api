@@ -14,8 +14,8 @@ on:
       - main
   workflow_dispatch:
   schedule:
-    # Run the job every day at 3am
-    - cron: '0 3 * * *'
+    # Run the job every day at 6am
+    - cron: '0 6 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

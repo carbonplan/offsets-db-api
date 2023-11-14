@@ -124,8 +124,7 @@ class Credit(CreditBase, table=True):
 
 class CreditWithCategory(CreditBase):
     id: int
-    project_id: str | None
-    category: list[str] | None = Field(description='List of categories', default=None)
+    projects: list[ProjectInfo]
 
 
 class PaginatedProjects(pydantic.BaseModel):

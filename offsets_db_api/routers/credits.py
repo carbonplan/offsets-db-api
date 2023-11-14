@@ -83,7 +83,8 @@ def get_credits(
     )
 
     credits_with_category = [
-        {**credit.dict(), 'category': category} for credit, category in results
+        {**credit.dict(), 'projects': [{'project_id': credit.project_id, 'category': category}]}
+        for credit, category in results
     ]
 
     return PaginatedCredits(
