@@ -8,10 +8,13 @@ dependencies:
   - apscheduler>=3.10.1
   - asyncpg>=0.27
   - fastapi == 0.94
+  - fastparquet
   - gunicorn
   - httpx
   - openssl != 3.1.1 # exclude broken version
   - pandas >=1.5.3
+  - pandera
+  - pip
   - psycopg2
   - pydantic
   - pytest
@@ -22,5 +25,5 @@ dependencies:
   - ujson
   - universal_pathlib
   - uvicorn
-  - fastparquet
-  - pandera
+  - pip:
+      - offsets-db-data>=2023.11.4
