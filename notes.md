@@ -76,3 +76,29 @@ BEGIN
     END LOOP;
 END $$;
 ```
+
+or connect to a different database and drop the database
+
+```bash
+❯ fly pg connect --app offsets-db-postgres-staging --database repmgr
+```
+
+```sql
+repmgr=# SELECT pg_terminate_backend(pg_stat_activity.pid)
+FROM pg_stat_activity
+WHERE pg_stat_activity.datname = 'postgres'
+  AND pid <> pg_backend_pid();
+ pg_terminate_backend
+----------------------
+ t
+ t
+ t
+ t
+(4 rows)
+
+repmgr=# DROP DATABASE postgres;
+DROP DATABASE
+repmgr=# CREATE DATABASE postgres;
+CREATE DATABASE
+repmgr=#
+```
