@@ -1,8 +1,8 @@
 """reset migrations and add new fields to project
 
-Revision ID: 08de868a61b6
+Revision ID: 8ed0e389ff06
 Revises:
-Create Date: 2023-11-16 14:49:25.689322
+Create Date: 2023-11-16 15:08:07.974455
 
 """
 import sqlalchemy as sa
@@ -11,7 +11,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = '08de868a61b6'
+revision = '8ed0e389ff06'
 down_revision = None
 branch_labels = None
 depends_on = None
