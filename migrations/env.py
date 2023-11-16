@@ -8,11 +8,11 @@ from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
 from offsets_db_api.models import (  # (be sure to import all models you need migrated)
+    Clip,
+    ClipProject,
     Credit,
     File,
     Project,
-    Clip,
-    ClipProject,
 )
 from offsets_db_api.settings import get_settings
 

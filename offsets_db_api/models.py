@@ -42,6 +42,10 @@ class ProjectBase(SQLModel):
     issued: int | None = Field(
         description='Total of issued credits', default=0, sa_column=Column(BigInteger())
     )
+    first_issuance_at: datetime.date | None = Field(description='Date of first issuance of credits')
+    first_retirement_at: datetime.date | None = Field(
+        description='Date of first retirement of credits'
+    )
     project_url: pydantic.HttpUrl | None = Field(description='URL to project details')
 
 
