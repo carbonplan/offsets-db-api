@@ -28,7 +28,7 @@ def post_data_to_environment(env):
                 'category': 'credits',
             },
             {
-                'url': 's3://carbonplan-offsets-db/final/2023-10-31/projects-augmented.parquet',
+                'url': 's3://carbonplan-share/offsets-db-testing-data/final/projects-augmented.parquet',
                 'category': 'projects',
             },
             {

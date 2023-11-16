@@ -1,8 +1,8 @@
 """reset migrations and add new fields to project
 
-Revision ID: fb0ee588e6eb
+Revision ID: 08de868a61b6
 Revises:
-Create Date: 2023-11-16 14:29:31.732301
+Create Date: 2023-11-16 14:49:25.689322
 
 """
 import sqlalchemy as sa
@@ -11,7 +11,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'fb0ee588e6eb'
+revision = '08de868a61b6'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -22,7 +22,7 @@ def upgrade() -> None:
     op.create_table(
         'clip',
         sa.Column('tags', postgresql.ARRAY(sa.String()), nullable=True),
-        sa.Column('date', sa.DateTime(), nullable=False),
+        sa.Column('date', sa.Date(), nullable=False),
         sa.Column('title', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column('url', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column('source', sqlmodel.sql.sqltypes.AutoString(), nullable=True),

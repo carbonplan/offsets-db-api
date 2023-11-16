@@ -62,7 +62,7 @@ class Project(ProjectBase, table=True):
 
 
 class ClipBase(SQLModel):
-    date: datetime.datetime = Field(description='Date the clip was published')
+    date: datetime.date = Field(description='Date the clip was published')
     title: str | None = Field(description='Title of the clip')
     url: pydantic.AnyUrl | None = Field(description='URL to the clip')
     source: str | None = Field(description='Source of the clip')
