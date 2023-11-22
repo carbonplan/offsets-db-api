@@ -1,27 +1,70 @@
 import pandas as pd
 import pytest
 
-from offsets_db_api.routers.charts import filter_valid_projects
+from offsets_db_api.routers.charts import filter_valid_projects, projects_by_category
 
 
 @pytest.fixture
 def sample_projects():
     data = pd.DataFrame(
         [
-            {'category': 'ghg-management', 'project_id': 'ACR123'},
-            {'category': 'renewable-energy', 'project_id': 'ACR456'},
+            {'category': 'ghg-management', 'project_id': 'ACR123', 'issued': 100, 'retired': 50},
+            {'category': 'renewable-energy', 'project_id': 'ACR456', 'issued': 200, 'retired': 150},
+            {'category': 'biodiversity', 'project_id': 'VER789', 'issued': 300, 'retired': 250},
+            {
+                'category': 'water-management',
+                'project_id': 'CDM1011',
+                'issued': 400,
+                'retired': 350,
+            },
+            {'category': 'ghg-management', 'project_id': 'ACR111', 'issued': 500, 'retired': 450},
         ]
     )
+
     return data
 
 
 @pytest.mark.parametrize(
     'categories, expected',
-    [(None, ['ghg-management', 'renewable-energy']), (['renewable-energy'], ['renewable-energy'])],
+    [
+        (None, ['ghg-management', 'renewable-energy', 'biodiversity', 'water-management']),
+        (['renewable-energy'], ['renewable-energy']),
+    ],
 )
 def test_filter_valid_projects(sample_projects, categories, expected):
     result = filter_valid_projects(sample_projects, categories=categories)
     assert list(result['category'].unique()) == expected
+
+
+@pytest.mark.parametrize(
+    'categories,expected',
+    [
+        (
+            None,
+            [
+                {'category': 'ghg-management', 'value': 2},
+                {'category': 'renewable-energy', 'value': 1},
+                {'category': 'biodiversity', 'value': 1},
+                {'category': 'water-management', 'value': 1},
+            ],
+        ),
+        (['ghg-management'], [{'category': 'ghg-management', 'value': 2}]),
+        (
+            ['renewable-energy', 'biodiversity'],
+            [
+                {'category': 'renewable-energy', 'value': 1},
+                {'category': 'biodiversity', 'value': 1},
+            ],
+        ),
+        (['non-existent-category'], []),
+        ([], []),
+    ],
+)
+def test_projects_by_category(categories, expected, sample_projects):
+    result = projects_by_category(df=sample_projects, categories=categories)
+    sorted_result = sorted(result, key=lambda x: x['category'])
+    sorted_expected = sorted(expected, key=lambda x: x['category'])
+    assert sorted_result == sorted_expected
 
 
 @pytest.mark.parametrize('freq', ['D', 'M', 'Y', 'W'])
