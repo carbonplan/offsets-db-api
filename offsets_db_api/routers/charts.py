@@ -30,16 +30,7 @@ def filter_valid_projects(df: pd.DataFrame, categories: list | None = None) -> p
         return df
     # Filter the dataframe to include only rows with the specified categories
     valid_projects = df[df['category'].isin(categories)]
-
-    # Group by project and filter out projects that have any categories outside the given list
-    def all_categories_valid(group):
-        return all(category in categories for category in group['category'].unique())
-
-    valid_project_ids = (
-        valid_projects.groupby('project_id').filter(all_categories_valid).project_id.unique()
-    )
-
-    return df[df['project_id'].isin(valid_project_ids)]
+    return valid_projects
 
 
 def projects_by_category(
@@ -85,7 +76,7 @@ def generate_date_bins(
     min_value,
     max_value,
     freq: typing.Literal['D', 'W', 'M', 'Y'] | None = None,
-    num_bins: int = None,
+    num_bins: int | None = None,
 ):
     """
     Generate date bins with the specified frequency.
@@ -509,6 +500,7 @@ def get_credits_by_transaction_date(
 
     df = pd.read_sql_query(query.statement, engine).explode('category')
     logger.info(f'Sample of the dataframe with size: {df.shape}\n{df.head()}')
+    df.to_csv('/tmp/testing.csv')
     # fix the data types
     df = df.astype({'transaction_date': 'datetime64[ns]'})
     results = credits_by_transaction_date(df=df, freq=freq, categories=category)
