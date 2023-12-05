@@ -4,10 +4,10 @@ channels:
   - nodefaults
 dependencies:
   - aiofiles
-  - alembic >= 1.7.5
+  - alembic>=1.7.5
   - apscheduler>=3.10.1
   - asyncpg>=0.27
-  - fastapi == 0.94
+  - fastapi==0.94
   - fastparquet
   - gunicorn
   - httpx
@@ -19,8 +19,8 @@ dependencies:
   - pytest
   - pytest-cov
   - python=3.10
-  - s3fs >=2023
-  - sqlmodel >=0.0.8
+  - s3fs>=2023
+  - sqlmodel==0.0.12
   - ujson
   - universal_pathlib
   - uvicorn

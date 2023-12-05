@@ -25,15 +25,15 @@ dynamic = ["version"]
 
 dependencies = [
     "aiofiles",
-    "alembic >= 1.7.5",
-    "fastapi == 0.94",
-    "pandas >=1.5.3",
+    "alembic>= 1.7.5",
+    "fastapi== 0.94",
+    "pandas>=1.5.3",
     "psycopg2",
     "pydantic>=1.10",
-    "s3fs >=2023",
-    "sqlmodel >= 0.0.8",
+    "s3fs>=2023",
+    "sqlmodel==0.0.12",
     "pandera>=0.17",
-    "offsets-db-data>=2023.11.4",
+    "offsets-db-data>=2023.11.10",
 ]
 
 [project.urls]
