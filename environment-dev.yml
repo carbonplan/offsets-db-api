@@ -11,7 +11,6 @@ dependencies:
   - fastparquet
   - gunicorn
   - httpx
-  - openssl != 3.1.1 # exclude broken version
   - pandas >=1.5.3
   - pandera
   - pip
@@ -26,4 +25,4 @@ dependencies:
   - universal_pathlib
   - uvicorn
   - pip:
-      - offsets-db-data>=2023.11.4
+      - offsets-db-data>=2023.11.10
