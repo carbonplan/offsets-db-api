@@ -5,7 +5,7 @@ kill_timeout = 5
 primary_region = "dfw"
 
 [build]
-builder = "paketobuildpacks/builder:base"
+builder = "paketobuildpacks/builder-jammy-tiny:latest"
 buildpacks = ["gcr.io/paketo-buildpacks/python"]
 
 
