@@ -51,7 +51,7 @@ jobs:
           STAGING_URL='https://offsets-db-staging.fly.dev/files' python update_database.py staging
 
       - name: Deploy to Production
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         run: |
           flyctl deploy --remote-only --config fly.prod.toml
 
