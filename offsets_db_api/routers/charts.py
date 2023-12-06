@@ -372,7 +372,7 @@ def single_project_credits_by_transaction_date(
     date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq)
 
     # Binning logic
-    df['bin'] = pd.cut(df['transaction_date'], bins=date_bins, labels=date_bins[:-1], right=True)
+    df['bin'] = pd.cut(df['transaction_date'], bins=date_bins, labels=date_bins[:-1], right=False)
     df['bin'] = df['bin'].astype(str)
     grouped = df.groupby(['bin'])['quantity'].sum().reset_index()
     formatted_results = []
@@ -533,7 +533,7 @@ def get_credits_by_project_id(
     transaction_date_to: datetime.date | datetime.datetime | None = Query(
         default=None, description='Format: YYYY-MM-DD'
     ),
-    freq: typing.Literal['D', 'W', 'M', 'Y'] = Query(None, description='Frequency of bins'),
+    freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
