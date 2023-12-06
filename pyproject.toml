@@ -34,7 +34,7 @@ dependencies = [
     "s3fs>=2023",
     "sqlmodel==0.0.14",
     "pandera>=0.17",
-    "offsets-db-data>=2023.11.11",
+    "offsets-db-data>=2023.11.12",
 ]
 
 [project.urls]

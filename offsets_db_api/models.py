@@ -34,7 +34,9 @@ class ProjectBase(SQLModel):
     )
     status: str | None
     country: str | None
-    listed_at: datetime.datetime | None = Field(description='Date project was listed')
+    listed_at: datetime.date | None = pydantic.Field(
+        description='Date project was listed', strict=False
+    )
     is_compliance: bool | None = Field(description='Whether project is compliance project')
     retired: int | None = Field(
         description='Total of retired credits', default=0, sa_column=Column(BigInteger())
@@ -42,11 +44,11 @@ class ProjectBase(SQLModel):
     issued: int | None = Field(
         description='Total of issued credits', default=0, sa_column=Column(BigInteger())
     )
-    first_issuance_at: datetime.datetime | None = Field(
-        description='Date of first issuance of credits'
+    first_issuance_at: datetime.date | None = pydantic.Field(
+        description='Date of first issuance of credits', strict=False
     )
-    first_retirement_at: datetime.datetime | None = Field(
-        description='Date of first retirement of credits'
+    first_retirement_at: datetime.date | None = pydantic.Field(
+        description='Date of first retirement of credits', strict=False
     )
     project_url: str | None = Field(description='URL to project details')
 
@@ -64,7 +66,7 @@ class Project(ProjectBase, table=True):
 
 
 class ClipBase(SQLModel):
-    date: datetime.datetime = Field(description='Date the clip was published')
+    date: datetime.date = pydantic.Field(description='Date the clip was published', strict=False)
     title: str | None = Field(description='Title of the clip')
     url: str | None = Field(description='URL to the clip')
     source: str | None = Field(description='Source of the clip')
@@ -112,7 +114,9 @@ class ProjectWithClips(ProjectBase):
 class CreditBase(SQLModel):
     quantity: int = Field(description='Number of credits', sa_column=Column(BigInteger()))
     vintage: int | None = Field(description='Vintage year of credits')
-    transaction_date: datetime.datetime | None = Field(description='Date of transaction')
+    transaction_date: datetime.date | None = pydantic.Field(
+        description='Date of transaction', strict=False
+    )
     transaction_type: str | None = Field(description='Type of transaction')
 
 
@@ -144,8 +148,8 @@ class PaginatedCredits(pydantic.BaseModel):
 
 
 class BinnedValues(pydantic.BaseModel):
-    start: datetime.datetime | None
-    end: datetime.datetime | None
+    start: datetime.date | None = pydantic.Field(description='Start date of bin', strict=False)
+    end: datetime.date | None = pydantic.Field(description='End date of bin', strict=False)
     category: str | None
     value: int | None
 
@@ -156,8 +160,8 @@ class PaginatedBinnedValues(pydantic.BaseModel):
 
 
 class ProjectCreditTotals(pydantic.BaseModel):
-    start: datetime.datetime | None
-    end: datetime.datetime | None
+    start: datetime.date | None = pydantic.Field(description='Start date of bin', strict=False)
+    end: datetime.date | None = pydantic.Field(description='End date of bin', strict=False)
     value: int | None
 
 
