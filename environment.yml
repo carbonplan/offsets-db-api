@@ -23,4 +23,4 @@ dependencies:
   - universal_pathlib
   - uvicorn
   - pip:
-      - offsets-db-data
+      - .
