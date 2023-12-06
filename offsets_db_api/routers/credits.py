@@ -22,10 +22,10 @@ def get_credits(
     is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
     transaction_type: list[str] | None = Query(None, description='Transaction type'),
     vintage: list[int] | None = Query(None, description='Vintage'),
-    transaction_date_from: datetime.datetime | None = Query(
+    transaction_date_from: datetime.datetime | datetime.date | None = Query(
         default=None, description='Format: YYYY-MM-DD'
     ),
-    transaction_date_to: datetime.datetime | None = Query(
+    transaction_date_to: datetime.datetime | datetime.date | None = Query(
         default=None, description='Format: YYYY-MM-DD'
     ),
     search: str | None = Query(

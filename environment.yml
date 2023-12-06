@@ -6,7 +6,6 @@ dependencies:
   - aiofiles
   - alembic
   - apscheduler>=3.10.1
-  - asyncpg>=0.27
   - fastapi
   - fastparquet
   - gunicorn
@@ -14,7 +13,6 @@ dependencies:
   - pandas
   - pandera
   - pip
-  - psycopg2-binary
   - pydantic
   - python=3.10
   - s3fs
