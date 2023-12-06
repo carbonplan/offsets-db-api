@@ -14,6 +14,10 @@ echo "alembic version: $(alembic --version)"
 # Run database migrations
 #TODO: disable alembic migrations for now to avoid breaking the build
 echo "Running database migrations..."
+
+echo "Enabling core Dumps"
+ulimit -c unlimited
+
 python -m alembic upgrade head
 
 echo "release complete!"

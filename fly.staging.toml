@@ -2,7 +2,7 @@ app = "offsets-db-staging"
 
 kill_signal = "SIGINT"
 kill_timeout = 5
-primary_region = "dfw"
+primary_region = "lax"
 
 [build]
 builder = "paketobuildpacks/builder-jammy-base:latest"
