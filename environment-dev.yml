@@ -14,7 +14,7 @@ dependencies:
   - pandas
   - pandera
   - pip
-  - psycopg2
+  - psycopg2-binary
   - pydantic
   - pytest
   - pytest-cov
