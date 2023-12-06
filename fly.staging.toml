@@ -5,7 +5,7 @@ kill_timeout = 5
 primary_region = "lax"
 
 [build]
-builder = "paketobuildpacks/builder-jammy-base:latest"
+builder = "paketobuildpacks/builder-jammy-full:latest"
 buildpacks = ["gcr.io/paketo-buildpacks/python"]
 
 
