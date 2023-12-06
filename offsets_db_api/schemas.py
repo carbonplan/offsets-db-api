@@ -30,17 +30,17 @@ class FileCategory(str, enum.Enum):
 
 
 class FileURLPayload(pydantic.BaseModel):
-    url: pydantic.AnyUrl
+    url: str
     category: FileCategory
 
 
 class FileURLResponse(pydantic.BaseModel):
     message: str
-    file_url: pydantic.AnyUrl
+    file_url: str
 
 
 class Pagination(pydantic.BaseModel):
     total_entries: int
     current_page: int
     total_pages: int
-    next_page: pydantic.AnyHttpUrl | None
+    next_page: str | None = None

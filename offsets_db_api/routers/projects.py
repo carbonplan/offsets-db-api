@@ -24,10 +24,10 @@ def get_projects(
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
     is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
-    listed_at_from: datetime.date | datetime.datetime | None = Query(
+    listed_at_from: datetime.datetime | datetime.date | None = Query(
         default=None, description='Format: YYYY-MM-DD'
     ),
-    listed_at_to: datetime.date | datetime.datetime | None = Query(
+    listed_at_to: datetime.datetime | datetime.date | None = Query(
         default=None, description='Format: YYYY-MM-DD'
     ),
     issued_min: int | None = Query(None, description='Minimum number of issued credits'),
@@ -105,8 +105,8 @@ def get_projects(
     projects_with_clips = []
     for project_id, clips in project_to_clips.items():
         project = projects[project_id]
-        project_data = project.dict()
-        project_data['clips'] = [clip.dict() for clip in clips if clip is not None]
+        project_data = project.model_dump()
+        project_data['clips'] = [clip.model_dump() for clip in clips if clip is not None]
         projects_with_clips.append(project_data)
 
     return PaginatedProjects(
@@ -145,9 +145,9 @@ def get_project(
 
     if project_with_clips:
         # Extract the Project and related Clips from the query result
-        project_data = project_with_clips.dict()
+        project_data = project_with_clips.model_dump()
         project_data['clips'] = [
-            clip_project.clip.dict()
+            clip_project.clip.model_dump()
             for clip_project in project_with_clips.clip_relationships
             if clip_project.clip
         ]

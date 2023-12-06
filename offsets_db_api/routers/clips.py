@@ -88,7 +88,7 @@ def get_clips(
             }
             projects_info.append(project_info)
 
-        clip_dict = clip.dict()
+        clip_dict = clip.model_dump()
         clip_dict['projects'] = projects_info
         clips_info.append(clip_dict)
 

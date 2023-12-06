@@ -9,7 +9,7 @@ from .schemas import FileCategory, FileStatus, Pagination
 
 class File(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    url: pydantic.AnyUrl
+    url: str
     content_hash: str | None = Field(description='Hash of file contents')
     status: FileStatus = Field(default='pending', description='Status of file processing')
     error: str | None = Field(description='Error message if processing failed')
@@ -34,7 +34,7 @@ class ProjectBase(SQLModel):
     )
     status: str | None
     country: str | None
-    listed_at: datetime.date | None = Field(description='Date project was listed')
+    listed_at: datetime.datetime | None = Field(description='Date project was listed')
     is_compliance: bool | None = Field(description='Whether project is compliance project')
     retired: int | None = Field(
         description='Total of retired credits', default=0, sa_column=Column(BigInteger())
@@ -42,11 +42,13 @@ class ProjectBase(SQLModel):
     issued: int | None = Field(
         description='Total of issued credits', default=0, sa_column=Column(BigInteger())
     )
-    first_issuance_at: datetime.date | None = Field(description='Date of first issuance of credits')
-    first_retirement_at: datetime.date | None = Field(
+    first_issuance_at: datetime.datetime | None = Field(
+        description='Date of first issuance of credits'
+    )
+    first_retirement_at: datetime.datetime | None = Field(
         description='Date of first retirement of credits'
     )
-    project_url: pydantic.HttpUrl | None = Field(description='URL to project details')
+    project_url: str | None = Field(description='URL to project details')
 
 
 class Project(ProjectBase, table=True):
@@ -62,9 +64,9 @@ class Project(ProjectBase, table=True):
 
 
 class ClipBase(SQLModel):
-    date: datetime.date = Field(description='Date the clip was published')
+    date: datetime.datetime = Field(description='Date the clip was published')
     title: str | None = Field(description='Title of the clip')
-    url: pydantic.AnyUrl | None = Field(description='URL to the clip')
+    url: str | None = Field(description='URL to the clip')
     source: str | None = Field(description='Source of the clip')
     tags: list[str] | None = Field(
         description='Tags associated with the clip', sa_column=Column(postgresql.ARRAY(String()))
@@ -110,7 +112,7 @@ class ProjectWithClips(ProjectBase):
 class CreditBase(SQLModel):
     quantity: int = Field(description='Number of credits', sa_column=Column(BigInteger()))
     vintage: int | None = Field(description='Vintage year of credits')
-    transaction_date: datetime.date | None = Field(description='Date of transaction')
+    transaction_date: datetime.datetime | None = Field(description='Date of transaction')
     transaction_type: str | None = Field(description='Type of transaction')
 
 
@@ -142,8 +144,8 @@ class PaginatedCredits(pydantic.BaseModel):
 
 
 class BinnedValues(pydantic.BaseModel):
-    start: datetime.date | None
-    end: datetime.date | None
+    start: datetime.datetime | None
+    end: datetime.datetime | None
     category: str | None
     value: int | None
 
@@ -154,8 +156,8 @@ class PaginatedBinnedValues(pydantic.BaseModel):
 
 
 class ProjectCreditTotals(pydantic.BaseModel):
-    start: datetime.date | None
-    end: datetime.date | None
+    start: datetime.datetime | None
+    end: datetime.datetime | None
     value: int | None
 
 

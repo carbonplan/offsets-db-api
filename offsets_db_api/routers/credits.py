@@ -22,10 +22,10 @@ def get_credits(
     is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
     transaction_type: list[str] | None = Query(None, description='Transaction type'),
     vintage: list[int] | None = Query(None, description='Vintage'),
-    transaction_date_from: datetime.date | datetime.datetime | None = Query(
+    transaction_date_from: datetime.datetime | datetime.date | None = Query(
         default=None, description='Format: YYYY-MM-DD'
     ),
-    transaction_date_to: datetime.date | datetime.datetime | None = Query(
+    transaction_date_to: datetime.datetime | datetime.date | None = Query(
         default=None, description='Format: YYYY-MM-DD'
     ),
     search: str | None = Query(
@@ -83,7 +83,10 @@ def get_credits(
     )
 
     credits_with_category = [
-        {**credit.dict(), 'projects': [{'project_id': credit.project_id, 'category': category}]}
+        {
+            **credit.model_dump(),
+            'projects': [{'project_id': credit.project_id, 'category': category}],
+        }
         for credit, category in results
     ]
 

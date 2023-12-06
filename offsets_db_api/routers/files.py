@@ -37,6 +37,8 @@ def submit_file(
         session.add(file_obj)
 
     session.commit()
+    for file_obj in file_objs:
+        session.refresh(file_obj)
 
     settings = get_settings()
     engine = get_engine(database_url=settings.database_url)
@@ -63,8 +65,8 @@ def get_file(file_id: int, session: Session = Depends(get_session)):
 def get_files(
     category: FileCategory | None = None,
     status: FileStatus | None = None,
-    recorded_at_from: datetime.date | datetime.datetime | None = None,
-    recorded_at_to: datetime.date | datetime.datetime | None = None,
+    recorded_at_from: datetime.datetime | None = None,
+    recorded_at_to: datetime.datetime | None = None,
     limit: int = 100,
     offset: int = 0,
     session: Session = Depends(get_session),

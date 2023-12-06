@@ -126,7 +126,9 @@ def test_get_projects_with_sort(test_app):
             project_id = project['project_id']
             listed_at_str = project['listed_at']
             listed_at = (
-                datetime.datetime.strptime(listed_at_str, '%Y-%m-%d') if listed_at_str else None
+                datetime.datetime.strptime(listed_at_str.split('T')[0], '%Y-%m-%d')
+                if listed_at_str
+                else None
             )
 
             # Check the sorting logic

@@ -24,16 +24,17 @@ classifiers = [
 dynamic = ["version"]
 
 dependencies = [
-    "aiofiles",
-    "alembic>= 1.7.5",
-    "fastapi== 0.94",
+    "psycopg2-binary==2.9.9",
+    "aiofiles>=23.2",
+    "alembic==1.13",
+    "fastapi==0.104",
     "pandas>=1.5.3",
-    "psycopg2",
-    "pydantic>=1.10",
+    "pydantic>=2.5",
+    "pydantic-settings>=2.1",
     "s3fs>=2023",
-    "sqlmodel==0.0.12",
+    "sqlmodel==0.0.14",
     "pandera>=0.17",
-    "offsets-db-data>=2023.11.10",
+    "offsets-db-data>=2023.11.11",
 ]
 
 [project.urls]
