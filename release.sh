@@ -10,6 +10,7 @@ echo "alembic version: $(python -m alembic --version)"
 # Run database migrations
 echo "Running database migrations..."
 
-python -m alembic upgrade head
+#python -m alembic upgrade head
+python -c "print('Hello World')"
 
 echo "release complete!"

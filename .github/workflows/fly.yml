@@ -40,6 +40,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
+      - name: fly diagnostics
+        run: |
+          flyctl version
+          flyctl doctor
+
       - name: Deploy to Staging
         if: github.ref != 'refs/heads/main'
         run: |
