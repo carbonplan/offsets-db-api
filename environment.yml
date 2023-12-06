@@ -20,5 +20,6 @@ dependencies:
   - ujson
   - universal_pathlib
   - uvicorn
+  - postgresql
   - pip:
       - .

@@ -24,7 +24,7 @@ classifiers = [
 dynamic = ["version"]
 
 dependencies = [
-    "psycopg2-binary==2.9",
+    "psycopg2-binary==2.9.9",
     "aiofiles>=23.2",
     "alembic==1.13",
     "fastapi==0.104",
