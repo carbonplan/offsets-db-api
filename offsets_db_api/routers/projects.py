@@ -105,8 +105,8 @@ def get_projects(
     projects_with_clips = []
     for project_id, clips in project_to_clips.items():
         project = projects[project_id]
-        project_data = project.dict()
-        project_data['clips'] = [clip.dict() for clip in clips if clip is not None]
+        project_data = project.model_dump()
+        project_data['clips'] = [clip.model_dump() for clip in clips if clip is not None]
         projects_with_clips.append(project_data)
 
     return PaginatedProjects(
@@ -145,9 +145,9 @@ def get_project(
 
     if project_with_clips:
         # Extract the Project and related Clips from the query result
-        project_data = project_with_clips.dict()
+        project_data = project_with_clips.model_dump()
         project_data['clips'] = [
-            clip_project.clip.dict()
+            clip_project.clip.model_dump()
             for clip_project in project_with_clips.clip_relationships
             if clip_project.clip
         ]

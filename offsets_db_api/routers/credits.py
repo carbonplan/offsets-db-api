@@ -83,7 +83,10 @@ def get_credits(
     )
 
     credits_with_category = [
-        {**credit.dict(), 'projects': [{'project_id': credit.project_id, 'category': category}]}
+        {
+            **credit.model_dump(),
+            'projects': [{'project_id': credit.project_id, 'category': category}],
+        }
         for credit, category in results
     ]
 
