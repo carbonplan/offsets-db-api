@@ -9,7 +9,7 @@ from .schemas import FileCategory, FileStatus, Pagination
 
 class File(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    url: pydantic.AnyUrl
+    url: str
     content_hash: str | None = Field(description='Hash of file contents')
     status: FileStatus = Field(default='pending', description='Status of file processing')
     error: str | None = Field(description='Error message if processing failed')
@@ -46,7 +46,7 @@ class ProjectBase(SQLModel):
     first_retirement_at: datetime.date | None = Field(
         description='Date of first retirement of credits'
     )
-    project_url: pydantic.HttpUrl | None = Field(description='URL to project details')
+    project_url: str | None = Field(description='URL to project details')
 
 
 class Project(ProjectBase, table=True):
@@ -64,7 +64,7 @@ class Project(ProjectBase, table=True):
 class ClipBase(SQLModel):
     date: datetime.date = Field(description='Date the clip was published')
     title: str | None = Field(description='Title of the clip')
-    url: pydantic.AnyUrl | None = Field(description='URL to the clip')
+    url: str | None = Field(description='URL to the clip')
     source: str | None = Field(description='Source of the clip')
     tags: list[str] | None = Field(
         description='Tags associated with the clip', sa_column=Column(postgresql.ARRAY(String()))
