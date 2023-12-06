@@ -4,23 +4,23 @@ channels:
   - nodefaults
 dependencies:
   - aiofiles
-  - alembic>=1.7.5
+  - alembic
   - apscheduler>=3.10.1
   - asyncpg>=0.27
-  - fastapi>=0.94
+  - fastapi
   - fastparquet
   - gunicorn
   - httpx
-  - pandas>=1.5.3
+  - pandas
   - pandera
   - pip
   - psycopg2
   - pydantic
   - python=3.10
-  - s3fs>=2023
-  - sqlmodel>=0.0.11
+  - s3fs
+  - sqlmodel
   - ujson
   - universal_pathlib
   - uvicorn
   - pip:
-      - offsets-db-data>=2023.11.10
+      - offsets-db-data
