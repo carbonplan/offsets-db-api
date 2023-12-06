@@ -1,7 +1,8 @@
 import pydantic
+import pydantic_settings
 
 
-class Settings(pydantic.BaseSettings):
+class Settings(pydantic_settings.BaseSettings):
     database_url: str = pydantic.Field(..., env='offsets_db_database_url')
     staging: bool = pydantic.Field(default=True, env='offsets_db_staging')
     api_key: str = pydantic.Field(default=None, env='offsets_db_api_key')

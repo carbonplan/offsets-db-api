@@ -30,6 +30,7 @@ dependencies = [
     "pandas>=1.5.3",
     "psycopg2==2.9",
     "pydantic>=2.5",
+    "pydantic-settings>=2.1",
     "s3fs>=2023",
     "sqlmodel==0.0.14",
     "pandera>=0.17",
