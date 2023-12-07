@@ -72,7 +72,11 @@ def get_clips(
         query = apply_sorting(query=query, sort=sort, model=Clip, primary_key='id')
 
     total_entries, current_page, total_pages, next_page, query_results = handle_pagination(
-        query=query, current_page=current_page, per_page=per_page, request=request
+        query=query,
+        primary_key=ClipProject.clip_id,
+        current_page=current_page,
+        per_page=per_page,
+        request=request,
     )
 
     # Collect clip information with associated projects and their categories

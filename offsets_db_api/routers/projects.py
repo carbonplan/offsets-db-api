@@ -87,7 +87,11 @@ def get_projects(
         query = apply_sorting(query=query, sort=sort, model=Project, primary_key='project_id')
 
     total_entries, current_page, total_pages, next_page, results = handle_pagination(
-        query=query, current_page=current_page, per_page=per_page, request=request
+        query=query,
+        primary_key=Project.project_id,
+        current_page=current_page,
+        per_page=per_page,
+        request=request,
     )
 
     # Execute the query

@@ -1,7 +1,7 @@
 from urllib.parse import quote
 
 from fastapi import HTTPException, Request
-from sqlalchemy import and_, asc, desc, nullslast, or_
+from sqlalchemy import and_, asc, desc, distinct, func, nullslast, or_
 from sqlalchemy.orm import Query
 
 from .models import Credit, Project
@@ -118,7 +118,7 @@ def apply_sorting(*, query, sort: list[str], model, primary_key: str):
 
 
 def handle_pagination(
-    *, query: Query, current_page: int, per_page: int, request: Request
+    *, query: Query, primary_key, current_page: int, per_page: int, request: Request
 ) -> tuple[int, int, str | None, list[Project | Credit]]:
     """
     Calculate total records, pages and next page url for a given query
@@ -127,6 +127,9 @@ def handle_pagination(
     ----------
     query: Query
         SQLAlchemy Query
+
+    primary_key
+        Primary key field for distinct count
     current_page: int
         Current page number
     per_page: int
@@ -146,8 +149,9 @@ def handle_pagination(
         Results for the current page
     """
 
-    # Calculate total and pages
-    total_entries = query.count()
+    # Create a separate count query without ORDER BY
+    count_query = query.with_entities(func.count(distinct(primary_key))).order_by(None)
+    total_entries = count_query.scalar()
     total_pages = (total_entries + per_page - 1) // per_page  # ceil(total / per_page)
 
     # Calculate the next page URL
