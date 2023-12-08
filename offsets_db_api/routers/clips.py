@@ -73,7 +73,7 @@ def get_clips(
 
     total_entries, current_page, total_pages, next_page, query_results = handle_pagination(
         query=query,
-        primary_key=ClipProject.clip_id,
+        primary_key=Clip.id,
         current_page=current_page,
         per_page=per_page,
         request=request,
@@ -96,12 +96,14 @@ def get_clips(
         clip_dict['projects'] = projects_info
         clips_info.append(clip_dict)
 
+    pagination = Pagination(
+        total_entries=total_entries,
+        current_page=current_page,
+        total_pages=total_pages,
+        next_page=next_page,
+    )
+
     return PaginatedClips(
-        pagination=Pagination(
-            total_entries=total_entries,
-            current_page=current_page,
-            total_pages=total_pages,
-            next_page=next_page,
-        ),
+        pagination=pagination,
         data=clips_info,
     )
