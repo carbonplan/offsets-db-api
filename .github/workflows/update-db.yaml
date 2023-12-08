@@ -2,12 +2,6 @@ name: Update DB
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
 
   schedule:
     # Run the job every day at 6am
