@@ -1,7 +1,6 @@
 import datetime
+import json
 import time
-
-import pytest
 
 
 def test_submit_bad_file(test_app):
@@ -16,27 +15,31 @@ def test_submit_bad_file(test_app):
     assert response.json()['url'] == 'http://foo.com'
 
 
-@pytest.mark.parametrize(
-    'urls',
-    [
-        [
-            {
-                'url': 's3://carbonplan-share/offsets-db-testing-data/final/projects-augmented.parquet',
-                'category': 'projects',
-            },
-            {
-                'url': 's3://carbonplan-share/offsets-db-testing-data/final/credits-augmented.parquet',
-                'category': 'credits',
-            },
-            {
-                'url': 's3://carbonplan-share/offsets-db-testing-data/final/clips.parquet',
-                'category': 'clips',
-            },
-        ],
-    ],
-)
-def test_submit_file(test_app, urls):
-    response = test_app.post('/files', json=urls)
+def test_submit_file(test_app):
+    urls = [
+        {
+            'url': 's3://carbonplan-share/offsets-db-testing-data/final/credits-augmented.parquet',
+            'category': 'credits',
+        },
+        {
+            'url': 's3://carbonplan-share/offsets-db-testing-data/final/projects-augmented.parquet',
+            'category': 'projects',
+        },
+        {
+            'url': 's3://carbonplan-offsets-db/final/2023-12-08/curated-clips.parquet',
+            'category': 'clips',
+        },
+        {
+            'url': 's3://carbonplan-offsets-db/final/2023-12-04/weekly-summary-clips.parquet',
+            'category': 'clips',
+        },
+    ]
+
+    headers = {
+        'accept': 'application/json',
+        'Content-Type': 'application/json',
+    }
+    response = test_app.post('/files', headers=headers, data=json.dumps(urls))
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
