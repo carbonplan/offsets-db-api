@@ -77,7 +77,7 @@ class ClipBase(SQLModel):
     is_waybacked: bool | None = Field(
         default=False, description='Whether the clip is a waybacked clip'
     )
-    type: str | None = Field(description='Type of clip', default='unknown')
+    type: str = Field(description='Type of clip', default='unknown')
 
 
 class Clip(ClipBase, table=True):

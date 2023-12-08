@@ -90,7 +90,7 @@ if __name__ == '__main__':
     env = sys.argv[1] if len(sys.argv) > 1 else 'staging'
     if env not in ['staging', 'production']:
         raise ValueError(f'env must be either "staging" or "production", not {env}')
-    url = sys.argv[2] if len(sys.argv) > 2 else 'http://127.0.0.1:8000/files/'
+    url = sys.argv[2] if len(sys.argv) > 2 else 'http://127.0.0.1:8000//files/'
     bucket = 's3://carbonplan-offsets-db'
     print(f'Seeding {env} database using URL: {url}...')
     post_data_to_environment(env=env, bucket=bucket)

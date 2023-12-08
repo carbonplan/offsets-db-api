@@ -105,7 +105,8 @@ def process_files(*, engine, session, files: list[File]):
         try:
             logger.info(f'📚 Loading clip file: {file.url}')
             data = pd.read_parquet(file.url, engine='fastparquet')
-            clips_dfs.append(data)
+            df = clip_schema.validate(data)
+            clips_dfs.append(df)
             update_file_status(file, session, 'success')
 
         except Exception as e:
@@ -117,31 +118,24 @@ def process_files(*, engine, session, files: list[File]):
     with engine.begin() as conn:
         conn.execute(text('DROP TABLE IF EXISTS clip, clipproject CASCADE;'))
 
-        data = (
-            pd.concat(clips_dfs)
-            .reset_index(drop=True)
-            .reset_index()
-            .rename(columns={'index': 'id'})
-        )
-        data = clip_schema.validate(data)
+    data = pd.concat(clips_dfs).reset_index(drop=True).reset_index().rename(columns={'index': 'id'})
+    data = clip_schema.validate(data)
 
-        clips_df = data.drop(columns=['project_ids'])
-        clip_dtype_dict = {'tags': ARRAY(String)}
-        process_dataframe(clips_df, 'clip', engine, clip_dtype_dict)
+    clips_df = data.drop(columns=['project_ids'])
+    clip_dtype_dict = {'tags': ARRAY(String)}
+    process_dataframe(clips_df, 'clip', engine, clip_dtype_dict)
 
-        # Prepare ClipProject data
-        clip_projects_data = []
-        index = 0
-        for _, row in data.iterrows():
-            clip_id = row['id']  # Assuming 'id' is the primary key in Clip model
-            project_ids = row['project_ids']
-            for project_id in project_ids:
-                clip_projects_data.append(
-                    {'id': index, 'clip_id': clip_id, 'project_id': project_id}
-                )
-                index += 1
+    # Prepare ClipProject data
+    clip_projects_data = []
+    index = 0
+    for _, row in data.iterrows():
+        clip_id = row['id']  # Assuming 'id' is the primary key in Clip model
+        project_ids = row['project_ids']
+        for project_id in project_ids:
+            clip_projects_data.append({'id': index, 'clip_id': clip_id, 'project_id': project_id})
+            index += 1
 
-        # Convert to DataFrame
-        clip_projects_df = pd.DataFrame(clip_projects_data)
+    # Convert to DataFrame
+    clip_projects_df = pd.DataFrame(clip_projects_data)
 
-        process_dataframe(clip_projects_df, 'clipproject', engine)
+    process_dataframe(clip_projects_df, 'clipproject', engine)
