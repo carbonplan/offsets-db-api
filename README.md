@@ -20,6 +20,7 @@ The database contains information about carbon offsets projects, credits.
 It also contains information about the offset credits that have been issued for each project.
 
 [![Fly.io Deployment](https://github.com/carbonplan/offsets-db-api/actions/workflows/fly.yml/badge.svg)](https://github.com/carbonplan/offsets-db-api/actions/workflows/fly.yml)
+[![Database Update](https://github.com/carbonplan/offsets-db-api/actions/workflows/update-db.yaml/badge.svg)](https://github.com/carbonplan/offsets-db-api/actions/workflows/updated-db.yaml)
 ![MIT License](https://badgen.net/badge/license/MIT/blue)
 
 | Project         | GitHub Repo                                                                                    |

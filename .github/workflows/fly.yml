@@ -47,10 +47,10 @@ jobs:
         if: github.ref != 'refs/heads/main'
         run: |
           flyctl deploy --remote-only --config fly.staging.toml
-          python update_dabase.py staging https://offsets-db-staging.fly.dev/files
+          python update_database.py staging https://offsets-db-staging.fly.dev/files
 
       - name: Deploy to Production
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         run: |
           flyctl deploy --remote-only --config fly.prod.toml
-          python update_dabase.py production https://offsets-db.fly.dev/files
+          python update_database.py production https://offsets-db.fly.dev/files
