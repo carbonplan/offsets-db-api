@@ -115,33 +115,26 @@ def process_files(*, engine, session, files: list[File]):
             update_file_status(file, session, 'failure', error=str(e))
 
     with engine.begin() as conn:
-        conn.execute(text('DROP TABLE IF EXISTS clip, clipproject CASCADE;'))
+        conn.execute(text('DROP TABLE IF EXISTS clipproject, clip CASCADE;'))
 
-        data = (
-            pd.concat(clips_dfs)
-            .reset_index(drop=True)
-            .reset_index()
-            .rename(columns={'index': 'id'})
-        )
-        data = clip_schema.validate(data)
+    df = pd.concat(clips_dfs).reset_index(drop=True).reset_index().rename(columns={'index': 'id'})
+    df = clip_schema.validate(df)
 
-        clips_df = data.drop(columns=['project_ids'])
-        clip_dtype_dict = {'tags': ARRAY(String)}
-        process_dataframe(clips_df, 'clip', engine, clip_dtype_dict)
+    clips_df = df.drop(columns=['project_ids'])
+    clip_dtype_dict = {'tags': ARRAY(String)}
+    process_dataframe(clips_df, 'clip', engine, clip_dtype_dict)
 
-        # Prepare ClipProject data
-        clip_projects_data = []
-        index = 0
-        for _, row in data.iterrows():
-            clip_id = row['id']  # Assuming 'id' is the primary key in Clip model
-            project_ids = row['project_ids']
-            for project_id in project_ids:
-                clip_projects_data.append(
-                    {'id': index, 'clip_id': clip_id, 'project_id': project_id}
-                )
-                index += 1
+    # Prepare ClipProject data
+    clip_projects_data = []
+    index = 0
+    for _, row in df.iterrows():
+        clip_id = row['id']  # Assuming 'id' is the primary key in Clip model
+        project_ids = row['project_ids']
+        for project_id in project_ids:
+            clip_projects_data.append({'id': index, 'clip_id': clip_id, 'project_id': project_id})
+            index += 1
 
-        # Convert to DataFrame
-        clip_projects_df = pd.DataFrame(clip_projects_data)
+    # Convert to DataFrame
+    clip_projects_df = pd.DataFrame(clip_projects_data)
 
-        process_dataframe(clip_projects_df, 'clipproject', engine)
+    process_dataframe(clip_projects_df, 'clipproject', engine)
