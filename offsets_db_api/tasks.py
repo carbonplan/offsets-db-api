@@ -100,6 +100,10 @@ def process_files(*, engine, session, files: list[File]):
             logger.error(trace)
             update_file_status(file, session, 'failure', error=str(e))
 
+    if not clips_files:
+        logger.info('No clip files to process')
+        return
+
     clips_dfs = []
     for file in clips_files:
         try:
