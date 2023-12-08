@@ -3,6 +3,7 @@ import json
 import sys
 
 import fsspec
+import pandas as pd
 import requests
 
 
@@ -17,16 +18,11 @@ def calculate_date(*, days_back: int) -> datetime.date:
 def get_latest(*, bucket: str):
     fs = fsspec.filesystem('s3')  # Assuming S3, adjust accordingly
     today, yesterday = calculate_date(days_back=0), calculate_date(days_back=1)
-    this_week_monday, last_week_monday = (
-        calculate_date(days_back=today.weekday()),
-        calculate_date(days_back=today.weekday() + 7),
-    )
 
     items = [
         ('credits', 'credits-augmented', today, yesterday),
         ('projects', 'projects-augmented', today, yesterday),
         ('clips', 'curated-clips', today, yesterday),
-        ('clips', 'weekly-summary-clips', this_week_monday, last_week_monday),
     ]
 
     data = []
@@ -42,6 +38,18 @@ def get_latest(*, bucket: str):
             raise ValueError(f"both {latest_path} and {previous_path} file paths don't exist")
 
         data.append({'category': key, 'url': entry_url})
+
+    weekly_summary_start = datetime.date(year=2023, month=12, day=4)
+    weekly_summary_end = datetime.datetime.utcnow().date()
+    date_ranges = pd.date_range(
+        start=weekly_summary_start, end=weekly_summary_end, freq='W-MON', inclusive='both'
+    )
+    for entry in date_ranges:
+        weekly_summary_path = generate_path(
+            date=entry.date(), bucket=bucket, category='weekly-summary-clips'
+        )
+        if fs.exists(weekly_summary_path):
+            data.append({'category': 'clips', 'url': weekly_summary_path})
 
     return data
 
