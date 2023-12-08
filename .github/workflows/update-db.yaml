@@ -1,0 +1,39 @@
+name: Update DB
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+  schedule:
+    # Run the job every day at 6am
+    - cron: '0 6 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  db:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install fsspec requests s3fs
+
+      - name: Seed Staging Database
+        run: |
+          python update_dabase.py staging https://offsets-db-staging.fly.dev/files
+
+      - name: Seed Production Database
+        run: |
+          python update_dabase.py production https://offsets-db.fly.dev/files

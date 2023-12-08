@@ -13,9 +13,6 @@ on:
     branches:
       - main
   workflow_dispatch:
-  schedule:
-    # Run the job every day at 6am
-    - cron: '0 6 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -35,32 +32,25 @@ jobs:
       name: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
       url: ${{ github.ref == 'refs/heads/main' && env.PRODUCTION_URL || env.STAGING_URL }}
 
-    if: ${{ (contains(github.event.pull_request.labels.*.name, 'api') && github.event_name == 'pull_request') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'}}
+    if: ${{ (contains(github.event.pull_request.labels.*.name, 'api') && github.event_name == 'pull_request') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'}}
     steps:
       - uses: actions/checkout@v4
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: fly diagnostics
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
         run: |
-          flyctl version
-          flyctl doctor
-
+          python -m pip install --upgrade pip
+          python -m pip install fsspec requests s3fs
+      - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy to Staging
         if: github.ref != 'refs/heads/main'
         run: |
           flyctl deploy --remote-only --config fly.staging.toml
-
-      - name: Seed Staging database
-        if: github.ref != 'refs/heads/main'
-        run: |
-          STAGING_URL='https://offsets-db-staging.fly.dev/files' python update_database.py staging
+          python update_dabase.py staging https://offsets-db-staging.fly.dev/files
 
       - name: Deploy to Production
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         run: |
           flyctl deploy --remote-only --config fly.prod.toml
-
-      - name: Seed Production database
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
-        run: |
-          PRODUCTION_URL='https://offsets-db.fly.dev/files' python update_database.py production
+          python update_dabase.py production https://offsets-db.fly.dev/files
