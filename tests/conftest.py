@@ -23,7 +23,7 @@ def test_db_session():
 
 
 # Fixture to provide a test client for FastAPI app; reused across the test session
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='session', autouse=True)
 def test_app():
     app = create_application()
     app.dependency_overrides[get_settings] = get_settings_override

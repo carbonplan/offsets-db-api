@@ -17,7 +17,9 @@ def test_unauthorized_user(test_app):
 
 
 def test_missing_api_key(test_app):
+    headers = test_app.headers
     test_app.headers = {}
     response = test_app.get('/health/authorized_user')
     assert response.status_code == 403
     assert 'Missing API key' in response.json()['detail']
+    test_app.headers = headers
