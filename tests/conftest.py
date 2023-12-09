@@ -11,7 +11,7 @@ from offsets_db_api.settings import Settings, get_settings
 
 # Override settings for tests
 def get_settings_override():
-    return Settings(staging=True, api_key='bar')
+    return Settings(staging=True, api_key='cowsay')
 
 
 # Fixture to provide a database session per test function
@@ -28,7 +28,10 @@ def test_app():
     app = create_application()
     app.dependency_overrides[get_settings] = get_settings_override
 
+    headers = {'X-API-Key': 'cowsay'}
+
     with TestClient(app) as test_client:
+        test_client.headers.update(headers)
         yield test_client  # Yield control to dependent fixtures and tests
 
 
