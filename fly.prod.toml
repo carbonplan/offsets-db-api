@@ -11,7 +11,6 @@ buildpacks = ["gcr.io/paketo-buildpacks/python"]
 
 [env]
 OFFSETS_DB_STAGING = "false"
-OFFSETS_DB_EXPORT_PATH = "s3://carbonplan-offsets-db/data/export"
 PORT = "8000"
 
 [deploy]

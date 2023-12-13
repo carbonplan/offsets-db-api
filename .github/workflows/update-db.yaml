@@ -4,8 +4,13 @@ on:
   workflow_dispatch:
 
   schedule:
-    # Run the job every day at 6am
-    - cron: '0 6 * * *'
+    # Run the job every day at 12:00 AM UTC
+    - cron: '0 0 * * *'
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: us-west-2
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
