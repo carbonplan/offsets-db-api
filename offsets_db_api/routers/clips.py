@@ -8,6 +8,7 @@ from ..logging import get_logger
 from ..models import Clip, ClipProject, PaginatedClips, Project
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination
+from ..security import check_api_key
 
 router = APIRouter()
 logger = get_logger()
@@ -35,6 +36,7 @@ def get_clips(
         description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
     ),
     session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
 ):
     """
     Get clips associated with a project

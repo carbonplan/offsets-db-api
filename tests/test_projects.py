@@ -73,7 +73,7 @@ def test_get_projects_with_filters(
     issued_max,
 ):
     response = test_app.get(
-        f'/projects?registry={registry}&country={country}&protocol={protocol}&category={category}&listed_at_from={listed_at_from}&listed_at_to={listed_at_to}&search={search}&retired_min={retired_min}&retired_max={retired_max}&issued_min={issued_min}&issued_max={issued_max}'
+        f'/projects/?registry={registry}&country={country}&protocol={protocol}&category={category}&listed_at_from={listed_at_from}&listed_at_to={listed_at_to}&search={search}&retired_min={retired_min}&retired_max={retired_max}&issued_min={issued_min}&issued_max={issued_max}'
     )
     assert response.status_code == 200
     data = response.json()['data']

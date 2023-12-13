@@ -8,6 +8,7 @@ from ..logging import get_logger
 from ..models import Credit, PaginatedCredits, Project
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination, Registries
+from ..security import check_api_key
 
 router = APIRouter()
 logger = get_logger()
@@ -39,6 +40,7 @@ def get_credits(
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
 ):
     """List credits"""
     logger.info(f'Getting credits: {request.url}')

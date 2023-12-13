@@ -7,6 +7,7 @@ from ..database import get_engine, get_session
 from ..logging import get_logger
 from ..models import File, FileCategory, FileStatus
 from ..schemas import FileURLPayload
+from ..security import check_api_key
 from ..settings import get_settings
 from ..tasks import process_files
 
@@ -23,6 +24,7 @@ def submit_file(
     payload: list[FileURLPayload],
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
 ):
     """Submit a file to the database"""
     logger.info('Received file(s) %s', payload)
@@ -48,7 +50,11 @@ def submit_file(
 
 
 @router.get('/{file_id}', response_model=File, summary='Get a file by id')
-def get_file(file_id: int, session: Session = Depends(get_session)):
+def get_file(
+    file_id: int,
+    session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
+):
     """Get a file by id"""
     logger.info('Getting file %s', file_id)
 
@@ -70,6 +76,7 @@ def get_files(
     limit: int = 100,
     offset: int = 0,
     session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
 ):
     """Get files"""
     logger.info(

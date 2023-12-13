@@ -19,6 +19,7 @@ from ..models import (
 )
 from ..query_helpers import apply_filters
 from ..schemas import Pagination, Registries
+from ..security import check_api_key
 from ..settings import get_settings
 
 router = APIRouter()
@@ -292,6 +293,7 @@ def get_projects_by_listing_date(
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated project registration data"""
     logger.info(f'Getting project registration data: {request.url}')
@@ -460,6 +462,7 @@ def get_credits_by_transaction_date(
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated credit transaction data"""
     logger.info(f'Getting credit transaction data: {request.url}')
@@ -537,6 +540,7 @@ def get_credits_by_project_id(
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated credit transaction data"""
     logger.info(f'Getting credit transaction data: {request.url}')
@@ -616,6 +620,7 @@ def get_projects_by_credit_totals(
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated project credit totals"""
     logger.info(f'📊 Generating projects by {credit_type} totals...: {request.url}')
@@ -701,6 +706,7 @@ def get_projects_by_category(
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
 ):
     """Get project counts by category"""
     logger.info(f'Getting project count by category: {request.url}')
@@ -773,6 +779,7 @@ def get_credits_by_category(
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
 ):
     """Get project counts by category"""
     logger.info(f'Getting project count by category: {request.url}')

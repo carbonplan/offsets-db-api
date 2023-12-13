@@ -11,6 +11,7 @@ from ..logging import get_logger
 from ..models import Clip, ClipProject, PaginatedProjects, Project, ProjectWithClips
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination, Registries
+from ..security import check_api_key
 
 router = APIRouter()
 logger = get_logger()
@@ -45,6 +46,7 @@ def get_projects(
         description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
     ),
     session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
 ):
     """Get projects with pagination and filtering"""
 
@@ -133,6 +135,7 @@ def get_project(
     request: Request,
     project_id: str,
     session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
 ):
     """Get a project by registry and project_id"""
     logger.info(f'Getting project: {request.url}')
