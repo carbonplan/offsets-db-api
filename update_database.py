@@ -1,5 +1,6 @@
 import datetime
 import json
+import os
 import sys
 
 import fsspec
@@ -83,6 +84,19 @@ def post_data_to_environment(*, env: str, bucket: str) -> None:
                 'category': 'clips',
             },
         ]
+
+    # get X-API-KEY from env and use it in headers
+    if env == 'production':
+        api_key = os.environ.get('OFFSETS_DB_API_KEY_PRODUCTION')
+        if api_key is None:
+            raise ValueError('OFFSETS_DB_API_KEY_PRODUCTION environment variable not set')
+
+    else:
+        api_key = os.environ.get('OFFSETS_DB_API_KEY_STAGING')
+        if api_key is None:
+            raise ValueError('OFFSETS_DB_API_KEY_STAGING environment variable not set')
+
+    headers['X-API-KEY'] = api_key
 
     # Send the request
     response = requests.post(url, headers=headers, data=json.dumps(files))

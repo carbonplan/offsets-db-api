@@ -1,6 +1,12 @@
 name: Update DB
 
 on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
   schedule:
@@ -11,6 +17,8 @@ env:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   AWS_DEFAULT_REGION: us-west-2
+  OFFSETS_DB_API_KEY_STAGING: ${{ secrets.OFFSETS_DB_API_KEY_STAGING }}
+  OFFSETS_DB_API_KEY_PRODUCTION: ${{ secrets.OFFSETS_DB_API_KEY_PRODUCTION }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -34,5 +42,6 @@ jobs:
           python update_database.py staging https://offsets-db-staging.fly.dev/files
 
       - name: Seed Production Database
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         run: |
           python update_database.py production https://offsets-db.fly.dev/files
