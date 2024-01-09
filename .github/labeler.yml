@@ -1,11 +1,15 @@
 api:
-  - offsets_db_api/**/*
-  - migrations/**/*
-  - Procfile
-  - environment.yml
-  - release.sh
-  - fly.*.toml
+  - changed-files:
+      - any-glob-to-any-file:
+          - offsets_db_api/**/*
+          - migrations/**/*
+          - Procfile
+          - environment.yml
+          - release.sh
+          - fly.*.toml
 
 ci:
-  - .github/*
-  - .github/**/*
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/*
+          - .github/**/*
