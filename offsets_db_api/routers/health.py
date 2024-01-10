@@ -36,7 +36,6 @@ def status(settings: Settings = Depends(get_settings), session: Session = Depend
 
     db_latest_update = {}
     for category, dates in grouped_files.items():
-        # get the first date
         db_latest_update[category] = dates[0]
 
     return {
