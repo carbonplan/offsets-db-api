@@ -23,5 +23,6 @@ dependencies:
   - universal_pathlib
   - uvicorn
   - postgresql
+  - locust==2.20
   - pip:
       - .
