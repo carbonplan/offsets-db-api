@@ -42,7 +42,7 @@ jobs:
       - name: Get Current time in UTC in format YYYY-MM-DD HH:MM
         if: always()
         id: time
-        run: echo "::set-output name=date::$(date -u +'%Y-%m-%d %H:%M')"
+        run: echo "date=$(date -u +'%Y-%m-%d %H:%M')" >> $GITHUB_OUTPUT
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'

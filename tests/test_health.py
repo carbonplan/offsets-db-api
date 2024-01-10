@@ -1,7 +1,11 @@
 def test_health(test_app):
     response = test_app.get('/health')
     assert response.status_code == 200
-    assert response.json() == {'staging': True, 'status': 'ok'}
+    data = response.json()
+    assert data.keys() == {'status', 'staging', 'latest-successful-db-update'}
+    assert data['status'] == 'ok'
+    assert data['staging'] is True
+    assert data['latest-successful-db-update'].keys() == {'projects', 'credits', 'clips'}
 
 
 def test_authorized_user(test_app):
