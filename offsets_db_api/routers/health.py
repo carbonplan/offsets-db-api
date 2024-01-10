@@ -17,7 +17,7 @@ logger = get_logger()
 def status(settings: Settings = Depends(get_settings), session: Session = Depends(get_session)):
     logger.info('Received status request')
     statement = (
-        select(File.category, File.recorded_at)
+        select(File.category, File.recorded_at, File.url)
         .where(
             (File.status == FileStatus.success)
             & (
@@ -31,12 +31,17 @@ def status(settings: Settings = Depends(get_settings), session: Session = Depend
     results = session.exec(statement).all()
     # Group by category and collect recorded_at dates
     grouped_files = defaultdict(list)
-    for category, recorded_at in results:
-        grouped_files[category.value].append(recorded_at.strftime('%a, %b %d %Y %H:%M:%S UTC'))
+    for category, recorded_at, url in results:
+        grouped_files[category.value].append(
+            {'date': recorded_at.strftime('%a, %b %d %Y %H:%M:%S UTC'), 'url': url}
+        )
 
     db_latest_update = {}
-    for category, dates in grouped_files.items():
-        db_latest_update[category] = dates[0]
+    for category, entries in grouped_files.items():
+        db_latest_update[category] = {
+            'date': entries[0]['date'],
+            'url': entries[0]['url'],
+        }
 
     return {
         'status': 'ok',
