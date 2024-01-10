@@ -39,6 +39,10 @@ jobs:
     if: ${{ (contains(github.event.pull_request.labels.*.name, 'api') && github.event_name == 'pull_request') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'}}
     steps:
       - uses: actions/checkout@v4
+      - name: Get Current time in UTC in format YYYY-MM-DD HH:MM
+        if: always()
+        id: time
+        run: echo "::set-output name=date::$(date -u +'%Y-%m-%d %H:%M')"
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
@@ -58,3 +62,52 @@ jobs:
         run: |
           flyctl deploy --remote-only --config fly.prod.toml
           python update_database.py production https://offsets-db.fly.dev/files
+
+      - name: Notify Slack on Failure
+        if: failure() && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        uses: slackapi/slack-github-action@v1.24.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        with:
+          channel-id: 'C06CXEYKMBP'
+          payload: |
+            {
+
+              "attachments": [
+                {
+                  "color": "#ff0000",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "Fly Deployment Failure Alert 🚨"
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "fields": [
+                        {
+                          "type": "mrkdwn",
+                          "text": "*GH event:*\n${{ github.event_name }}"
+                        },
+                        {
+                          "type": "mrkdwn",
+                          "text": "*Time:*\n${{ steps.time.outputs.date }} UTC"
+
+                        }
+                      ]
+                    },
+                     {
+                      "type": "section",
+                      "fields": [
+                        {
+                          "type": "mrkdwn",
+                          "text": "*Details URL:*\n🔍 <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
