@@ -168,7 +168,7 @@ class ProjectCreditTotals(pydantic.BaseModel):
 
 class PaginatedProjectCreditTotals(pydantic.BaseModel):
     pagination: Pagination
-    data: list[ProjectCreditTotals]
+    data: list[ProjectCreditTotals] | list[dict[str, typing.Any]]
 
 
 class ProjectCounts(pydantic.BaseModel):

@@ -4,7 +4,7 @@ import typing
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, Query, Request
-from sqlmodel import Session, and_, case, col, func, or_
+from sqlmodel import Session, col, or_
 
 from ..database import get_engine, get_session
 from ..logging import get_logger
@@ -162,63 +162,51 @@ def generate_dynamic_numeric_bins(*, min_value, max_value, bin_width=None):
     return numeric_bins
 
 
-def get_binned_data(*, query, binning_attribute, freq='Y'):
-    """Generate binned data based on the given attribute and frequency."""
-    logger.info(f'📊 Generating binned data based on {binning_attribute}...')
-    attribute = getattr(Project, binning_attribute)
-    min_value, max_value = query.with_entities(func.min(attribute), func.max(attribute)).one()
+def projects_counts_by_listing_date(
+    *,
+    df: pd.DataFrame,
+    freq: typing.Literal['D', 'W', 'M', 'Y'] = 'Y',
+    categories: list[str] | None = None,
+) -> list[dict[str, typing.Any]]:
+    """
+    Generate project counts by listing date.
+    """
+    logger.info('📊 Generating project counts by listing date...')
+    valid_df = filter_valid_projects(df, categories=categories)
+    min_value, max_value = valid_df['listed_at'].agg(['min', 'max'])
 
-    if min_value is None or max_value is None:
+    if pd.isna(min_value) or pd.isna(max_value):
         logger.info('✅ No data to bin!')
         return []
 
     date_bins = generate_date_bins(min_value=min_value, max_value=max_value, freq=freq)
-
-    conditions = []
-    # Handle the case of exactly one non-null date bin
-    if len(date_bins) == 1:
-        conditions.append((attribute.isnot(None), func.concat(date_bins[0].date())))
-
-    # Handle the case of multiple non-null date bins
-    else:
-        conditions.extend(
-            [
-                (
-                    and_(attribute >= date_bins[i], attribute < date_bins[i + 1]),
-                    str(date_bins[i].date()),
-                )
-                for i in range(len(date_bins) - 1)
-            ]
-        )
-    # Add condition for null registration dates
-    conditions.append((attribute.is_(None), 'null'))
-
-    # Define the binned attribute
-    binned_attribute = case(conditions, else_='other').label('bin')
-
-    # Query and format the results
-    query = query.with_entities(
-        binned_attribute,
-        func.unnest(Project.category).label('category'),
-        func.count(Project.project_id).label('value'),
+    valid_df['bin'] = pd.cut(
+        valid_df['listed_at'], bins=date_bins, labels=date_bins[:-1], right=False
     )
-    binned_results = query.group_by('bin', 'category').all()
+    valid_df['bin'] = valid_df['bin'].astype(str)
+
+    # Aggregate the data
+    grouped = valid_df.groupby(['bin', 'category'])['project_id'].count().reset_index()
 
     formatted_results = []
-    for bin_label, category, value in binned_results:
-        start_date = pd.Timestamp(bin_label) if bin_label not in ['other', 'null'] else None
+    for _, row in grouped.iterrows():
+        bin_label = row['bin']
+        category = row['category']
+        value = row['project_id']
+
+        start_date = pd.Timestamp(bin_label).date() if bin_label else None
         end_date = calculate_end_date(start_date, freq).date() if start_date else None
+
         formatted_results.append(
             dict(start=start_date, end=end_date, category=category, value=value)
         )
 
     logger.info('✅ Binned data generated successfully!')
-
     return formatted_results
 
 
 def projects_by_credit_totals(
-    *, df: pd.DataFrame, credit_type: str, bin_width=None, categories=None
+    *, df: pd.DataFrame, credit_type: str, bin_width=None, categories: list[str] | None = None
 ) -> list[dict[str, typing.Any]]:
     """Generate binned data based on the given attribute and frequency."""
     logger.info(f'📊 Generating binned data based on {credit_type}...')
@@ -373,7 +361,7 @@ def get_projects_by_listing_date(
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
-    authorized_user: bool = Depends(check_api_key),
+    # authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated project registration data"""
     logger.info(f'Getting project registration data: {request.url}')
@@ -409,7 +397,14 @@ def get_projects_by_listing_date(
             )
         )
 
-    results = get_binned_data(binning_attribute='listed_at', query=query, freq=freq)
+    settings = get_settings()
+    engine = get_engine(database_url=settings.database_url)
+    logger.info(f'Query statement: {query.statement}')
+
+    df = pd.read_sql_query(query.statement, engine).explode('category')
+    df = df.astype({'listed_at': 'datetime64[ns]'})
+    logger.info(f'Sample of the dataframe with size: {df.shape}\n{df.head()}')
+    results = projects_counts_by_listing_date(df=df, freq=freq, categories=category)
     total_entries = len(results)
     total_pages = 1
     next_page = None
@@ -576,7 +571,7 @@ def get_credits_by_project_id(
     )
 
 
-@router.get('/projects_by_credit_totals')
+@router.get('/projects_by_credit_totals', response_model=PaginatedBinnedCreditTotals)
 def get_projects_by_credit_totals(
     request: Request,
     credit_type: typing.Literal['issued', 'retired'] = Query('issued', description='Credit type'),
@@ -609,7 +604,7 @@ def get_projects_by_credit_totals(
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
-    # authorized_user: bool = Depends(check_api_key),
+    authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated project credit totals"""
     logger.info(f'📊 Generating projects by {credit_type} totals...: {request.url}')
