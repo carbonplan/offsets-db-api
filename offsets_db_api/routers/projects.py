@@ -2,6 +2,7 @@ import datetime
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi_cache.decorator import cache
 from sqlalchemy import or_
 from sqlalchemy.orm import contains_eager
 from sqlmodel import Session
@@ -18,6 +19,7 @@ logger = get_logger()
 
 
 @router.get('/', response_model=PaginatedProjects)
+@cache()
 def get_projects(
     request: Request,
     registry: list[Registries] | None = Query(None, description='Registry name'),
@@ -131,6 +133,7 @@ def get_projects(
     response_model=ProjectWithClips,
     summary='Get project details by project_id',
 )
+@cache()
 def get_project(
     request: Request,
     project_id: str,

@@ -193,6 +193,21 @@ def custom_urlencode(params):
     return '&'.join(encoded)
 
 
+def _convert_query_params_to_dict(request):
+    # Convert the QueryParams to a dict, preserving list-type values
+    query_params = {}
+    for key, value in request.query_params.multi_items():
+        if key in query_params:
+            if isinstance(query_params[key], list):
+                query_params[key].append(value)
+            else:
+                query_params[key] = [query_params[key], value]
+        else:
+            query_params[key] = value
+
+    return query_params
+
+
 def _generate_next_page_url(*, request, current_page, per_page):
     """
     Generate the URL for the next page in pagination.
@@ -212,15 +227,7 @@ def _generate_next_page_url(*, request, current_page, per_page):
         The URL for the next page.
     """
     # Convert the QueryParams to a dict, preserving list-type values
-    query_params = {}
-    for key, value in request.query_params.multi_items():
-        if key in query_params:
-            if isinstance(query_params[key], list):
-                query_params[key].append(value)
-            else:
-                query_params[key] = [query_params[key], value]
-        else:
-            query_params[key] = value
+    query_params = _convert_query_params_to_dict(request)
 
     # Update 'current_page' and 'per_page' for the next page
     query_params['current_page'] = current_page + 1

@@ -3,8 +3,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.inmemory import InMemoryBackend
 
 from .app_metadata import metadata
+from .cache import request_key_builder
 from .logging import get_logger
 from .routers import charts, clips, credits, files, health, projects
 
@@ -21,6 +24,11 @@ async def lifespan_event(app: FastAPI):
     worker_num = int(os.environ.get('APP_WORKER_ID', 9999))
 
     logger.info(f'👷 Worker num: {worker_num}')
+
+    # set up cache
+    logger.info('🔥 Setting up cache...')
+    FastAPICache.init(InMemoryBackend(), expire=60, key_builder=request_key_builder)
+    logger.info('🔥 Cache set up.')
 
     yield
 

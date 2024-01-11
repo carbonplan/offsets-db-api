@@ -1,7 +1,9 @@
+import datetime
 import typing
 from collections import defaultdict
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from fastapi_cache.decorator import cache
 from sqlmodel import Session, col, select
 
 from ..database import get_session
@@ -21,8 +23,11 @@ def status(settings: Settings = Depends(get_settings)) -> dict[str, typing.Any]:
 
 
 @router.get('/database')
+@cache()
 def db_status(
-    settings: Settings = Depends(get_settings), session: Session = Depends(get_session)
+    request: Request,
+    settings: Settings = Depends(get_settings),
+    session: Session = Depends(get_session),
 ) -> dict[str, typing.Any]:
     """Returns the latest successful db update for each file category."""
     logger.info('Received status request')
@@ -63,3 +68,11 @@ def db_status(
 @router.get('/authorized_user')
 def validate_authorized_user(authorized_user: bool = Depends(check_api_key)):
     return {'authorized_user': authorized_user}
+
+
+@router.get('/cache')
+@cache(expire=10)
+def cache_status() -> dict[str, typing.Any]:
+    """Returns the latest successful db update for each file category."""
+    now = datetime.datetime.now()
+    return {'cache-last-updated': now.strftime('%a, %b %d %Y %H:%M:%S UTC')}
