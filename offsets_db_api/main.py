@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,8 +11,25 @@ from .routers import charts, clips, credits, files, health, projects
 logger = get_logger()
 
 
+@asynccontextmanager
+async def lifespan_event(app: FastAPI):
+    """
+    Context manager that yields the application's startup and shutdown events.
+    """
+    logger.info('⏱️ Application startup...')
+
+    worker_num = int(os.environ.get('APP_WORKER_ID', 9999))
+
+    logger.info(f'👷 Worker num: {worker_num}')
+
+    yield
+
+    logger.info('Application shutdown...')
+    logger.info('👋 Goodbye!')
+
+
 def create_application() -> FastAPI:
-    application = FastAPI(**metadata)
+    application = FastAPI(**metadata, lifespan=lifespan_event)
     # TODO: figure out how to set origins to only the frontend domain
     # in the meantime, we can allow everything.
     origins = ['*']  # is this dangerous? I don't think so, but I'm not sure.
@@ -34,21 +52,3 @@ def create_application() -> FastAPI:
 
 
 app = create_application()
-
-
-@app.on_event('startup')
-async def startup_event():
-    """
-    Event handler for application startup.
-    If the current worker is the first one, it starts the scheduler.
-    """
-    logger.info('⏱️ Application startup...')
-
-    worker_num = int(os.environ.get('APP_WORKER_ID', 9999))
-
-    logger.info(f'👷 Worker num: {worker_num}')
-
-
-@app.on_event('shutdown')
-async def shutdown_event():
-    logger.info('Application shutdown...')
