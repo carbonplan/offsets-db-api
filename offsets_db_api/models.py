@@ -1,4 +1,5 @@
 import datetime
+import typing
 
 import pydantic
 from sqlalchemy.dialects import postgresql
@@ -156,7 +157,7 @@ class BinnedValues(pydantic.BaseModel):
 
 class PaginatedBinnedValues(pydantic.BaseModel):
     pagination: Pagination
-    data: list[BinnedValues]
+    data: list[BinnedValues] | list[dict[str, typing.Any]]
 
 
 class ProjectCreditTotals(pydantic.BaseModel):
@@ -183,24 +184,24 @@ class CreditCounts(pydantic.BaseModel):
 
 class PaginatedProjectCounts(pydantic.BaseModel):
     pagination: Pagination
-    data: list[ProjectCounts]
+    data: list[ProjectCounts] | list[dict[str, typing.Any]]
 
 
 class PaginatedCreditCounts(pydantic.BaseModel):
     pagination: Pagination
-    data: list[CreditCounts]
+    data: list[CreditCounts] | list[dict[str, typing.Any]]
 
 
 class ProjectBinnedCreditsTotals(pydantic.BaseModel):
     start: float | None
     end: float | None
     category: str | None
-    value: float | None
+    value: int | None
 
 
 class PaginatedBinnedCreditTotals(pydantic.BaseModel):
     pagination: Pagination
-    data: list[ProjectBinnedCreditsTotals]
+    data: list[ProjectBinnedCreditsTotals] | list[dict[str, typing.Any]]
 
 
 class PaginatedClips(pydantic.BaseModel):
