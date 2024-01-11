@@ -1,5 +1,5 @@
 def test_health(test_app):
-    response = test_app.get('/health')
+    response = test_app.get('/health/database')
     assert response.status_code == 200
     data = response.json()
     assert data.keys() == {'status', 'staging', 'latest-successful-db-update'}
