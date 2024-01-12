@@ -1,6 +1,7 @@
 import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi_cache.decorator import cache
 from sqlmodel import Session, or_
 
 from ..database import get_session
@@ -15,6 +16,7 @@ logger = get_logger()
 
 
 @router.get('/', summary='List credits', response_model=PaginatedCredits)
+@cache()
 def get_credits(
     request: Request,
     project_id: list[str] | None = Query(None, description='Project ID'),

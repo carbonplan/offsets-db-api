@@ -1,6 +1,7 @@
 import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi_cache.decorator import cache
 from sqlmodel import Session
 
 from ..database import get_engine, get_session
@@ -50,6 +51,7 @@ def submit_file(
 
 
 @router.get('/{file_id}', response_model=File, summary='Get a file by id')
+@cache()
 def get_file(
     file_id: int,
     session: Session = Depends(get_session),
@@ -68,6 +70,7 @@ def get_file(
 
 
 @router.get('/', response_model=list[File], summary='List files')
+@cache()
 def get_files(
     category: FileCategory | None = None,
     status: FileStatus | None = None,
