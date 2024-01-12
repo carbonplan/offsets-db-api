@@ -34,8 +34,8 @@ port = 443
 handlers = ["tls", "http"]
 [services.concurrency]
 type = "connections"
-hard_limit = 15
-soft_limit = 10
+hard_limit = 150
+soft_limit = 100
 
 [[services.tcp_checks]]
 interval = "10s"
