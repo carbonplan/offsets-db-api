@@ -33,6 +33,8 @@ async def lifespan_event(app: FastAPI):
     yield
 
     logger.info('Application shutdown...')
+    logger.info('Clearing cache...')
+    FastAPICache.reset()
     logger.info('👋 Goodbye!')
 
 
