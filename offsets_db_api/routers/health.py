@@ -23,14 +23,14 @@ def status(settings: Settings = Depends(get_settings)) -> dict[str, typing.Any]:
 
 
 @router.get('/database')
-@cache()
+@cache(expire=60)
 def db_status(
     request: Request,
     settings: Settings = Depends(get_settings),
     session: Session = Depends(get_session),
 ) -> dict[str, typing.Any]:
     """Returns the latest successful db update for each file category."""
-    logger.info('Received status request')
+    logger.info(f'Received status request: {request.url}')
     statement = (
         select(File.category, File.recorded_at, File.url)
         .where(

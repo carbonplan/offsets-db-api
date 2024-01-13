@@ -6,6 +6,14 @@ def test_health(test_app):
     assert data['status'] == 'ok'
     assert data['staging'] is True
     assert data['latest-successful-db-update'].keys() == {'projects', 'credits', 'clips'}
+    assert response.headers['x-offsetsdb-cache'] == 'MISS'
+    assert 'cache-control' in response.headers
+    assert 'etag' in response.headers
+
+    etag = response.headers.get('etag')
+    response = test_app.get('/health/database', headers={'If-None-Match': etag})
+    assert response.status_code == 304
+    assert response.headers['x-offsetsdb-cache'] == 'HIT'
 
 
 def test_authorized_user(test_app):

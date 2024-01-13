@@ -27,8 +27,17 @@ async def lifespan_event(app: FastAPI):
 
     # set up cache
     logger.info('🔥 Setting up cache...')
-    FastAPICache.init(InMemoryBackend(), expire=600, key_builder=request_key_builder)
-    logger.info('🔥 Cache set up.')
+    expiration = int(60 * 60 * 24)  # 24 hours
+    cache_status_header = 'X-OffsetsDB-Cache'
+    FastAPICache.init(
+        InMemoryBackend(),
+        expire=expiration,
+        key_builder=request_key_builder,
+        cache_status_header=cache_status_header,
+    )
+    logger.info(
+        f'🔥 Cache set up with expiration={expiration:,} seconds | {cache_status_header} cache status header.'
+    )
 
     yield
 
