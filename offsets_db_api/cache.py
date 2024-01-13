@@ -36,9 +36,18 @@ def request_key_builder(
 
 async def clear_cache():
     try:
-        # clear cache
-        logger.info('🧹 Clearing cache')
+        # List existing keys in cache
+        keys = list(FastAPICache._backend._store.keys())
+
+        if keys:
+            formatted_keys = '\n'.join(f'🔑 {key}' for key in keys)
+            logger.info(f'🔍 Found {len(keys)} keys to clear:\n{formatted_keys}')
+        else:
+            logger.info('🚫 No keys found in cache to clear.')
+
+        # Clear cache
+        logger.info('🧹 Clearing cache...')
         await FastAPICache.clear(namespace=CACHE_NAMESPACE)
-        logger.info('✅ Cache cleared')
+        logger.info('✅ Cache successfully cleared!')
     except Exception as exc:
-        logger.warning(f'Failed to clear cache: {exc}')
+        logger.warning(f'❌ Failed to clear cache: {exc}', exc_info=True)
