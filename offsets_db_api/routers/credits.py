@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
 from sqlmodel import Session, or_
 
+from ..cache import CACHE_NAMESPACE
 from ..database import get_session
 from ..logging import get_logger
 from ..models import Credit, PaginatedCredits, Project
@@ -16,7 +17,7 @@ logger = get_logger()
 
 
 @router.get('/', summary='List credits', response_model=PaginatedCredits)
-@cache()
+@cache(namespace=CACHE_NAMESPACE)
 def get_credits(
     request: Request,
     project_id: list[str] | None = Query(None, description='Project ID'),

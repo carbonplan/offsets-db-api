@@ -4,10 +4,12 @@ from fastapi import Request, Response
 
 from .query_helpers import _convert_query_params_to_dict
 
+CACHE_NAMESPACE = 'offsets-db'
+
 
 def request_key_builder(
     func: typing.Callable[..., typing.Any],
-    namespace: str = '',
+    namespace: str = CACHE_NAMESPACE,
     *,
     request: Request,
     response: Response,

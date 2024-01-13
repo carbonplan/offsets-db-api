@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
 from sqlmodel import Session, col, or_
 
+from ..cache import CACHE_NAMESPACE
 from ..database import get_engine, get_session
 from ..logging import get_logger
 from ..models import (
@@ -337,7 +338,7 @@ def credits_by_transaction_date(
 
 
 @router.get('/projects_by_listing_date', response_model=PaginatedBinnedValues)
-@cache()
+@cache(namespace=CACHE_NAMESPACE)
 def get_projects_by_listing_date(
     request: Request,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
@@ -423,7 +424,7 @@ def get_projects_by_listing_date(
 
 
 @router.get('/credits_by_transaction_date', response_model=PaginatedBinnedValues)
-@cache()
+@cache(namespace=CACHE_NAMESPACE)
 def get_credits_by_transaction_date(
     request: Request,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
@@ -512,7 +513,7 @@ def get_credits_by_transaction_date(
 @router.get(
     '/credits_by_transaction_date/{project_id}', response_model=PaginatedProjectCreditTotals
 )
-@cache()
+@cache(namespace=CACHE_NAMESPACE)
 def get_credits_by_project_id(
     request: Request,
     project_id: str,
@@ -576,7 +577,7 @@ def get_credits_by_project_id(
 
 
 @router.get('/projects_by_credit_totals', response_model=PaginatedBinnedCreditTotals)
-@cache()
+@cache(namespace=CACHE_NAMESPACE)
 def get_projects_by_credit_totals(
     request: Request,
     credit_type: typing.Literal['issued', 'retired'] = Query('issued', description='Credit type'),
@@ -670,7 +671,7 @@ def get_projects_by_credit_totals(
 
 
 @router.get('/projects_by_category', response_model=PaginatedProjectCounts)
-@cache()
+@cache(namespace=CACHE_NAMESPACE)
 def get_projects_by_category(
     request: Request,
     registry: list[Registries] | None = Query(None, description='Registry name'),
@@ -747,7 +748,7 @@ def get_projects_by_category(
 
 
 @router.get('/credits_by_category', response_model=PaginatedCreditCounts)
-@cache()
+@cache(namespace=CACHE_NAMESPACE)
 def get_credits_by_category(
     request: Request,
     registry: list[Registries] | None = Query(None, description='Registry name'),
