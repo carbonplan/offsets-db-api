@@ -1,7 +1,6 @@
 aiofiles>=23.2
 alembic==1.13
 apscheduler>=3.10.1
-fastapi-cache2 @ git+https://github.com/andersy005/fastapi-cache@pydantic-v2-compat # for pydantic v2 compatilibity
 fastapi==0.104
 fastparquet
 gunicorn
@@ -17,3 +16,4 @@ sqlmodel==0.0.14
 ujson
 universal_pathlib
 uvicorn
+fastapi-cache2 @ git+https://github.com/andersy005/fastapi-cache@pydantic-v2-compat # for pydantic v2 compatilibity
