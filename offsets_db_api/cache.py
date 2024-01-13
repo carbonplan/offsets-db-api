@@ -1,8 +1,12 @@
 import typing
 
 from fastapi import Request, Response
+from fastapi_cache import FastAPICache
 
+from .logging import get_logger
 from .query_helpers import _convert_query_params_to_dict
+
+logger = get_logger()
 
 CACHE_NAMESPACE = 'offsets-db'
 
@@ -28,3 +32,13 @@ def request_key_builder(
             repr(sorted_params),
         ]
     )
+
+
+async def clear_cache():
+    try:
+        # clear cache
+        logger.info('🧹 Clearing cache')
+        await FastAPICache.clear(namespace=CACHE_NAMESPACE)
+        logger.info('✅ Cache cleared')
+    except Exception as exc:
+        logger.warning(f'Failed to clear cache: {exc}')

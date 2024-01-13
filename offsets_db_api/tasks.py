@@ -4,6 +4,7 @@ import pandas as pd
 from offsets_db_data.models import clip_schema, credit_schema, project_schema
 from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, String, text
 
+from .cache import clear_cache
 from .logging import get_logger
 from .models import File
 
@@ -142,3 +143,5 @@ def process_files(*, engine, session, files: list[File]):
     clip_projects_df = pd.DataFrame(clip_projects_data)
 
     process_dataframe(clip_projects_df, 'clipproject', engine)
+
+    clear_cache()
