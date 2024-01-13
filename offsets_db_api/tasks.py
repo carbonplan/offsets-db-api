@@ -4,6 +4,7 @@ import pandas as pd
 from offsets_db_data.models import clip_schema, credit_schema, project_schema
 from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, String, text
 
+from .cache import clear_cache
 from .logging import get_logger
 from .models import File
 
@@ -27,7 +28,7 @@ def process_dataframe(df, table_name, engine, dtype_dict=None):
     logger.info(f'✅ Written 🧬 shape {df.shape} to {table_name}')
 
 
-def process_files(*, engine, session, files: list[File]):
+async def process_files(*, engine, session, files: list[File]):
     # loop over files and make sure projects are first in the list to ensure the delete cascade works
     ordered_files: list[File] = []
     for file in files:
@@ -142,3 +143,5 @@ def process_files(*, engine, session, files: list[File]):
     clip_projects_df = pd.DataFrame(clip_projects_data)
 
     process_dataframe(clip_projects_df, 'clipproject', engine)
+
+    await clear_cache()

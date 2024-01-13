@@ -4,6 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi_cache.decorator import cache
 from sqlmodel import Session
 
+from ..cache import CACHE_NAMESPACE
 from ..database import get_engine, get_session
 from ..logging import get_logger
 from ..models import File, FileCategory, FileStatus
@@ -21,7 +22,7 @@ logger = get_logger()
     response_model=list[File],
     summary='Submit a file to be processed and added to the database',
 )
-def submit_file(
+async def submit_file(
     payload: list[FileURLPayload],
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
@@ -51,8 +52,8 @@ def submit_file(
 
 
 @router.get('/{file_id}', response_model=File, summary='Get a file by id')
-@cache()
-def get_file(
+@cache(namespace=CACHE_NAMESPACE)
+async def get_file(
     file_id: int,
     session: Session = Depends(get_session),
     authorized_user: bool = Depends(check_api_key),
@@ -70,8 +71,8 @@ def get_file(
 
 
 @router.get('/', response_model=list[File], summary='List files')
-@cache()
-def get_files(
+@cache(namespace=CACHE_NAMESPACE)
+async def get_files(
     category: FileCategory | None = None,
     status: FileStatus | None = None,
     recorded_at_from: datetime.datetime | None = None,

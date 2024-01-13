@@ -1,4 +1,3 @@
-import datetime
 import typing
 from collections import defaultdict
 
@@ -6,6 +5,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi_cache.decorator import cache
 from sqlmodel import Session, col, select
 
+from ..cache import CACHE_NAMESPACE
 from ..database import get_session
 from ..logging import get_logger
 from ..models import File, FileCategory, FileStatus
@@ -17,20 +17,20 @@ logger = get_logger()
 
 
 @router.get('/')
-def status(settings: Settings = Depends(get_settings)) -> dict[str, typing.Any]:
+async def status(settings: Settings = Depends(get_settings)) -> dict[str, typing.Any]:
     logger.info('Received status request')
     return {'status': 'ok', 'staging': settings.staging}
 
 
 @router.get('/database')
-@cache()
-def db_status(
+@cache(namespace=CACHE_NAMESPACE, expire=60)
+async def db_status(
     request: Request,
     settings: Settings = Depends(get_settings),
     session: Session = Depends(get_session),
 ) -> dict[str, typing.Any]:
     """Returns the latest successful db update for each file category."""
-    logger.info('Received status request')
+    logger.info(f'Received status request: {request.url}')
     statement = (
         select(File.category, File.recorded_at, File.url)
         .where(
@@ -66,13 +66,5 @@ def db_status(
 
 
 @router.get('/authorized_user')
-def validate_authorized_user(authorized_user: bool = Depends(check_api_key)):
+async def validate_authorized_user(authorized_user: bool = Depends(check_api_key)):
     return {'authorized_user': authorized_user}
-
-
-@router.get('/cache')
-@cache(expire=10)
-def cache_status() -> dict[str, typing.Any]:
-    """Returns the latest successful db update for each file category."""
-    now = datetime.datetime.now()
-    return {'cache-last-updated': now.strftime('%a, %b %d %Y %H:%M:%S UTC')}

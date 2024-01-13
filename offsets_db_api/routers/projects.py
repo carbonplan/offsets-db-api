@@ -7,6 +7,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import contains_eager
 from sqlmodel import Session
 
+from ..cache import CACHE_NAMESPACE
 from ..database import get_session
 from ..logging import get_logger
 from ..models import Clip, ClipProject, PaginatedProjects, Project, ProjectWithClips
@@ -19,8 +20,8 @@ logger = get_logger()
 
 
 @router.get('/', response_model=PaginatedProjects)
-@cache()
-def get_projects(
+@cache(namespace=CACHE_NAMESPACE)
+async def get_projects(
     request: Request,
     registry: list[Registries] | None = Query(None, description='Registry name'),
     country: list[str] | None = Query(None, description='Country name'),
@@ -133,8 +134,8 @@ def get_projects(
     response_model=ProjectWithClips,
     summary='Get project details by project_id',
 )
-@cache()
-def get_project(
+@cache(namespace=CACHE_NAMESPACE)
+async def get_project(
     request: Request,
     project_id: str,
     session: Session = Depends(get_session),
