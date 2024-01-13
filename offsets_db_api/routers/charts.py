@@ -339,7 +339,7 @@ def credits_by_transaction_date(
 
 @router.get('/projects_by_listing_date', response_model=PaginatedBinnedValues)
 @cache(namespace=CACHE_NAMESPACE)
-def get_projects_by_listing_date(
+async def get_projects_by_listing_date(
     request: Request,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
     registry: list[Registries] | None = Query(None, description='Registry name'),
@@ -425,7 +425,7 @@ def get_projects_by_listing_date(
 
 @router.get('/credits_by_transaction_date', response_model=PaginatedBinnedValues)
 @cache(namespace=CACHE_NAMESPACE)
-def get_credits_by_transaction_date(
+async def get_credits_by_transaction_date(
     request: Request,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
     registry: list[Registries] | None = Query(None, description='Registry name'),
@@ -514,7 +514,7 @@ def get_credits_by_transaction_date(
     '/credits_by_transaction_date/{project_id}', response_model=PaginatedProjectCreditTotals
 )
 @cache(namespace=CACHE_NAMESPACE)
-def get_credits_by_project_id(
+async def get_credits_by_project_id(
     request: Request,
     project_id: str,
     transaction_type: list[str] | None = Query(None, description='Transaction type'),
@@ -578,7 +578,7 @@ def get_credits_by_project_id(
 
 @router.get('/projects_by_credit_totals', response_model=PaginatedBinnedCreditTotals)
 @cache(namespace=CACHE_NAMESPACE)
-def get_projects_by_credit_totals(
+async def get_projects_by_credit_totals(
     request: Request,
     credit_type: typing.Literal['issued', 'retired'] = Query('issued', description='Credit type'),
     registry: list[Registries] | None = Query(None, description='Registry name'),
@@ -672,7 +672,7 @@ def get_projects_by_credit_totals(
 
 @router.get('/projects_by_category', response_model=PaginatedProjectCounts)
 @cache(namespace=CACHE_NAMESPACE)
-def get_projects_by_category(
+async def get_projects_by_category(
     request: Request,
     registry: list[Registries] | None = Query(None, description='Registry name'),
     country: list[str] | None = Query(None, description='Country name'),
@@ -749,7 +749,7 @@ def get_projects_by_category(
 
 @router.get('/credits_by_category', response_model=PaginatedCreditCounts)
 @cache(namespace=CACHE_NAMESPACE)
-def get_credits_by_category(
+async def get_credits_by_category(
     request: Request,
     registry: list[Registries] | None = Query(None, description='Registry name'),
     country: list[str] | None = Query(None, description='Country name'),

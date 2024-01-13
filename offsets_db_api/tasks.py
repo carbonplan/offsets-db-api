@@ -28,7 +28,7 @@ def process_dataframe(df, table_name, engine, dtype_dict=None):
     logger.info(f'✅ Written 🧬 shape {df.shape} to {table_name}')
 
 
-def process_files(*, engine, session, files: list[File]):
+async def process_files(*, engine, session, files: list[File]):
     # loop over files and make sure projects are first in the list to ensure the delete cascade works
     ordered_files: list[File] = []
     for file in files:
@@ -144,4 +144,4 @@ def process_files(*, engine, session, files: list[File]):
 
     process_dataframe(clip_projects_df, 'clipproject', engine)
 
-    clear_cache()
+    await clear_cache()

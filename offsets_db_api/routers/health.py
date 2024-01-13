@@ -17,14 +17,14 @@ logger = get_logger()
 
 
 @router.get('/')
-def status(settings: Settings = Depends(get_settings)) -> dict[str, typing.Any]:
+async def status(settings: Settings = Depends(get_settings)) -> dict[str, typing.Any]:
     logger.info('Received status request')
     return {'status': 'ok', 'staging': settings.staging}
 
 
 @router.get('/database')
 @cache(namespace=CACHE_NAMESPACE, expire=60)
-def db_status(
+async def db_status(
     request: Request,
     settings: Settings = Depends(get_settings),
     session: Session = Depends(get_session),
@@ -66,5 +66,5 @@ def db_status(
 
 
 @router.get('/authorized_user')
-def validate_authorized_user(authorized_user: bool = Depends(check_api_key)):
+async def validate_authorized_user(authorized_user: bool = Depends(check_api_key)):
     return {'authorized_user': authorized_user}

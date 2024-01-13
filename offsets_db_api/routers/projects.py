@@ -21,7 +21,7 @@ logger = get_logger()
 
 @router.get('/', response_model=PaginatedProjects)
 @cache(namespace=CACHE_NAMESPACE)
-def get_projects(
+async def get_projects(
     request: Request,
     registry: list[Registries] | None = Query(None, description='Registry name'),
     country: list[str] | None = Query(None, description='Country name'),
@@ -135,7 +135,7 @@ def get_projects(
     summary='Get project details by project_id',
 )
 @cache(namespace=CACHE_NAMESPACE)
-def get_project(
+async def get_project(
     request: Request,
     project_id: str,
     session: Session = Depends(get_session),

@@ -18,7 +18,7 @@ logger = get_logger()
 
 @router.get('/', response_model=PaginatedClips)
 @cache(namespace=CACHE_NAMESPACE)
-def get_clips(
+async def get_clips(
     request: Request,
     project_id: list[str] | None = Query(None, description='Project ID'),
     source: list[str] | None = Query(None, description='Source'),

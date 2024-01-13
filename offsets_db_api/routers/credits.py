@@ -18,7 +18,7 @@ logger = get_logger()
 
 @router.get('/', summary='List credits', response_model=PaginatedCredits)
 @cache(namespace=CACHE_NAMESPACE)
-def get_credits(
+async def get_credits(
     request: Request,
     project_id: list[str] | None = Query(None, description='Project ID'),
     registry: list[Registries] | None = Query(None, description='Registry name'),
