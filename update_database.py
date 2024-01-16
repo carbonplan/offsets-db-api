@@ -40,7 +40,7 @@ def get_latest(*, bucket: str):
 
         data.append({'category': key, 'url': entry_url})
 
-    weekly_summary_start = datetime.date(year=2023, month=12, day=4)
+    weekly_summary_start = datetime.date(year=2024, month=1, day=1)
     weekly_summary_end = datetime.datetime.utcnow().date()
     date_ranges = pd.date_range(
         start=weekly_summary_start, end=weekly_summary_end, freq='D', inclusive='both'
