@@ -43,14 +43,20 @@ def get_latest(*, bucket: str):
     weekly_summary_start = datetime.date(year=2023, month=12, day=4)
     weekly_summary_end = datetime.datetime.utcnow().date()
     date_ranges = pd.date_range(
-        start=weekly_summary_start, end=weekly_summary_end, freq='W-MON', inclusive='both'
+        start=weekly_summary_start, end=weekly_summary_end, freq='D', inclusive='both'
     )
+
+    added_weeks = set()
+
     for entry in date_ranges:
-        weekly_summary_path = generate_path(
-            date=entry.date(), bucket=bucket, category='weekly-summary-clips'
-        )
-        if fs.exists(weekly_summary_path):
-            data.append({'category': 'clips', 'url': weekly_summary_path})
+        week_num = entry.isocalendar()[1]
+        if week_num not in added_weeks:
+            weekly_summary_path = generate_path(
+                date=entry.date(), bucket=bucket, category='weekly-summary-clips'
+            )
+            if fs.exists(weekly_summary_path):
+                data.append({'category': 'clips', 'url': weekly_summary_path})
+                added_weeks.add(week_num)
 
     return data
 
