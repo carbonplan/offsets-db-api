@@ -2,7 +2,7 @@ import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
-from sqlmodel import Session, or_
+from sqlmodel import Session, col, or_
 
 from ..cache import CACHE_NAMESPACE
 from ..database import get_session
@@ -57,8 +57,8 @@ async def get_clips(
 
     query = (
         session.query(Clip)
-        .join(ClipProject, Clip.id == ClipProject.clip_id)
-        .join(Project, ClipProject.project_id == Project.project_id, isouter=True)
+        .join(ClipProject, col(Clip.id) == col(ClipProject.clip_id))
+        .join(Project, col(ClipProject.project_id) == col(Project.project_id), isouter=True)
     )
 
     for attribute, values, operation, model in filters:
@@ -70,13 +70,16 @@ async def get_clips(
     if search:
         search_pattern = f'%{search}%'
         query = query.filter(
-            or_(ClipProject.project_id.ilike(search_pattern), Clip.title.ilike(search_pattern))
+            or_(
+                col(ClipProject.project_id).ilike(search_pattern),
+                col(Clip.title).ilike(search_pattern),
+            )
         )
 
     if sort:
         query = apply_sorting(query=query, sort=sort, model=Clip, primary_key='id')
 
-    total_entries, current_page, total_pages, next_page, query_results = handle_pagination(
+    _, current_page, total_pages, next_page, query_results = handle_pagination(
         query=query,
         primary_key=Clip.id,
         current_page=current_page,
@@ -102,7 +105,7 @@ async def get_clips(
         clips_info.append(clip_dict)
 
     pagination = Pagination(
-        total_entries=total_entries,
+        total_entries=len(clips_info),
         current_page=current_page,
         total_pages=total_pages,
         next_page=next_page,
