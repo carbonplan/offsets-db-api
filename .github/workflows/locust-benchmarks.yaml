@@ -37,11 +37,12 @@ jobs:
           OFFSETS_DB_API_KEY: ${{ secrets.OFFSETS_DB_API_KEY_PRODUCTION }}
         run: |
           locust -f load-testing/locustfile.py \
+                --processes 2 \
                 --headless \
-                --spawn-rate 10 \
-                --users 5000 \
+                --spawn-rate 15 \
+                --users 4000 \
                 --host https://offsets-db.fly.dev \
-                --run-time 10m \
+                --run-time 5m \
                 --html results.html
 
       - uses: actions/download-artifact@v4
