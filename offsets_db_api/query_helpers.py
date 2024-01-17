@@ -184,7 +184,7 @@ def handle_pagination(
     if isinstance(query, sqlmodel.sql.expression.Select):
         data = session.exec(paginated_query).all()
     else:
-        data = query.all()
+        data = paginated_query.all()
 
     return total_entries, current_page, total_pages, next_page, data
 
