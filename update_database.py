@@ -43,7 +43,7 @@ def get_latest(*, bucket: str):
     weekly_summary_start = datetime.date(year=2024, month=1, day=1)
     weekly_summary_end = datetime.datetime.utcnow().date()
     date_ranges = pd.date_range(
-        start=weekly_summary_start, end=weekly_summary_end, freq='D', inclusive='both'
+        start=weekly_summary_start, end=weekly_summary_end, freq='W-MON', inclusive='both'
     )
 
     added_weeks = set()
@@ -90,6 +90,8 @@ def post_data_to_environment(*, env: str, bucket: str) -> None:
                 'category': 'clips',
             },
         ]
+
+    [print(file) for file in files]
 
     # get X-API-KEY from env and use it in headers
     if env == 'production':
