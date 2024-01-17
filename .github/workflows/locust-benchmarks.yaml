@@ -26,17 +26,27 @@ jobs:
         uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: environment-dev.yml
-          init-shell: >-
-            bash
+          init-shell: bash
           cache-environment: true
           cache-downloads: true
           post-cleanup: 'all'
 
       - name: Run tests
+        env:
+          OFFSETS_DB_API_KEY: ${{ secrets.OFFSETS_DB_API_KEY_PRODUCTION }}
         run: |
-          locust -f load-testing/locustfile.py --headless --spawn-rate 5 --users 1000 --host https://offsets-db.fly.dev --run-time 10m --html results.html
+          mkdir results
+          locust -f load-testing/locustfile.py \
+                --processes 2 \
+                --headless \
+                --spawn-rate 20 \
+                --users 4000 \
+                --host https://offsets-db.fly.dev \
+                --run-time 3m \
+                --only-summary \
+                --csv results/
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: reports
-          path: results.html
+          name: results
+          path: results/*.csv

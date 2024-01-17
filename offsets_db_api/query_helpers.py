@@ -119,7 +119,7 @@ def apply_sorting(*, query, sort: list[str], model, primary_key: str):
 
 def handle_pagination(
     *, query: Query, primary_key, current_page: int, per_page: int, request: Request
-) -> tuple[int, int, str | None, list[Project | Credit]]:
+) -> tuple[int, int, int, str | None, list[Project | Credit]]:
     """
     Calculate total records, pages and next page url for a given query
 
