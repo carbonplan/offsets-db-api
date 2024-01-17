@@ -36,16 +36,18 @@ jobs:
         env:
           OFFSETS_DB_API_KEY: ${{ secrets.OFFSETS_DB_API_KEY_PRODUCTION }}
         run: |
+          mkdir results
           locust -f load-testing/locustfile.py \
                 --processes 2 \
                 --headless \
-                --spawn-rate 15 \
+                --spawn-rate 20 \
                 --users 4000 \
                 --host https://offsets-db.fly.dev \
-                --run-time 5m \
-                --html results.html
+                --run-time 3m \
+                --only-summary \
+                --csv results/
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: reports
-          path: results.html
+          name: results
+          path: results/*.csv

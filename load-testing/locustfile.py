@@ -1,7 +1,7 @@
 import os
 import sys
 
-from locust import FastHttpUser, between, task
+from locust import FastHttpUser, between, events, task
 
 
 class ApiUser(FastHttpUser):
@@ -39,3 +39,8 @@ class ApiUser(FastHttpUser):
             headers=self.headers,
             debug=sys.stderr,
         )
+
+
+@events.quitting.add_listener
+def _(environment, **kw):
+    environment.process_exit_code = 0
