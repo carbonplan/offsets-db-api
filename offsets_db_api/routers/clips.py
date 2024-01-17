@@ -79,6 +79,12 @@ async def get_clips(
     if sort:
         query = apply_sorting(query=query, sort=sort, model=Clip, primary_key='id')
 
+    # TODO: Figure out how to handle pagination when joining multiple tables with many-to-many relations
+    # temporary hard-code per_page to 300
+
+    logger.info(f'Overriding per_page to {per_page}')
+    per_page = 300
+
     _, current_page, total_pages, next_page, query_results = handle_pagination(
         query=query,
         primary_key=Clip.id,
