@@ -33,8 +33,17 @@ jobs:
           post-cleanup: 'all'
 
       - name: Run tests
+        env:
+          OFFSETS_DB_API_KEY: ${{ secrets.OFFSETS_DB_API_KEY_PRODUCTION }}
+
         run: |
-          locust -f load-testing/locustfile.py --headless --spawn-rate 5 --users 1000 --host https://offsets-db.fly.dev --run-time 10m --html results.html
+          locust -f load-testing/locustfile.py \
+                 --headless \
+                 --spawn-rate 10 \
+                 --users 5000 \
+                 --host https://offsets-db.fly.dev \
+                 --run-time 10m \
+                 --html results.html
 
       - uses: actions/download-artifact@v4
         with:
