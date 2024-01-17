@@ -59,11 +59,14 @@ async def get_clips(
     project_data_subquery = (
         select(
             col(ClipProject.clip_id).label('clip_id'),
-            func.json_build_object(
-                'project_id', Project.project_id, 'category', Project.category
-            ).label('project'),
+            func.array_agg(
+                func.json_build_object(
+                    'project_id', Project.project_id, 'category', Project.category
+                )
+            ).label('projects'),
         )
-        .join(Project, col(ClipProject.project_id) == col(Project.project_id), isouter=True)
+        .join(Project, col(ClipProject.project_id) == col(Project.project_id))
+        .group_by(col(ClipProject.clip_id))
         .subquery()
     )
 
@@ -81,12 +84,8 @@ async def get_clips(
         Clip.is_waybacked,
         Clip.type,
         Clip.id,
-        project_data_subquery_alias.c.project,
-    ).join(
-        project_data_subquery_alias,
-        col(Clip.id) == col(project_data_subquery_alias.c.clip_id),
-        isouter=True,
-    )
+        project_data_subquery_alias.c.projects,
+    ).join(project_data_subquery_alias, col(Clip.id) == col(project_data_subquery_alias.c.clip_id))
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
@@ -97,7 +96,10 @@ async def get_clips(
     if search:
         search_pattern = f'%{search}%'
         clip_project_alias = aliased(ClipProject)
-        query = query.join(clip_project_alias, Clip.id == clip_project_alias.clip_id).filter(
+        query = query.join(
+            clip_project_alias,
+            Clip.id == clip_project_alias.clip_id,
+        ).filter(
             or_(
                 col(clip_project_alias.project_id).ilike(search_pattern),
                 col(Clip.title).ilike(search_pattern),
@@ -127,7 +129,7 @@ async def get_clips(
         is_waybacked,
         clip_type,
         clip_id,
-        project,
+        projects,
     ) in query_results:
         clip_info = {
             'date': date,
@@ -139,9 +141,9 @@ async def get_clips(
             'is_waybacked': is_waybacked,
             'type': clip_type,
             'id': clip_id,
+            'projects': projects,
         }
 
-        clip_info['project'] = project
         clips_info.append(clip_info)
 
     pagination = Pagination(
