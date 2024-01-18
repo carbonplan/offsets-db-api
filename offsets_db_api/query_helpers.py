@@ -1,10 +1,14 @@
 from urllib.parse import quote
 
+import sqlmodel
 from fastapi import HTTPException, Request
-from sqlalchemy import and_, asc, desc, distinct, func, nullslast, or_
 from sqlalchemy.orm import Query
+from sqlmodel import and_, asc, desc, distinct, func, nullslast, or_, select
 
+from .logging import get_logger
 from .models import Credit, Project
+
+logger = get_logger()
 
 
 def apply_filters(
@@ -118,7 +122,13 @@ def apply_sorting(*, query, sort: list[str], model, primary_key: str):
 
 
 def handle_pagination(
-    *, query: Query, primary_key, current_page: int, per_page: int, request: Request
+    *,
+    query: Query,
+    primary_key,
+    current_page: int,
+    per_page: int,
+    request: Request,
+    session: sqlmodel.Session | None = None,
 ) -> tuple[int, int, int, str | None, list[Project | Credit]]:
     """
     Calculate total records, pages and next page url for a given query
@@ -149,9 +159,17 @@ def handle_pagination(
         Results for the current page
     """
 
-    # Create a separate count query without ORDER BY
-    count_query = query.with_entities(func.count(distinct(primary_key))).order_by(None)
-    total_entries = count_query.scalar()
+    if isinstance(query, sqlmodel.sql.expression.Select):
+        pk_column = primary_key if isinstance(primary_key, str) else primary_key.key
+        count_query = select(
+            func.count(distinct(getattr(query.selected_columns, pk_column)))
+        ).select_from(query.subquery())
+        total_entries = session.exec(count_query).one()
+
+    else:
+        # Create a separate count query without ORDER BY
+        count_query = query.with_entities(func.count(distinct(primary_key))).order_by(None)
+        total_entries = count_query.scalar()
     total_pages = (total_entries + per_page - 1) // per_page  # ceil(total / per_page)
 
     # Calculate the next page URL
@@ -162,7 +180,11 @@ def handle_pagination(
             request=request, current_page=current_page, per_page=per_page
         )
     # Get the results for the current page
-    data = query.offset((current_page - 1) * per_page).limit(per_page).all()
+    paginated_query = query.offset((current_page - 1) * per_page).limit(per_page)
+    if isinstance(query, sqlmodel.sql.expression.Select):
+        data = session.exec(paginated_query).all()
+    else:
+        data = paginated_query.all()
 
     return total_entries, current_page, total_pages, next_page, data
 

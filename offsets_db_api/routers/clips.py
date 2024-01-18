@@ -2,14 +2,14 @@ import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
-from sqlmodel import Session, col, or_
+from sqlalchemy.orm import aliased
+from sqlmodel import Session, col, func, or_, select
 
 from ..cache import CACHE_NAMESPACE
 from ..database import get_session
 from ..logging import get_logger
-from ..models import Clip, ClipProject, PaginatedClips, Project
+from ..models import Clip, ClipProject, PaginatedClips, Pagination, Project
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
-from ..schemas import Pagination
 from ..security import check_api_key
 
 router = APIRouter()
@@ -55,11 +55,37 @@ async def get_clips(
         ('project_id', project_id, '==', ClipProject),
     ]
 
-    query = (
-        session.query(Clip)
-        .join(ClipProject, col(Clip.id) == col(ClipProject.clip_id))
+    # create subquery for project data
+    project_data_subquery = (
+        select(
+            col(ClipProject.clip_id).label('clip_id'),
+            func.array_agg(
+                func.json_build_object(
+                    'project_id', Project.project_id, 'category', Project.category
+                )
+            ).label('projects'),
+        )
         .join(Project, col(ClipProject.project_id) == col(Project.project_id), isouter=True)
+        .group_by(col(ClipProject.clip_id))
+        .subquery()
     )
+
+    # create an aliased name for the subquery
+    project_data_subquery_alias = aliased(project_data_subquery, name='project_data')
+
+    # construct the main query
+    query = select(
+        Clip.date,
+        Clip.title,
+        Clip.url,
+        Clip.source,
+        Clip.tags,
+        Clip.notes,
+        Clip.is_waybacked,
+        Clip.type,
+        Clip.id,
+        project_data_subquery_alias.c.projects,
+    ).join(project_data_subquery_alias, col(Clip.id) == col(project_data_subquery_alias.c.clip_id))
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
@@ -69,9 +95,13 @@ async def get_clips(
     # Handle 'search' filter separately due to its unique logic
     if search:
         search_pattern = f'%{search}%'
-        query = query.filter(
+        clip_project_alias = aliased(ClipProject)
+        query = query.join(
+            clip_project_alias,
+            Clip.id == clip_project_alias.clip_id,
+        ).filter(
             or_(
-                col(ClipProject.project_id).ilike(search_pattern),
+                col(clip_project_alias.project_id).ilike(search_pattern),
                 col(Clip.title).ilike(search_pattern),
             )
         )
@@ -79,39 +109,45 @@ async def get_clips(
     if sort:
         query = apply_sorting(query=query, sort=sort, model=Clip, primary_key='id')
 
-    # TODO: Figure out how to handle pagination when joining multiple tables with many-to-many relations
-    # temporary hard-code per_page to 300
-
-    logger.info(f'Overriding per_page to {per_page}')
-    per_page = 300
-
-    _, current_page, total_pages, next_page, query_results = handle_pagination(
+    total_entries, current_page, total_pages, next_page, query_results = handle_pagination(
         query=query,
         primary_key=Clip.id,
         current_page=current_page,
         per_page=per_page,
         request=request,
+        session=session,
     )
 
-    # Collect clip information with associated projects and their categories
     clips_info = []
-    for result in query_results:
-        clip = result  # Assuming Clip is the first object returned by the query
-        projects_info = []
-        # Loop through the ClipProjects related to the clip to collect project info
-        for clip_project in clip.project_relationships:
-            project_info = {
-                'project_id': clip_project.project_id,
-                'category': clip_project.project.category if clip_project.project else [],
-            }
-            projects_info.append(project_info)
+    for (
+        date,
+        title,
+        url,
+        source,
+        tags,
+        notes,
+        is_waybacked,
+        clip_type,
+        clip_id,
+        projects,
+    ) in query_results:
+        clip_info = {
+            'date': date,
+            'title': title,
+            'url': url,
+            'source': source,
+            'tags': tags,
+            'notes': notes,
+            'is_waybacked': is_waybacked,
+            'type': clip_type,
+            'id': clip_id,
+            'projects': projects,
+        }
 
-        clip_dict = clip.model_dump()
-        clip_dict['projects'] = projects_info
-        clips_info.append(clip_dict)
+        clips_info.append(clip_info)
 
     pagination = Pagination(
-        total_entries=len(clips_info),
+        total_entries=total_entries,
         current_page=current_page,
         total_pages=total_pages,
         next_page=next_page,
