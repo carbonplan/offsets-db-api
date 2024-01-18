@@ -5,8 +5,8 @@ from sqlmodel import Session, create_engine
 from .settings import get_settings
 
 # https://github.com/tiangolo/full-stack-fastapi-postgresql/issues/104#issuecomment-586466934
-DB_POOL_SIZE = 300
-WEB_CONCURRENCY = 6
+DB_POOL_SIZE = 400
+WEB_CONCURRENCY = 8
 POOL_SIZE = max(DB_POOL_SIZE // WEB_CONCURRENCY, 5)
 
 
