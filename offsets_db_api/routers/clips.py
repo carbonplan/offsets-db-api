@@ -65,7 +65,7 @@ async def get_clips(
                 )
             ).label('projects'),
         )
-        .join(Project, col(ClipProject.project_id) == col(Project.project_id))
+        .join(Project, col(ClipProject.project_id) == col(Project.project_id), isouter=True)
         .group_by(col(ClipProject.clip_id))
         .subquery()
     )
