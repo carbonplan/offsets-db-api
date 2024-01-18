@@ -11,6 +11,8 @@ buildpacks = ["gcr.io/paketo-buildpacks/python"]
 
 [env]
 OFFSETS_DB_STAGING = "true"
+OFFSETS_DB_WEB_CONCURRENCY = "4"
+OFFSETS_DB_DATABASE_POOL_SIZE = "200"
 PORT = "8000"
 
 [deploy]
