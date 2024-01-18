@@ -1,3 +1,4 @@
+import typing
 from urllib.parse import quote
 
 import sqlmodel
@@ -6,7 +7,7 @@ from sqlalchemy.orm import Query
 from sqlmodel import and_, asc, desc, distinct, func, nullslast, or_, select
 
 from .logging import get_logger
-from .models import Credit, Project
+from .models import Clip, ClipProject, Credit, Project
 
 logger = get_logger()
 
@@ -14,7 +15,7 @@ logger = get_logger()
 def apply_filters(
     *,
     query,
-    model: Project | Credit,
+    model: Credit | Project | Clip | ClipProject,
     attribute: str,
     values: list,
     operation: str,
@@ -27,7 +28,7 @@ def apply_filters(
     ----------
     query: Query
         SQLAlchemy Query
-    model: Project | Credit
+    model: Credit | Project | Clip | ClipProject
         SQLAlchemy model class
     attribute: str
         model attribute to apply filter on
@@ -129,7 +130,9 @@ def handle_pagination(
     per_page: int,
     request: Request,
     session: sqlmodel.Session | None = None,
-) -> tuple[int, int, int, str | None, list[Project | Credit]]:
+) -> tuple[
+    int, int, int, str | None, list[Credit | Project | Clip | ClipProject | dict[str, typing.Any]]
+]:
     """
     Calculate total records, pages and next page url for a given query
 
@@ -155,7 +158,7 @@ def handle_pagination(
         Total pages in query
     next_page: Optional[str]
         URL of next page
-    results: List[Project | Credit]
+    results: List[SQLModel]
         Results for the current page
     """
 
