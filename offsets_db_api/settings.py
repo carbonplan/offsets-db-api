@@ -3,9 +3,13 @@ import pydantic_settings
 
 
 class Settings(pydantic_settings.BaseSettings):
-    database_url: str = pydantic.Field(..., env='offsets_db_database_url')
-    staging: bool = pydantic.Field(default=True, env='offsets_db_staging')
-    api_key: pydantic.SecretStr | None = pydantic.Field(default=None, env='offsets_db_api_key')
+    model_config = pydantic_settings.SettingsConfigDict(env_prefix='offsets_db_')
+
+    database_url: str = pydantic.Field(default=None)
+    database_pool_size: int = pydantic.Field(default=300)
+    web_concurrency: int = pydantic.Field(default=1)
+    staging: bool = pydantic.Field(default=True)
+    api_key: pydantic.SecretStr | None = pydantic.Field(default=None)
 
     @pydantic.validator('database_url', pre=True)
     def fix_database_url(cls, value: str) -> str:
@@ -15,10 +19,6 @@ class Settings(pydantic_settings.BaseSettings):
             return value.replace('postgres://', 'postgresql://', 1)
 
         return value
-
-    class Config:
-        env_file = '.env'
-        env_prefix = 'offsets_db_'
 
 
 def get_settings() -> Settings:

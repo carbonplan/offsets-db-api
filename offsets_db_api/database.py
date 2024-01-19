@@ -4,17 +4,15 @@ from sqlmodel import Session, create_engine
 
 from .settings import get_settings
 
-# https://github.com/tiangolo/full-stack-fastapi-postgresql/issues/104#issuecomment-586466934
-DB_POOL_SIZE = 300
-WEB_CONCURRENCY = 6
-POOL_SIZE = max(DB_POOL_SIZE // WEB_CONCURRENCY, 5)
-
 
 def get_engine(*, database_url: str):
+    settings = get_settings()
+    # https://github.com/tiangolo/full-stack-fastapi-postgresql/issues/104#issuecomment-586466934
+    pool_size = max(settings.database_pool_size // settings.web_concurrency, 5)
     return create_engine(
         database_url,
         connect_args={'options': '-c timezone=utc'},
-        pool_size=POOL_SIZE,
+        pool_size=pool_size,
         pool_pre_ping=True,
     )
 

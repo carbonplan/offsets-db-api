@@ -11,6 +11,8 @@ buildpacks = ["gcr.io/paketo-buildpacks/python"]
 
 [env]
 OFFSETS_DB_STAGING = "false"
+OFFSETS_DB_WEB_CONCURRENCY = "8"
+OFFSETS_DB_DATABASE_POOL_SIZE = "400"
 PORT = "8000"
 
 [deploy]
@@ -34,8 +36,8 @@ port = 443
 handlers = ["tls", "http"]
 [services.concurrency]
 type = "connections"
-hard_limit = 2000
-soft_limit = 1800
+hard_limit = 5000
+soft_limit = 4900
 
 [[services.tcp_checks]]
 interval = "15s"

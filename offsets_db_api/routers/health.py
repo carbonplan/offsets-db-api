@@ -61,6 +61,8 @@ async def db_status(
     return {
         'status': 'ok',
         'staging': settings.staging,
+        'database-pool-size': settings.database_pool_size,
+        'web-concurrency': settings.web_concurrency,
         'latest-successful-db-update': db_latest_update,
     }
 
