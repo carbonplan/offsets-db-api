@@ -15,9 +15,7 @@
 
 # carbonplan / offsets-db-api
 
-This backend service provides an FastAPI for accessing the CarbonPlan Offsets Database.
-The database contains information about carbon offsets projects, credits.
-It also contains information about the offset credits that have been issued for each project.
+This backend service provides an FastAPI for accessing the CarbonPlan Offsets Database. The Offsets DB is designed to integrate and harmonize data related to the issuance and use of offset credits from the six major offset registries. This database aims to promote transparency and accountability in the carbon offsets market. It provides an accessible online tool, data downloads, and APIs for researchers, journalists, and regulators
 
 [![Fly.io Deployment](https://github.com/carbonplan/offsets-db-api/actions/workflows/fly.yml/badge.svg)](https://github.com/carbonplan/offsets-db-api/actions/workflows/fly.yml)
 [![Database Update](https://github.com/carbonplan/offsets-db-api/actions/workflows/update-db.yaml/badge.svg)](https://github.com/carbonplan/offsets-db-api/actions/workflows/updated-db.yaml)
