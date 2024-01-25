@@ -136,3 +136,4 @@ offsets_db_api/_version.py
 *.sqlite
 *.csv
 *.gz
+cache-watch-dog/

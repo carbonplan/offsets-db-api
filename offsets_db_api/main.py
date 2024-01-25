@@ -1,17 +1,29 @@
+import asyncio
 import os
+import pathlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 from .app_metadata import metadata
-from .cache import request_key_builder
+from .cache import clear_cache, request_key_builder, watch_dog_dir, watch_dog_file
 from .logging import get_logger
 from .routers import charts, clips, credits, files, health, projects
 
 logger = get_logger()
+
+
+class CacheInvalidationHandler(FileSystemEventHandler):
+    def on_modified(self, event):
+        event_path = pathlib.Path(event.src_path).resolve()
+        if event_path == watch_dog_file.resolve():
+            logger.info('🔄 File modified: %s', event_path)
+            asyncio.run(clear_cache())
 
 
 @asynccontextmanager
@@ -39,11 +51,18 @@ async def lifespan_event(app: FastAPI):
         f'🔥 Cache set up with expiration={expiration:,} seconds | {cache_status_header} cache status header.'
     )
 
+    event_handler = CacheInvalidationHandler()
+    observer = Observer()
+    observer.schedule(event_handler, path=str(watch_dog_dir), recursive=False)
+    observer.start()
+
     yield
 
     logger.info('Application shutdown...')
     logger.info('Clearing cache...')
     FastAPICache.reset()
+    observer.stop()
+    observer.join()
     logger.info('👋 Goodbye!')
 
 

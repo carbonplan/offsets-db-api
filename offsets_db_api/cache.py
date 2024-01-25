@@ -1,3 +1,4 @@
+import pathlib
 import typing
 
 from fastapi import Request, Response
@@ -9,6 +10,12 @@ from .query_helpers import _convert_query_params_to_dict
 logger = get_logger()
 
 CACHE_NAMESPACE = 'offsets-db'
+
+app_dir = pathlib.Path(__file__).parent.parent
+
+watch_dog_dir = app_dir / 'cache-watch-dog'
+watch_dog_dir.mkdir(parents=True, exist_ok=True)
+watch_dog_file = watch_dog_dir / 'last-db-update.txt'
 
 
 def request_key_builder(
