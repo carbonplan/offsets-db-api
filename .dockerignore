@@ -1,2 +1,3 @@
 fly.staging.toml
 fly.prod.toml
+cache-watch-dog/

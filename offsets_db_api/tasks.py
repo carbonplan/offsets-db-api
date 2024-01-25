@@ -1,10 +1,11 @@
+import datetime
 import traceback
 
 import pandas as pd
 from offsets_db_data.models import clip_schema, credit_schema, project_schema
 from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, String, text
 
-from .cache import clear_cache
+from .cache import watch_dog_file
 from .logging import get_logger
 from .models import File
 
@@ -144,4 +145,8 @@ async def process_files(*, engine, session, files: list[File]):
 
     process_dataframe(clip_projects_df, 'clipproject', engine)
 
-    await clear_cache()
+    # modify the watch_dog_file
+    with open(watch_dog_file, 'w') as f:
+        now = datetime.datetime.utcnow()
+        logger.info(f'✅ Updated watch_dog_file: {watch_dog_file} to {now}')
+        f.write(now.strftime('%Y-%m-%d %H:%M:%S'))
