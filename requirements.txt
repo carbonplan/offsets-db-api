@@ -1,7 +1,7 @@
 aiofiles>=23.2
 alembic==1.13
 apscheduler>=3.10.1
-fastapi==0.104
+fastapi==0.109.1
 fastparquet
 gunicorn
 httpx
