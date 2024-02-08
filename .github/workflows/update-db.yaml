@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
   schedule:
-    - cron: '45 1 * * *' # 1:45am UTC every day
+    - cron: '45 6 * * *' # 6:45am UTC every day
 
 env:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
