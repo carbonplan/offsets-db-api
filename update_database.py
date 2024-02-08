@@ -43,7 +43,7 @@ def get_latest(*, bucket: str):
     weekly_summary_start = datetime.date(year=2024, month=2, day=6)
     weekly_summary_end = datetime.datetime.utcnow().date()
     date_ranges = pd.date_range(
-        start=weekly_summary_start, end=weekly_summary_end, freq='W-MON', inclusive='both'
+        start=weekly_summary_start, end=weekly_summary_end, freq='W-TUE', inclusive='both'
     )
 
     added_weeks = set()
