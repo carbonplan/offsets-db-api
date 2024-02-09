@@ -49,13 +49,13 @@ def setup_post(test_app):
             'category': 'projects',
         },
         {
-            'url': 's3://carbonplan-offsets-db/final/2024-01-01/curated-clips.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2024-02-07/curated-clips.parquet',
             'category': 'clips',
         },
-        {
-            'url': 's3://carbonplan-offsets-db/final/2024-01-01/weekly-summary-clips.parquet',
-            'category': 'clips',
-        },
+        # {
+        #     'url': 's3://carbonplan-offsets-db/final/2024-02-13/weekly-summary-clips.parquet',
+        #     'category': 'clips',
+        # },
     ]
 
     headers = {
