@@ -40,10 +40,10 @@ def get_latest(*, bucket: str):
 
         data.append({'category': key, 'url': entry_url})
 
-    weekly_summary_start = datetime.date(year=2024, month=1, day=1)
+    weekly_summary_start = datetime.date(year=2024, month=2, day=6)
     weekly_summary_end = datetime.datetime.utcnow().date()
     date_ranges = pd.date_range(
-        start=weekly_summary_start, end=weekly_summary_end, freq='W-MON', inclusive='both'
+        start=weekly_summary_start, end=weekly_summary_end, freq='W-TUE', inclusive='both'
     )
 
     added_weeks = set()
@@ -82,11 +82,11 @@ def post_data_to_environment(*, env: str, bucket: str) -> None:
                 'category': 'projects',
             },
             {
-                'url': 's3://carbonplan-offsets-db/final/2024-01-01/curated-clips.parquet',
+                'url': 's3://carbonplan-offsets-db/final/2024-02-08/curated-clips.parquet',
                 'category': 'clips',
             },
             {
-                'url': 's3://carbonplan-offsets-db/final/2024-01-01/weekly-summary-clips.parquet',
+                'url': 's3://carbonplan-offsets-db/final/2024-02-13/weekly-summary-clips.parquet',
                 'category': 'clips',
             },
         ]
