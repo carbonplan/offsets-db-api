@@ -41,15 +41,15 @@ def setup_post(test_app):
     # Define payload for POST request
     payload = [
         {
-            'url': 's3://carbonplan-share/offsets-db-testing-data/final/credits-augmented.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2024-02-08/credits-augmented.parquet',
             'category': 'credits',
         },
         {
-            'url': 's3://carbonplan-share/offsets-db-testing-data/final/projects-augmented.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2024-02-08/projects-augmented.parquet',
             'category': 'projects',
         },
         {
-            'url': 's3://carbonplan-offsets-db/final/2024-02-07/curated-clips.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2024-02-08/curated-clips.parquet',
             'category': 'clips',
         },
         # {
