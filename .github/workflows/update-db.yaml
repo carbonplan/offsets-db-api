@@ -44,12 +44,12 @@ jobs:
 
       - name: Seed Staging Database
         run: |
-          python update_database.py staging https://offsets-db-staging.fly.dev/files
+          python update_database.py staging https://offsets-db-staging.fly.dev/files/
 
       - name: Seed Production Database
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         run: |
-          python update_database.py production https://offsets-db.fly.dev/files
+          python update_database.py production https://offsets-db.fly.dev/files/
 
       - name: Notify Slack on Failure
         if: failure() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
