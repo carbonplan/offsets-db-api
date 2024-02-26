@@ -82,11 +82,11 @@ def post_data_to_environment(*, env: str, bucket: str) -> None:
                 'category': 'projects',
             },
             {
-                'url': 's3://carbonplan-offsets-db/final/2024-02-08/curated-clips.parquet',
+                'url': 's3://carbonplan-offsets-db/final/2024-02-20/curated-clips.parquet',
                 'category': 'clips',
             },
             {
-                'url': 's3://carbonplan-offsets-db/final/2024-02-13/weekly-summary-clips.parquet',
+                'url': 's3://carbonplan-offsets-db/final/2024-02-20/weekly-summary-clips.parquet',
                 'category': 'clips',
             },
         ]
