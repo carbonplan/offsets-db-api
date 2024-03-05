@@ -54,6 +54,7 @@ uvicorn offsets_db_api.main:app --reload
 ## license
 
 All the code in this repository is [MIT](https://choosealicense.com/licenses/mit/) licensed.
+
 > [!IMPORTANT]
 > Data associated with this repository are subject to additional [terms of data access](https://offsets-db-data.readthedocs.io/en/latest/TERMS-OF-DATA-ACCESS.html).
 
