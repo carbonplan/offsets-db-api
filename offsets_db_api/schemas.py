@@ -8,7 +8,6 @@ import pydantic
 Registries = typing.Literal[
     'verra',
     'gold-standard',
-    'global-carbon-council',
     'american-carbon-registry',
     'climate-action-reserve',
     'art-trees',
