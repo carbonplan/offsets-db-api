@@ -13,7 +13,7 @@ class ApiUser(FastHttpUser):
     @task
     def get_projects(self):
         self.client.get(
-            '/projects/?sort=-issued&current_page=1&per_page=100&registry=verra&registry=gold-standard&registry=global-carbon-council&registry=american-carbon-registry&registry=climate-action-reserve&registry=art-trees&category=agriculture&category=biochar&category=cookstove&category=energy-efficiency&category=forest&category=fuel-switching&category=ghg-management&category=land-use&category=mine-methane&category=renewable-energy&category=transportation&category=unknown',
+            '/projects/?sort=-issued&current_page=1&per_page=100&registry=verra&registry=gold-standard&registry=american-carbon-registry&registry=climate-action-reserve&registry=art-trees&category=agriculture&category=biochar&category=cookstove&category=energy-efficiency&category=forest&category=fuel-switching&category=ghg-management&category=land-use&category=mine-methane&category=renewable-energy&category=transportation&category=unknown',
             headers=self.headers,
             debug=sys.stderr,
         )
@@ -27,7 +27,7 @@ class ApiUser(FastHttpUser):
     @task
     def credits_by_category(self):
         self.client.get(
-            '/charts/credits_by_category/?registry=verra&registry=gold-standard&registry=global-carbon-council&registry=american-carbon-registry&registry=climate-action-reserve&registry=art-trees&category=agriculture&category=biochar&category=cookstove&category=energy-efficiency&category=forest&category=fuel-switching&category=ghg-management&category=land-use&category=mine-methane&category=renewable-energy&category=transportation&category=unknown',
+            '/charts/credits_by_category/?registry=verra&registry=gold-standard&registry=american-carbon-registry&registry=climate-action-reserve&registry=art-trees&category=agriculture&category=biochar&category=cookstove&category=energy-efficiency&category=forest&category=fuel-switching&category=ghg-management&category=land-use&category=mine-methane&category=renewable-energy&category=transportation&category=unknown',
             headers=self.headers,
             debug=sys.stderr,
         )

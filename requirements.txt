@@ -5,7 +5,7 @@ fastapi==0.109.1
 fastparquet
 gunicorn
 httpx
-offsets-db-data>=2024.2.3
+offsets-db-data>=2024.3.0
 pandas>=1.5.3
 pandera>=0.17
 psycopg2-binary==2.9.9
