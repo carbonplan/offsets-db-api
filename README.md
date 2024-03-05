@@ -53,7 +53,9 @@ uvicorn offsets_db_api.main:app --reload
 
 ## license
 
-All the code in this repository is [MIT](https://choosealicense.com/licenses/mit/) licensed. When possible, the data used by this project is licensed using the [CC-BY-4.0](https://choosealicense.com/licenses/cc-by-4.0/) license. We include attribution and additional license information for third party datasets, and we request that you also maintain that attribution if using this data.
+All the code in this repository is [MIT](https://choosealicense.com/licenses/mit/) licensed.
+> [!IMPORTANT]
+> Data associated with this repository are subject to additional [terms of data access](https://offsets-db-data.readthedocs.io/en/latest/TERMS-OF-DATA-ACCESS.html).
 
 ## about us
 
