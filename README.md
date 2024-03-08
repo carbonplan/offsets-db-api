@@ -27,7 +27,7 @@ OffsetsDB-API, is a fastAPI application, designed to integrate and harmonize dat
 | offsets-db-api  | [https://github.com/carbonplan/offsets-db-api](https://github.com/carbonplan/offsets-db-api)   |
 | offsets-db-data | [https://github.com/carbonplan/offsets-db-data](https://github.com/carbonplan/offsets-db-data) |
 
-## Installation
+## installation
 
 To install the package, you can use pip:
 
@@ -43,7 +43,7 @@ cd offsets-db-api
 python -m pip install -e .
 ```
 
-## Run locally
+## run locally
 
 To run the API locally, you can use the following command:
 
