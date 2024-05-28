@@ -9,9 +9,14 @@ builder = "paketobuildpacks/builder-jammy-full:latest"
 buildpacks = ["gcr.io/paketo-buildpacks/python"]
 
 
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"
+
+
 [env]
 OFFSETS_DB_STAGING = "true"
-OFFSETS_DB_WEB_CONCURRENCY = "4"
+OFFSETS_DB_WEB_CONCURRENCY = "2"
 OFFSETS_DB_DATABASE_POOL_SIZE = "200"
 PORT = "8000"
 
