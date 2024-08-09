@@ -1,5 +1,4 @@
 import datetime
-import typing
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -109,7 +108,7 @@ async def get_projects(
     )
 
     # Execute the query
-    project_clip_pairs: typing.Iterable[Project, Clip] = results
+    project_clip_pairs = results
 
     # Group clips by project using a dictionary and project_id as the key
     project_to_clips = defaultdict(list)
