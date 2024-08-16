@@ -3,7 +3,7 @@ import typing
 
 from fastapi import HTTPException, Request
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.sql.expression import Select as _Select
+from sqlalchemy.sql.expression import ScalarSelect, Select as _Select
 from sqlmodel import Session, and_, asc, desc, distinct, func, nullslast, or_, select
 
 from offsets_db_api.models import Clip, ClipProject, Credit, Project
@@ -12,8 +12,12 @@ from offsets_db_api.schemas import Registries
 
 
 def apply_sorting(
-    *, statement: _Select[typing.Any], sort: list[str], model, primary_key: str
-) -> _Select[typing.Any]:
+    *,
+    statement: _Select[typing.Any] | ScalarSelect[typing.Any],
+    sort: list[str],
+    model,
+    primary_key: str,
+) -> _Select[typing.Any] | ScalarSelect[typing.Any]:
     # Define valid column names
     columns = [c.name for c in model.__table__.columns]
 
@@ -50,12 +54,12 @@ def apply_sorting(
 
 def apply_filters(
     *,
-    statement: _Select[typing.Any],
+    statement: _Select[typing.Any] | ScalarSelect[typing.Any],
     model: type[Credit | Project | Clip | ClipProject],
     attribute: str,
     values: list[str] | None | int | datetime.date | list[Registries],
     operation: str,
-) -> _Select[typing.Any]:
+) -> _Select[typing.Any] | ScalarSelect[typing.Any]:
     """
     Apply filters to the statement based on operation type.
     Supports 'ilike', '==', '>=', and '<=' operations.
@@ -125,7 +129,7 @@ def apply_filters(
 
 def handle_pagination(
     *,
-    statement: _Select[typing.Any],
+    statement: _Select[typing.Any] | ScalarSelect[typing.Any],
     primary_key,
     current_page: int,
     per_page: int,
