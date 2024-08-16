@@ -9,8 +9,8 @@ from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.database import get_session
 from offsets_db_api.log import get_logger
 from offsets_db_api.models import Clip, ClipProject, PaginatedClips, Pagination, Project
-from offsets_db_api.query_helpers import apply_filters, apply_sorting, handle_pagination
 from offsets_db_api.security import check_api_key
+from offsets_db_api.sql_helpers import apply_filters, apply_sorting, handle_pagination
 
 router = APIRouter()
 logger = get_logger()
@@ -74,7 +74,7 @@ async def get_clips(
     project_data_subquery_alias = aliased(project_data_subquery, name='project_data')
 
     # construct the main query
-    query = select(
+    statement = select(
         Clip.date,
         Clip.title,
         Clip.url,
@@ -88,15 +88,19 @@ async def get_clips(
     ).join(project_data_subquery_alias, col(Clip.id) == col(project_data_subquery_alias.c.clip_id))
 
     for attribute, values, operation, model in filters:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
+        statement = apply_filters(
+            statement=statement,
+            model=model,
+            attribute=attribute,
+            values=values,
+            operation=operation,
         )
 
     # Handle 'search' filter separately due to its unique logic
     if search:
         search_pattern = f'%{search}%'
         clip_project_alias = aliased(ClipProject)
-        query = query.join(
+        statement = statement.join(
             clip_project_alias,
             Clip.id == clip_project_alias.clip_id,
         ).filter(
@@ -107,10 +111,10 @@ async def get_clips(
         )
 
     if sort:
-        query = apply_sorting(query=query, sort=sort, model=Clip, primary_key='id')
+        statement = apply_sorting(statement=statement, sort=sort, model=Clip, primary_key='id')
 
     total_entries, current_page, total_pages, next_page, query_results = handle_pagination(
-        query=query,
+        statement=statement,
         primary_key=Clip.id,
         current_page=current_page,
         per_page=per_page,
