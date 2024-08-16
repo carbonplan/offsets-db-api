@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi_cache.decorator import cache
 from sqlalchemy import or_
 from sqlalchemy.orm import contains_eager
-from sqlmodel import Session
+from sqlmodel import Session, col, select
 
 from ..cache import CACHE_NAMESPACE
 from ..database import get_session
@@ -144,26 +144,24 @@ async def get_project(
     """Get a project by registry and project_id"""
     logger.info(f'Getting project: {request.url}')
 
-    # Start the query to get the project and related clips
-    project_with_clips = (
-        session.query(Project)
-        .join(Project.clip_relationships, isouter=True)
-        .join(ClipProject.clip, isouter=True)
-        .options(contains_eager(Project.clip_relationships).contains_eager(ClipProject.clip))
-        .filter(Project.project_id == project_id)
-        .one_or_none()
-    )
+    # main query to get the project details
+    statement = select(Project).where(Project.project_id == project_id)
+    project = session.exec(statement).one_or_none()
 
-    if project_with_clips:
-        # Extract the Project and related Clips from the query result
-        project_data = project_with_clips.model_dump()
-        project_data['clips'] = [
-            clip_project.clip.model_dump()
-            for clip_project in project_with_clips.clip_relationships
-            if clip_project.clip
-        ]
-        return project_data
-    else:
+    if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f'project {project_id} not found'
         )
+
+    # Subquery to get the related clips
+    clip_statement = (
+        select(Clip)
+        .join(ClipProject, col(Clip.id) == col(ClipProject.clip_id))
+        .where(ClipProject.project_id == project_id)
+    )
+    clip_projects_subquery = session.exec(clip_statement).all()
+
+    # Construct the response data
+    project_data = project.model_dump()
+    project_data['clips'] = [clip.model_dump() for clip in clip_projects_subquery]
+    return project_data

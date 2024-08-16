@@ -2,7 +2,7 @@ import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi_cache.decorator import cache
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from ..cache import CACHE_NAMESPACE
 from ..database import get_engine, get_session
@@ -61,12 +61,13 @@ async def get_file(
     """Get a file by id"""
     logger.info('Getting file %s', file_id)
 
-    if file_obj := session.query(File).get(file_id):
+    statement = select(File).where(File.id == file_id)
+    if file_obj := session.exec(statement).one_or_none():
         return file_obj
     else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f'file {file_id} not found',
+            detail=f'File {file_id} not found',
         )
 
 
@@ -93,21 +94,18 @@ async def get_files(
         offset,
     )
 
-    query = session.query(File)
-
+    statement = select(File)
     if category:
-        query = query.filter_by(category=category)
-
+        statement = statement.where(File.category == category)
     if status:
-        query = query.filter_by(status=status)
-
+        statement = statement.where(File.status == status)
     if recorded_at_from:
-        query = query.filter(File.recorded_at >= recorded_at_from)
-
+        statement = statement.where(File.recorded_at >= recorded_at_from)
     if recorded_at_to:
-        query = query.filter(File.recorded_at <= recorded_at_to)
+        statement = statement.where(File.recorded_at <= recorded_at_to)
 
-    files = query.limit(limit).offset(offset).all()
+    statement = statement.limit(limit).offset(offset)
+    files = session.exec(statement).all()
 
     logger.info('Found %d files', len(files))
 
