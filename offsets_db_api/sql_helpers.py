@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlmodel import Session, and_, asc, desc, distinct, func, nullslast, or_, select
 from sqlmodel.sql.expression import Select as _Select
 
-from offsets_db_api.models import Clip, ClipProject, Credit, Project
+from offsets_db_api.models import Clip, ClipProject, Credit, File, Project
 from offsets_db_api.query_helpers import _generate_next_page_url
 from offsets_db_api.schemas import Registries
 
@@ -15,7 +15,7 @@ def apply_sorting(
     *,
     statement: _Select[typing.Any],
     sort: list[str],
-    model,
+    model: type[Credit | Project | Clip | ClipProject | File],
     primary_key: str,
 ) -> _Select[typing.Any]:
     # Define valid column names
@@ -55,7 +55,7 @@ def apply_sorting(
 def apply_filters(
     *,
     statement: _Select[typing.Any],
-    model: type[Credit | Project | Clip | ClipProject],
+    model: type[Credit | Project | Clip | ClipProject | File],
     attribute: str,
     values: list[str] | None | int | datetime.date | list[Registries],
     operation: str,
@@ -130,7 +130,7 @@ def apply_filters(
 def handle_pagination(
     *,
     statement: _Select[typing.Any],
-    primary_key,
+    primary_key: typing.Any,
     current_page: int,
     per_page: int,
     request: Request,

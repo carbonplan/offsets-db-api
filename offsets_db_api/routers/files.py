@@ -1,16 +1,17 @@
 import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from fastapi_cache.decorator import cache
 from sqlmodel import Session, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.database import get_engine, get_session
 from offsets_db_api.log import get_logger
-from offsets_db_api.models import File, FileCategory, FileStatus
+from offsets_db_api.models import File, FileCategory, FileStatus, PaginatedFiles, Pagination
 from offsets_db_api.schemas import FileURLPayload
 from offsets_db_api.security import check_api_key
 from offsets_db_api.settings import get_settings
+from offsets_db_api.sql_helpers import apply_filters, apply_sorting, handle_pagination
 from offsets_db_api.tasks import process_files
 
 router = APIRouter()
@@ -71,42 +72,61 @@ async def get_file(
         )
 
 
-@router.get('/', response_model=list[File], summary='List files')
+@router.get('/', response_model=PaginatedFiles, summary='List files')
 @cache(namespace=CACHE_NAMESPACE)
 async def get_files(
+    request: Request,
     category: FileCategory | None = None,
     status: FileStatus | None = None,
     recorded_at_from: datetime.datetime | None = None,
     recorded_at_to: datetime.datetime | None = None,
-    limit: int = 100,
-    offset: int = 0,
+    sort: list[str] = Query(
+        default=['recorded_at'],
+        description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
+    ),
+    current_page: int = Query(1, description='Page number', ge=1),
+    per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
     authorized_user: bool = Depends(check_api_key),
 ):
     """Get files"""
-    logger.info(
-        'Getting files with filter: category=%s, status=%s, recorded_at_from=%s, recorded_at_to=%s, limit=%d, offset=%d',
-        category,
-        status,
-        recorded_at_from,
-        recorded_at_to,
-        limit,
-        offset,
-    )
+    logger.info(f'Getting files with filter: {request.url}')
+
+    filters = [
+        ('category', category, '==', File),
+        ('status', status, '==', File),
+        ('recorded_at', recorded_at_from, '>=', File),
+        ('recorded_at', recorded_at_to, '<=', File),
+    ]
 
     statement = select(File)
-    if category:
-        statement = statement.where(File.category == category)
-    if status:
-        statement = statement.where(File.status == status)
-    if recorded_at_from:
-        statement = statement.where(File.recorded_at >= recorded_at_from)
-    if recorded_at_to:
-        statement = statement.where(File.recorded_at <= recorded_at_to)
+    for attribute, values, operation, model in filters:
+        statement = apply_filters(
+            statement=statement,
+            model=model,
+            attribute=attribute,
+            values=values,
+            operation=operation,
+        )
 
-    statement = statement.limit(limit).offset(offset)
-    files = session.exec(statement).all()
+    if sort:
+        statement = apply_sorting(statement=statement, sort=sort, model=File, primary_key='id')
 
-    logger.info('Found %d files', len(files))
+    total_entries, current_page, total_pages, next_page, results = handle_pagination(
+        statement=statement,
+        primary_key=File.id,
+        current_page=current_page,
+        per_page=per_page,
+        request=request,
+        session=session,
+    )
 
-    return files
+    return PaginatedFiles(
+        pagination=Pagination(
+            total_entries=total_entries,
+            current_page=current_page,
+            total_pages=total_pages,
+            next_page=next_page,
+        ),
+        data=results,
+    )
