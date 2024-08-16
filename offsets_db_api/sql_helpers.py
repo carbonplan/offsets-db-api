@@ -3,8 +3,8 @@ import typing
 
 from fastapi import HTTPException, Request
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlmodel import Session, and_, asc, desc, distinct, func, nullslast, or_, select
-from sqlmodel.sql.expression import Select as _Select
+from sqlmodel import Session, SQLModel, and_, asc, desc, distinct, func, nullslast, or_, select
+from sqlmodel.sql.expression import Select as _Select, SelectOfScalar
 
 from offsets_db_api.models import Clip, ClipProject, Credit, File, Project
 from offsets_db_api.query_helpers import _generate_next_page_url
@@ -13,11 +13,11 @@ from offsets_db_api.schemas import Registries
 
 def apply_sorting(
     *,
-    statement: _Select[typing.Any],
+    statement: _Select[typing.Any] | SelectOfScalar[typing.Any],
     sort: list[str],
-    model: type[Credit | Project | Clip | ClipProject | File],
+    model: type[Credit | Project | Clip | ClipProject | File | SQLModel],
     primary_key: str,
-) -> _Select[typing.Any]:
+) -> _Select[typing.Any] | SelectOfScalar[typing.Any]:
     # Define valid column names
     columns = [c.name for c in model.__table__.columns]
 
@@ -54,12 +54,12 @@ def apply_sorting(
 
 def apply_filters(
     *,
-    statement: _Select[typing.Any],
-    model: type[Credit | Project | Clip | ClipProject | File],
+    statement: _Select[typing.Any] | SelectOfScalar[typing.Any],
+    model: type[Credit | Project | Clip | ClipProject | File | SQLModel],
     attribute: str,
-    values: list[str] | None | int | datetime.date | list[Registries],
+    values: list[str] | None | int | datetime.date | list[Registries] | typing.Any,
     operation: str,
-) -> _Select[typing.Any]:
+) -> _Select[typing.Any] | SelectOfScalar[typing.Any]:
     """
     Apply filters to the statement based on operation type.
     Supports 'ilike', '==', '>=', and '<=' operations.
@@ -129,7 +129,7 @@ def apply_filters(
 
 def handle_pagination(
     *,
-    statement: _Select[typing.Any],
+    statement: _Select[typing.Any] | SelectOfScalar[typing.Any],
     primary_key: typing.Any,
     current_page: int,
     per_page: int,

@@ -140,12 +140,12 @@ class CreditWithCategory(CreditBase):
 
 class PaginatedProjects(pydantic.BaseModel):
     pagination: Pagination
-    data: list[ProjectWithClips]
+    data: list[ProjectWithClips] | list[dict[str, typing.Any]]
 
 
 class PaginatedCredits(pydantic.BaseModel):
     pagination: Pagination
-    data: list[CreditWithCategory]
+    data: list[CreditWithCategory] | list[dict[str, typing.Any]]
 
 
 class BinnedValues(pydantic.BaseModel):
