@@ -7,7 +7,7 @@ from sqlmodel import Session, col, select
 
 from ..cache import CACHE_NAMESPACE
 from ..database import get_session
-from ..logging import get_logger
+from ..log import get_logger
 from ..models import File, FileCategory, FileStatus
 from ..security import check_api_key
 from ..settings import Settings, get_settings

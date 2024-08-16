@@ -6,7 +6,7 @@ from sqlmodel import Session, or_
 
 from ..cache import CACHE_NAMESPACE
 from ..database import get_session
-from ..logging import get_logger
+from ..log import get_logger
 from ..models import Credit, PaginatedCredits, Project
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..schemas import Pagination, Registries

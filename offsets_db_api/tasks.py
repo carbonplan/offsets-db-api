@@ -6,7 +6,7 @@ from offsets_db_data.models import clip_schema, credit_schema, project_schema
 from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, String, text
 
 from .cache import watch_dog_file
-from .logging import get_logger
+from .log import get_logger
 from .models import File
 
 logger = get_logger()

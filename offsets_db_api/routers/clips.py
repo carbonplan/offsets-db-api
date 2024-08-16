@@ -7,7 +7,7 @@ from sqlmodel import Session, col, func, or_, select
 
 from ..cache import CACHE_NAMESPACE
 from ..database import get_session
-from ..logging import get_logger
+from ..log import get_logger
 from ..models import Clip, ClipProject, PaginatedClips, Pagination, Project
 from ..query_helpers import apply_filters, apply_sorting, handle_pagination
 from ..security import check_api_key

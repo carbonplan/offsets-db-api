@@ -9,7 +9,7 @@ from sqlmodel import Session, col, or_
 
 from ..cache import CACHE_NAMESPACE
 from ..database import get_engine, get_session
-from ..logging import get_logger
+from ..log import get_logger
 from ..models import (
     Credit,
     PaginatedBinnedCreditTotals,

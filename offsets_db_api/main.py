@@ -12,7 +12,7 @@ from watchdog.observers import Observer
 
 from .app_metadata import metadata
 from .cache import clear_cache, request_key_builder, watch_dog_dir, watch_dog_file
-from .logging import get_logger
+from .log import get_logger
 from .routers import charts, clips, credits, files, health, projects
 
 logger = get_logger()
