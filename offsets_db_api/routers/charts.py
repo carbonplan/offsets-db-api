@@ -160,9 +160,7 @@ def generate_dynamic_numeric_bins(*, min_value, max_value, bin_width=None):
     # Generate evenly spaced values using the determined bin width
     numeric_bins = np.arange(rounded_min, rounded_max + bin_width, bin_width).astype(int)
 
-    logger.info(
-        f'🔢 Binning by numeric value with {len(numeric_bins)} bins, width: {bin_width}offsets_db_api..'
-    )
+    logger.info(f'🔢 Binning by numeric value with {len(numeric_bins)} bins, width: {bin_width}...')
     return numeric_bins
 
 
@@ -175,7 +173,7 @@ def projects_counts_by_listing_date(
     """
     Generate project counts by listing date.
     """
-    logger.info('📊 Generating project counts by listing dateoffsets_db_api..')
+    logger.info('📊 Generating project counts by listing date...')
     valid_df = filter_valid_projects(df, categories=categories)
     min_value, max_value = valid_df['listed_at'].agg(['min', 'max'])
 
@@ -615,7 +613,7 @@ async def get_projects_by_credit_totals(
     authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated project credit totals"""
-    logger.info(f'📊 Generating projects by {credit_type} totalsoffsets_db_api..: {request.url}')
+    logger.info(f'📊 Generating projects by {credit_type} totals...: {request.url}')
 
     query = session.query(Project)
 
