@@ -7,10 +7,10 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
 from sqlmodel import Session, col, or_
 
-from ..cache import CACHE_NAMESPACE
-from ..database import get_engine, get_session
-from ..log import get_logger
-from ..models import (
+from offsets_db_api.cache import CACHE_NAMESPACE
+from offsets_db_api.database import get_engine, get_session
+from offsets_db_api.log import get_logger
+from offsets_db_api.models import (
     Credit,
     PaginatedBinnedCreditTotals,
     PaginatedBinnedValues,
@@ -19,10 +19,10 @@ from ..models import (
     PaginatedProjectCreditTotals,
     Project,
 )
-from ..query_helpers import apply_filters
-from ..schemas import Pagination, Registries
-from ..security import check_api_key
-from ..settings import get_settings
+from offsets_db_api.query_helpers import apply_filters
+from offsets_db_api.schemas import Pagination, Registries
+from offsets_db_api.security import check_api_key
+from offsets_db_api.settings import get_settings
 
 router = APIRouter()
 logger = get_logger()
@@ -160,7 +160,9 @@ def generate_dynamic_numeric_bins(*, min_value, max_value, bin_width=None):
     # Generate evenly spaced values using the determined bin width
     numeric_bins = np.arange(rounded_min, rounded_max + bin_width, bin_width).astype(int)
 
-    logger.info(f'🔢 Binning by numeric value with {len(numeric_bins)} bins, width: {bin_width}...')
+    logger.info(
+        f'🔢 Binning by numeric value with {len(numeric_bins)} bins, width: {bin_width}offsets_db_api..'
+    )
     return numeric_bins
 
 
@@ -173,7 +175,7 @@ def projects_counts_by_listing_date(
     """
     Generate project counts by listing date.
     """
-    logger.info('📊 Generating project counts by listing date...')
+    logger.info('📊 Generating project counts by listing dateoffsets_db_api..')
     valid_df = filter_valid_projects(df, categories=categories)
     min_value, max_value = valid_df['listed_at'].agg(['min', 'max'])
 
@@ -211,7 +213,7 @@ def projects_by_credit_totals(
     *, df: pd.DataFrame, credit_type: str, bin_width=None, categories: list[str] | None = None
 ) -> list[dict[str, typing.Any]]:
     """Generate binned data based on the given attribute and frequency."""
-    logger.info(f'📊 Generating binned data based on {credit_type}...')
+    logger.info(f'📊 Generating binned data based on {credit_type}offsets_db_api..')
     valid_df = filter_valid_projects(df, categories=categories)
     min_value, max_value = valid_df[credit_type].agg(['min', 'max'])
 
@@ -613,7 +615,7 @@ async def get_projects_by_credit_totals(
     authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated project credit totals"""
-    logger.info(f'📊 Generating projects by {credit_type} totals...: {request.url}')
+    logger.info(f'📊 Generating projects by {credit_type} totalsoffsets_db_api..: {request.url}')
 
     query = session.query(Project)
 

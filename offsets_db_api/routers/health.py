@@ -5,12 +5,12 @@ from fastapi import APIRouter, Depends, Request
 from fastapi_cache.decorator import cache
 from sqlmodel import Session, col, select
 
-from ..cache import CACHE_NAMESPACE
-from ..database import get_session
-from ..log import get_logger
-from ..models import File, FileCategory, FileStatus
-from ..security import check_api_key
-from ..settings import Settings, get_settings
+from offsets_db_api.cache import CACHE_NAMESPACE
+from offsets_db_api.database import get_session
+from offsets_db_api.log import get_logger
+from offsets_db_api.models import File, FileCategory, FileStatus
+from offsets_db_api.security import check_api_key
+from offsets_db_api.settings import Settings, get_settings
 
 router = APIRouter()
 logger = get_logger()
@@ -51,13 +51,13 @@ async def db_status(
             {'date': recorded_at.strftime('%a, %b %d %Y %H:%M:%S UTC'), 'url': url}
         )
 
-    db_latest_update = {}
-    for category, entries in grouped_files.items():
-        db_latest_update[category] = {
+    db_latest_update = {
+        category: {
             'date': entries[0]['date'],
             'url': entries[0]['url'],
         }
-
+        for category, entries in grouped_files.items()
+    }
     return {
         'status': 'ok',
         'staging': settings.staging,

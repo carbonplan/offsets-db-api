@@ -5,12 +5,12 @@ from fastapi_cache.decorator import cache
 from sqlalchemy.orm import aliased
 from sqlmodel import Session, col, func, or_, select
 
-from ..cache import CACHE_NAMESPACE
-from ..database import get_session
-from ..log import get_logger
-from ..models import Clip, ClipProject, PaginatedClips, Pagination, Project
-from ..query_helpers import apply_filters, apply_sorting, handle_pagination
-from ..security import check_api_key
+from offsets_db_api.cache import CACHE_NAMESPACE
+from offsets_db_api.database import get_session
+from offsets_db_api.log import get_logger
+from offsets_db_api.models import Clip, ClipProject, PaginatedClips, Pagination, Project
+from offsets_db_api.query_helpers import apply_filters, apply_sorting, handle_pagination
+from offsets_db_api.security import check_api_key
 
 router = APIRouter()
 logger = get_logger()

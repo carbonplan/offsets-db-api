@@ -4,14 +4,14 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi_cache.decorator import cache
 from sqlmodel import Session, select
 
-from ..cache import CACHE_NAMESPACE
-from ..database import get_engine, get_session
-from ..log import get_logger
-from ..models import File, FileCategory, FileStatus
-from ..schemas import FileURLPayload
-from ..security import check_api_key
-from ..settings import get_settings
-from ..tasks import process_files
+from offsets_db_api.cache import CACHE_NAMESPACE
+from offsets_db_api.database import get_engine, get_session
+from offsets_db_api.log import get_logger
+from offsets_db_api.models import File, FileCategory, FileStatus
+from offsets_db_api.schemas import FileURLPayload
+from offsets_db_api.security import check_api_key
+from offsets_db_api.settings import get_settings
+from offsets_db_api.tasks import process_files
 
 router = APIRouter()
 logger = get_logger()

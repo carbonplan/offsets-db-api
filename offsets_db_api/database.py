@@ -2,7 +2,7 @@ from collections.abc import Generator
 
 from sqlmodel import Session, create_engine
 
-from .settings import get_settings
+from offsets_db_api.settings import get_settings
 
 
 def get_engine(*, database_url: str):

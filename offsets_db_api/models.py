@@ -5,7 +5,7 @@ import pydantic
 from sqlalchemy.dialects import postgresql
 from sqlmodel import BigInteger, Column, Field, Relationship, SQLModel, String
 
-from .schemas import FileCategory, FileStatus, Pagination
+from offsets_db_api.schemas import FileCategory, FileStatus, Pagination
 
 
 class File(SQLModel, table=True):

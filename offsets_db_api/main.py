@@ -10,10 +10,10 @@ from fastapi_cache.backends.inmemory import InMemoryBackend
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
-from .app_metadata import metadata
-from .cache import clear_cache, request_key_builder, watch_dog_dir, watch_dog_file
-from .log import get_logger
-from .routers import charts, clips, credits, files, health, projects
+from offsets_db_api.app_metadata import metadata
+from offsets_db_api.cache import clear_cache, request_key_builder, watch_dog_dir, watch_dog_file
+from offsets_db_api.log import get_logger
+from offsets_db_api.routers import charts, clips, credits, files, health, projects
 
 logger = get_logger()
 

@@ -6,8 +6,8 @@ from fastapi import HTTPException, Request
 from sqlalchemy.orm import Query
 from sqlmodel import and_, asc, desc, distinct, func, nullslast, or_, select
 
-from .log import get_logger
-from .models import Clip, ClipProject, Credit, Project
+from offsets_db_api.log import get_logger
+from offsets_db_api.models import Clip, ClipProject, Credit, Project
 
 logger = get_logger()
 
