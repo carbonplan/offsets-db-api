@@ -59,8 +59,8 @@ async def get_projects(
     filters = [
         ('registry', registry, 'ilike', Project),
         ('country', country, 'ilike', Project),
-        ('protocol', protocol, 'ALL', Project),
-        ('category', category, 'ALL', Project),
+        ('protocol', protocol, 'ANY', Project),
+        ('category', category, 'ANY', Project),
         ('is_compliance', is_compliance, '==', Project),
         ('listed_at', listed_at_from, '>=', Project),
         ('listed_at', listed_at_to, '<=', Project),
