@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
-from sqlmodel import Session, col, or_
+from sqlmodel import Session, col, func, or_, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.database import get_engine, get_session
@@ -776,15 +776,18 @@ async def get_credits_by_category(
     authorized_user: bool = Depends(check_api_key),
 ):
     """Get project counts by category"""
+    from offsets_db_api.sql_helpers import apply_filters
+
     logger.info(f'Getting project count by category: {request.url}')
 
-    query = session.query(Project)
+    # Start with a base query
+    query = select(Project)
 
+    # Apply filters
     filters = [
         ('registry', registry, 'ilike', Project),
         ('country', country, 'ilike', Project),
         ('protocol', protocol, 'ANY', Project),
-        ('category', category, 'ANY', Project),
         ('is_compliance', is_compliance, '==', Project),
         ('listed_at', listed_at_from, '>=', Project),
         ('listed_at', listed_at_to, '<=', Project),
@@ -796,30 +799,57 @@ async def get_credits_by_category(
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
+            statement=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
     # Handle 'search' filter separately due to its unique logic
     if search:
         search_pattern = f'%{search}%'
-        query = query.filter(
+        query = query.where(
             or_(
                 col(Project.project_id).ilike(search_pattern),
                 col(Project.name).ilike(search_pattern),
             )
         )
 
-    settings = get_settings()
-    engine = get_engine(database_url=settings.database_url)
+    # Explode the category column
+    subquery = query.subquery()
+    exploded = (
+        select(
+            func.unnest(subquery.c.category).label('category'),
+            subquery.c.issued,
+            subquery.c.retired,
+        )
+        .select_from(subquery)
+        .subquery()
+    )
 
-    df = pd.read_sql_query(query.statement, engine).explode('category')
-    logger.info(f'Sample of the dataframe with size: {df.shape}\n{df.head()}')
+    # Apply category filter after unnesting
+    if category:
+        exploded = select(exploded).where(exploded.c.category.in_(category)).subquery()
 
-    results = credits_by_category(df=df, categories=category)
+    # Group by category and sum issued and retired credits
+    credits_query = select(
+        exploded.c.category,
+        func.sum(exploded.c.issued).label('issued'),
+        func.sum(exploded.c.retired).label('retired'),
+    ).group_by(exploded.c.category)
+
+    # Execute the query
+    results = session.exec(credits_query).fetchall()
+
+    # Format the results
+    formatted_results = [
+        {'category': row.category, 'issued': int(row.issued), 'retired': int(row.retired)}
+        for row in results
+    ]
 
     return PaginatedCreditCounts(
-        data=results,
+        data=formatted_results,
         pagination=Pagination(
-            current_page=current_page, next_page=None, total_entries=len(results), total_pages=1
+            current_page=current_page,
+            next_page=None,
+            total_entries=len(formatted_results),
+            total_pages=1,
         ),
     )
