@@ -8,7 +8,7 @@ from fastapi_cache.decorator import cache
 from sqlmodel import Date, Session, and_, case, cast, col, func, or_, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
-from offsets_db_api.database import get_engine, get_session
+from offsets_db_api.database import get_session
 from offsets_db_api.log import get_logger
 from offsets_db_api.models import (
     Credit,
@@ -19,10 +19,9 @@ from offsets_db_api.models import (
     PaginatedProjectCreditTotals,
     Project,
 )
-from offsets_db_api.query_helpers import apply_filters
 from offsets_db_api.schemas import Pagination, Registries
 from offsets_db_api.security import check_api_key
-from offsets_db_api.settings import get_settings
+from offsets_db_api.sql_helpers import apply_filters
 
 router = APIRouter()
 logger = get_logger()
@@ -312,15 +311,23 @@ async def get_projects_by_listing_date(
     # authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated project registration data"""
+
     logger.info(f'Getting project registration data: {request.url}')
 
-    query = session.query(Project)
+    # Base query
+    subquery = select(
+        col(Project.listed_at),
+        col(Project.project_id),
+        func.unnest(Project.category).label('category'),
+    ).alias('subquery')
 
+    query = select(subquery)
+
+    # Apply filters
     filters = [
         ('registry', registry, 'ilike', Project),
         ('country', country, 'ilike', Project),
         ('protocol', protocol, 'ANY', Project),
-        ('category', category, 'ANY', Project),
         ('is_compliance', is_compliance, '==', Project),
         ('listed_at', listed_at_from, '>=', Project),
         ('listed_at', listed_at_to, '<=', Project),
@@ -332,39 +339,96 @@ async def get_projects_by_listing_date(
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
+            statement=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
     # Handle 'search' filter separately due to its unique logic
     if search:
         search_pattern = f'%{search}%'
-        query = query.filter(
+        query = query.where(
             or_(
                 col(Project.project_id).ilike(search_pattern),
                 col(Project.name).ilike(search_pattern),
             )
         )
 
-    settings = get_settings()
-    engine = get_engine(database_url=settings.database_url)
-    logger.info(f'Query statement: {query.statement}')
+    # Apply category filter
+    if category:
+        query = query.where(subquery.c.category.in_(category))
 
-    df = pd.read_sql_query(query.statement, engine).explode('category')
-    df = df.astype({'listed_at': 'datetime64[ns]'})
-    logger.info(f'Sample of the dataframe with size: {df.shape}\n{df.head()}')
-    results = projects_counts_by_listing_date(df=df, freq=freq, categories=category)
-    total_entries = len(results)
-    total_pages = 1
-    next_page = None
+    # Get min and max listing dates
+    min_max_query = select(func.min(subquery.c.listed_at), func.max(subquery.c.listed_at))
+    min_date, max_date = session.exec(min_max_query.select_from(subquery)).fetchone()
+
+    if min_date is None or max_date is None:
+        logger.info('✅ No data to bin!')
+        return PaginatedBinnedValues(
+            pagination=Pagination(
+                total_entries=0,
+                total_pages=1,
+                next_page=None,
+                current_page=current_page,
+            ),
+            data=[],
+        )
+
+    # Generate date bins using the original function
+    date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq)
+
+    # Create a CASE statement for binning
+    bin_case = case(
+        *[
+            (
+                and_(subquery.c.listed_at >= bin_start, subquery.c.listed_at < bin_end),
+                cast(bin_start, Date),
+            )
+            for bin_start, bin_end in zip(date_bins[:-1], date_bins[1:])
+        ],
+        else_=cast(date_bins[-1].to_pydatetime().date(), Date),
+    ).label('bin')
+
+    # Add binning to the query and aggregate
+    binned_query = (
+        select(
+            bin_case,
+            subquery.c.category,
+            func.count(subquery.c.project_id.distinct()).label('value'),
+        )
+        .select_from(subquery)
+        .group_by(bin_case, subquery.c.category)
+    )
+
+    # Execute the query
+    results = session.exec(binned_query).fetchall()
+
+    # Format the results
+    formatted_results = []
+    current_year = datetime.datetime.now().year
+    for row in results:
+        start_date = row.bin
+        if start_date.year > current_year:
+            continue  # Skip future dates
+        end_date = calculate_end_date(start_date, freq)
+        formatted_results.append(
+            {
+                'start': start_date.strftime('%Y-%m-%d'),
+                'end': end_date.strftime('%Y-%m-%d'),
+                'category': row.category,
+                'value': int(row.value),
+            }
+        )
+
+    # Sort the results
+    formatted_results.sort(key=lambda x: (x['start'], x['category']))
 
     return PaginatedBinnedValues(
         pagination=Pagination(
-            total_entries=total_entries,
-            total_pages=total_pages,
-            next_page=next_page,
+            total_entries=len(formatted_results),
+            total_pages=1,
+            next_page=None,
             current_page=current_page,
         ),
-        data=results,
+        data=formatted_results,
     )
 
 
@@ -396,7 +460,6 @@ async def get_credits_by_transaction_date(
     authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated credit transaction data"""
-    from offsets_db_api.sql_helpers import apply_filters
 
     logger.info(f'Getting credit transaction data: {request.url}')
 
@@ -496,9 +559,7 @@ async def get_credits_by_transaction_date(
         start_date = row.bin
         if start_date.year > current_year:
             continue  # Skip future dates
-        end_date = date_bins[date_bins.get_loc(pd.Timestamp(start_date)) + 1] - datetime.timedelta(
-            days=1
-        )
+        end_date = calculate_end_date(start_date, freq)
         formatted_results.append(
             {
                 'start': start_date.strftime('%Y-%m-%d'),
@@ -544,7 +605,6 @@ async def get_credits_by_project_id(
     authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated credit transaction data"""
-    from offsets_db_api.sql_helpers import apply_filters
 
     logger.info(f'Getting credit transaction data: {request.url}')
 
@@ -686,7 +746,6 @@ async def get_projects_by_credit_totals(
     authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated project credit totals"""
-    from offsets_db_api.sql_helpers import apply_filters
 
     logger.info(f'📊 Generating projects by {credit_type} totals...: {request.url}')
 
@@ -839,8 +898,6 @@ async def get_projects_by_category(
 ):
     """Get project counts by category"""
 
-    from offsets_db_api.sql_helpers import apply_filters
-
     logger.info(f'Getting project count by category: {request.url}')
 
     statement = select(Project)
@@ -934,7 +991,6 @@ async def get_credits_by_category(
     authorized_user: bool = Depends(check_api_key),
 ):
     """Get project counts by category"""
-    from offsets_db_api.sql_helpers import apply_filters
 
     logger.info(f'Getting project count by category: {request.url}')
 
