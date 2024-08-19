@@ -73,4 +73,4 @@ jobs:
 
       - name: Run tests
         run: |
-          python -m pytest -vtests/test_projects.py tests/test_files.py tests/test_credits.py tests/test_clips.py
+          python -m pytest
