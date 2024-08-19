@@ -161,7 +161,7 @@ async def get_projects_by_listing_date(
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
-    # authorized_user: bool = Depends(check_api_key),
+    authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated project registration data"""
 
@@ -226,7 +226,7 @@ async def get_projects_by_listing_date(
         )
 
     # Generate date bins using the original function
-    date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq)
+    date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq).tolist()
 
     # Create a CASE statement for binning
     bin_case = case(
@@ -237,7 +237,7 @@ async def get_projects_by_listing_date(
             )
             for bin_start, bin_end in zip(date_bins[:-1], date_bins[1:])
         ],
-        else_=cast(date_bins[-1].to_pydatetime().date(), Date),
+        else_=cast(date_bins[-1], Date),
     ).label('bin')
 
     # Add binning to the query and aggregate
@@ -379,7 +379,7 @@ async def get_credits_by_transaction_date(
         )
 
     # Generate date bins using the original function
-    date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq)
+    date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq).tolist()
 
     # Create a CASE statement for binning
     bin_case = case(
@@ -392,7 +392,7 @@ async def get_credits_by_transaction_date(
             )
             for bin_start, bin_end in zip(date_bins[:-1], date_bins[1:])
         ],
-        else_=cast(date_bins[-1].to_pydatetime().date(), Date),
+        else_=cast(date_bins[-1], Date),
     ).label('bin')
 
     # Add binning to the query and aggregate
@@ -403,7 +403,7 @@ async def get_credits_by_transaction_date(
     )
 
     # Execute the query
-    results = session.execute(binned_query).fetchall()
+    results = session.exec(binned_query).fetchall()
 
     # Format the results
     formatted_results = []
@@ -513,12 +513,8 @@ async def get_credits_by_project_id(
         else:
             freq = 'Y'
 
-        # Check if all events fall within the same year or month
         if min_date.year == max_date.year:
-            freq = 'Y'
-            if min_date.month == max_date.month:
-                freq = 'M'
-
+            freq = 'M' if min_date.month == max_date.month else 'Y'
     # Generate date bins
     date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq).tolist()
 
