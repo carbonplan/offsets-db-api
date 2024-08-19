@@ -1,7 +1,22 @@
 from datetime import datetime, timedelta
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+
+
+def parse_date(date_string):
+    return datetime.fromisoformat(date_string.rstrip('Z')) if date_string else None
+
+
+def safe_compare(a: Any, b: Any, direction: int) -> bool:
+    if a is None and b is None:
+        return True
+    if a is None:
+        return False if direction == 1 else True  # None is largest in ascending order
+    if b is None:
+        return True if direction == 1 else False  # None is smallest in descending order
+    return a <= b if direction == 1 else a >= b
 
 
 @pytest.fixture
@@ -87,19 +102,34 @@ def test_get_clips_with_date_range(test_app: TestClient):
 
 
 @pytest.mark.parametrize('sort_params', [['+date'], ['-source'], ['+type', '-date']])
-def test_get_clips_with_sort(test_app: TestClient, sort_params):
+def test_get_clips_with_sort(test_app: TestClient, sort_params: list[str]):
     query_params = '&'.join(f'sort={param}' for param in sort_params)
     response = test_app.get(f'/clips/?{query_params}')
     assert response.status_code == 200
-    data = response.json()['data']
+    if data := response.json()['data']:
+        for i, clip1 in enumerate(data[:-1]):
+            clip2 = data[i + 1]
+            for param in sort_params:
+                direction = 1 if param.startswith('+') else -1
+                field = param.lstrip('+-')
 
-    if data:
-        for param in sort_params:
-            direction = 1 if param.startswith('+') else -1
-            field = param.lstrip('+-')
+                value1 = clip1.get(field)
+                value2 = clip2.get(field)
 
-            values = [clip[field] for clip in data]
-            assert all(a <= b if direction == 1 else a >= b for a, b in zip(values, values[1:]))
+                if field == 'date':
+                    value1 = parse_date(value1)
+                    value2 = parse_date(value2)
+
+                if not safe_compare(value1, value2, direction):
+                    print(f'\nSorting error at index {i}:')
+                    print(f'Clip 1: {clip1}')
+                    print(f'Clip 2: {clip2}')
+                    assert False, f'Sorting by {field} failed'
+
+                if value1 != value2:
+                    break  # If values are different, don't check next sort parameter
+
+        print(f'\nSorting successful for parameters: {sort_params}')
 
 
 def test_get_clips_with_invalid_sort(test_app: TestClient):
