@@ -1,8 +1,6 @@
 import pandas as pd
 import pytest
 
-from offsets_db_api.routers.charts import filter_valid_projects
-
 
 @pytest.fixture
 def sample_projects():
@@ -22,18 +20,6 @@ def sample_projects():
     )
 
     return data
-
-
-@pytest.mark.parametrize(
-    'categories, expected',
-    [
-        (None, ['ghg-management', 'renewable-energy', 'biodiversity', 'water-management']),
-        (['renewable-energy'], ['renewable-energy']),
-    ],
-)
-def test_filter_valid_projects(sample_projects, categories, expected):
-    result = filter_valid_projects(sample_projects, categories=categories)
-    assert list(result['category'].unique()) == expected
 
 
 @pytest.mark.parametrize('freq', ['D', 'M', 'Y', 'W'])
