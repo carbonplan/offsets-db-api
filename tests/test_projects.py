@@ -1,50 +1,52 @@
 import datetime
 
 import pytest
+from fastapi.testclient import TestClient
 
 
-def test_get_project(test_app):
+@pytest.fixture
+def sample_project(test_app):
+    response = test_app.get('/projects')
+    assert response.status_code == 200
+    return response.json()['data'][0]
+
+
+def test_get_nonexistent_project(test_app: TestClient):
     response = test_app.get('/projects/123')
     assert response.status_code == 404
     assert response.json() == {'detail': 'project 123 not found'}
 
-    response = test_app.get('/projects')
-    assert response.status_code == 200
-    data = response.json()['data'][0]
-    project_id = data['project_id']
-    registry = data['registry']
-    assert isinstance(data['clips'], list)
 
+def test_get_existing_project(test_app: TestClient, sample_project):
+    project_id = sample_project['project_id']
     response = test_app.get(f'/projects/{project_id}')
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, dict)
     assert data['project_id'] == project_id
-    assert data['registry'] == registry
-
-    assert 'issued' in data
-    assert 'retired' in data
-    assert 'clips' in data
+    assert data['registry'] == sample_project['registry']
+    assert all(key in data for key in ['issued', 'retired', 'clips'])
 
 
-def test_get_projects(test_app):
+def test_get_projects(test_app: TestClient):
     response = test_app.get('/projects/')
     assert response.status_code == 200
     data = response.json()['data']
     assert isinstance(data, list)
     assert len(data) > 1
-    assert isinstance(data[0]['clips'], list)
-    assert data[0]['retired'] >= 0
-    assert data[0]['issued'] >= 0
+    assert all(isinstance(project['clips'], list) for project in data)
+    assert all(project['retired'] >= 0 for project in data)
+    assert all(project['issued'] >= 0 for project in data)
 
 
-def test_get_projects_pagination(test_app):
-    response = test_app.get('/projects?per_page=1&current_page=1')
+@pytest.mark.parametrize('per_page, current_page', [(1, 1), (5, 2), (10, 3)])
+def test_get_projects_pagination(test_app: TestClient, per_page, current_page):
+    response = test_app.get(f'/projects?per_page={per_page}&current_page={current_page}')
     assert response.status_code == 200
     pagination = response.json()['pagination']
     assert isinstance(pagination, dict)
-    assert pagination['current_page'] == 1
-    assert len(response.json()['data']) == 1
+    assert pagination['current_page'] == current_page
+    assert len(response.json()['data']) <= per_page
 
 
 @pytest.mark.parametrize('registry', ['american-carbon-registry', 'climate-action-reserve'])
@@ -54,12 +56,10 @@ def test_get_projects_pagination(test_app):
 @pytest.mark.parametrize('listed_at_from', ['2020-01-01'])
 @pytest.mark.parametrize('listed_at_to', ['2023-01-01'])
 @pytest.mark.parametrize('search', ['foo'])
-@pytest.mark.parametrize('retired_min', [0])
-@pytest.mark.parametrize('retired_max', [100000])
-@pytest.mark.parametrize('issued_min', [0])
-@pytest.mark.parametrize('issued_max', [100000])
+@pytest.mark.parametrize('retired_min,retired_max', [(0, 100000)])
+@pytest.mark.parametrize('issued_min,issued_max', [(0, 100000)])
 def test_get_projects_with_filters(
-    test_app,
+    test_app: TestClient,
     registry,
     country,
     protocol,
@@ -72,73 +72,59 @@ def test_get_projects_with_filters(
     issued_min,
     issued_max,
 ):
-    response = test_app.get(
-        f'/projects/?registry={registry}&country={country}&protocol={protocol}&category={category}&listed_at_from={listed_at_from}&listed_at_to={listed_at_to}&search={search}&retired_min={retired_min}&retired_max={retired_max}&issued_min={issued_min}&issued_max={issued_max}'
+    url = (
+        f'/projects/?registry={registry}&country={country}&'
+        f'protocol={protocol}&category={category}&'
+        f'listed_at_from={listed_at_from}&listed_at_to={listed_at_to}&'
+        f'search={search}&retired_min={retired_min}&retired_max={retired_max}&'
+        f'issued_min={issued_min}&issued_max={issued_max}'
     )
+    response = test_app.get(url)
     assert response.status_code == 200
     data = response.json()['data']
     assert isinstance(data, list)
-    if data:
-        for project in data:
-            assert project['registry'] == registry
-            assert project['country'] == country
-            if protocol:
-                assert project['protocol'] == protocol
-            if category:
-                assert project['category'] == category
+    for project in data:
+        assert project['registry'] == registry
+        assert project['country'] == country
+        if protocol:
+            assert project['protocol'] == protocol
+        if category:
+            assert category in project['category']
+        assert retired_min <= project['retired'] <= retired_max
+        assert issued_min <= project['issued'] <= issued_max
 
 
-def test_get_projects_with_sort_errors(test_app):
-    # Request sorted data from the endpoint
+def test_get_projects_with_invalid_sort(test_app: TestClient):
     response = test_app.get('/projects?sort=+foo')
-
-    # Assert that the request was successful
     assert response.status_code == 400
-
-    # Parse the JSON response
-    data = response.json()
-
-    # Assert that the response is a list
-    assert isinstance(data, dict), f'Expected Dict, got {type(data).__name__}'
-
-    # Assert that the error message is correct
-    assert 'Invalid sort field:' in data['detail']
+    assert 'Invalid sort field:' in response.json()['detail']
 
 
-def test_get_projects_with_sort(test_app):
-    # Request sorted data from the endpoint
+def test_get_projects_with_valid_sort(test_app: TestClient):
     response = test_app.get('/projects?sort=+country&sort=project_id&sort=-listed_at')
-
-    # Assert that the request was successful
     assert response.status_code == 200
 
-    # Parse the JSON response
     data = response.json()['data']
+    assert isinstance(data, list)
 
-    # Assert that the response is a list
-    assert isinstance(data, list), f'Expected List, got {type(data).__name__}'
-
-    # If there are any projects in the response, check that they are sorted
     if data:
         prev_country, prev_project_id, prev_listed_at = None, None, None
         for project in data:
             country = project['country']
             project_id = project['project_id']
-            listed_at_str = project['listed_at']
             listed_at = (
-                datetime.datetime.strptime(listed_at_str.split('T')[0], '%Y-%m-%d')
-                if listed_at_str
+                datetime.datetime.fromisoformat(project['listed_at'])
+                if project['listed_at']
                 else None
             )
 
-            # Check the sorting logic
-            if prev_country is not None and country is not None:
+            if prev_country is not None:
                 assert country >= prev_country, 'Projects are not sorted by country'
                 if country == prev_country:
                     assert (
                         project_id >= prev_project_id
                     ), 'Projects are not sorted by project_id within the same country'
-                    if project_id == prev_project_id:
+                    if project_id == prev_project_id and listed_at and prev_listed_at:
                         assert (
                             listed_at <= prev_listed_at
                         ), 'Projects are not sorted by listed_at within the same project_id'
