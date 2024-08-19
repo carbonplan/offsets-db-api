@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
-from sqlmodel import Session, col, func, or_, select
+from sqlmodel import Session, and_, case, col, func, or_, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.database import get_engine, get_session
@@ -183,40 +183,6 @@ def projects_counts_by_listing_date(
         )
 
     logger.info('✅ Binned data generated successfully!')
-    return formatted_results
-
-
-def projects_by_credit_totals(
-    *, df: pd.DataFrame, credit_type: str, bin_width=None, categories: list[str] | None = None
-) -> list[dict[str, typing.Any]]:
-    """Generate binned data based on the given attribute and frequency."""
-    logger.info(f'📊 Generating binned data based on {credit_type}offsets_db_api..')
-    valid_df = filter_valid_projects(df, categories=categories)
-    min_value, max_value = valid_df[credit_type].agg(['min', 'max'])
-
-    if pd.isna(min_value) or pd.isna(max_value):
-        logger.info('✅ No data to bin!')
-        return []
-
-    bins = generate_dynamic_numeric_bins(
-        min_value=min_value, max_value=max_value, bin_width=bin_width
-    ).tolist()
-    valid_df['bin'] = pd.cut(valid_df[credit_type], bins=bins, labels=bins[:-1], right=False)
-    valid_df['bin'] = valid_df['bin'].astype(str)
-    grouped = valid_df.groupby(['bin', 'category'])['project_id'].count().reset_index()
-    formatted_results = []
-    for _, row in grouped.iterrows():
-        bin_label = row['bin']
-        category = row['category']
-        value = row['project_id']
-        start_value = int(bin_label)
-        index = bins.index(start_value)
-        end_value = bins[index + 1]
-        formatted_results.append(
-            dict(start=start_value, end=end_value, category=category, value=value)
-        )
-    logger.info(f'✅ {len(formatted_results)} bins generated')
-
     return formatted_results
 
 
@@ -592,15 +558,16 @@ async def get_projects_by_credit_totals(
     authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated project credit totals"""
+    from offsets_db_api.sql_helpers import apply_filters
+
     logger.info(f'📊 Generating projects by {credit_type} totals...: {request.url}')
 
-    query = session.query(Project)
+    statement = select(Project)
 
     filters = [
         ('registry', registry, 'ilike', Project),
         ('country', country, 'ilike', Project),
         ('protocol', protocol, 'ANY', Project),
-        ('category', category, 'ANY', Project),
         ('is_compliance', is_compliance, '==', Project),
         ('listed_at', listed_at_from, '>=', Project),
         ('listed_at', listed_at_to, '<=', Project),
@@ -613,39 +580,104 @@ async def get_projects_by_credit_totals(
     ]
 
     for attribute, values, operation, model in filters:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
+        statement = apply_filters(
+            statement=statement,
+            model=model,
+            attribute=attribute,
+            values=values,
+            operation=operation,
         )
 
     # Handle 'search' filter separately due to its unique logic
     if search:
         search_pattern = f'%{search}%'
-        query = query.filter(
+        statement = statement.where(
             or_(
                 col(Project.project_id).ilike(search_pattern),
                 col(Project.name).ilike(search_pattern),
             )
         )
 
-    settings = get_settings()
-    engine = get_engine(database_url=settings.database_url)
-    logger.info(f'Query statement: {query.statement}')
+    # Explode the category column
+    subquery = statement.subquery()
+    exploded = (
+        select(
+            func.unnest(subquery.c.category).label('category'),
+            getattr(subquery.c, credit_type).label('credit_value'),
+            subquery.c.project_id,
+        )
+        .select_from(subquery)
+        .subquery()
+    )
 
-    df = pd.read_sql_query(query.statement, engine).explode('category')
-    logger.info(f'Sample of the dataframe with size: {df.shape}\n{df.head()}')
-    results = projects_by_credit_totals(df=df, credit_type=credit_type, bin_width=bin_width)
+    # Apply category filter after unnesting
+    if category:
+        exploded = select(exploded).where(exploded.c.category.in_(category)).subquery()
 
-    total_entries = len(results)
-    total_pages = 1
-    next_page = None
+    # Get min and max values for binning
+    min_max_query = select(
+        func.min(exploded.c.credit_value).label('min_value'),
+        func.max(exploded.c.credit_value).label('max_value'),
+    )
+    min_max_result = session.exec(min_max_query).fetchone()
+    min_value, max_value = min_max_result.min_value, min_max_result.max_value
+
+    if min_value is None or max_value is None:
+        logger.info('✅ No data to bin!')
+        return PaginatedBinnedCreditTotals(
+            pagination=Pagination(
+                total_entries=0,
+                total_pages=1,
+                next_page=None,
+                current_page=current_page,
+            ),
+            data=[],
+        )
+
+    # Generate bins
+    bins = generate_dynamic_numeric_bins(
+        min_value=min_value, max_value=max_value, bin_width=bin_width
+    ).tolist()
+    # Create a CASE statement for binning
+    bin_case = case(
+        *[
+            (
+                and_(exploded.c.credit_value >= bin_start, exploded.c.credit_value < bin_end),
+                bin_start,
+            )
+            for bin_start, bin_end in zip(bins[:-1], bins[1:])
+        ],
+        else_=bins[-2],  # Use the last bin start for values >= the last bin start
+    ).label('bin')
+
+    # Count projects by bin and category
+    binned_query = select(
+        bin_case, exploded.c.category, func.count(exploded.c.project_id.distinct()).label('value')
+    ).group_by(bin_case, exploded.c.category)
+
+    # Execute the query
+    results = session.exec(binned_query).fetchall()
+
+    # Format the results
+    formatted_results = []
+    for row in results:
+        bin_start = row.bin
+        bin_index = bins.index(bin_start)
+        bin_end = bins[bin_index + 1] if bin_index < len(bins) - 1 else None
+        formatted_results.append(
+            {'start': bin_start, 'end': bin_end, 'category': row.category, 'value': row.value}
+        )
+
+    logger.info(f'✅ {len(formatted_results)} bins generated')
+
     return PaginatedBinnedCreditTotals(
         pagination=Pagination(
-            total_entries=total_entries,
-            total_pages=total_pages,
-            next_page=next_page,
+            total_entries=len(formatted_results),
+            total_pages=1,
+            next_page=None,
             current_page=current_page,
         ),
-        data=results,
+        data=formatted_results,
     )
 
 
