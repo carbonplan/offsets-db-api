@@ -1,5 +1,6 @@
 import datetime
 import typing
+from urllib.parse import quote
 
 from fastapi import HTTPException, Request
 from sqlalchemy.dialects.postgresql import ARRAY
@@ -7,7 +8,6 @@ from sqlmodel import Session, SQLModel, and_, asc, desc, distinct, func, nullsla
 from sqlmodel.sql.expression import Select as _Select, SelectOfScalar
 
 from offsets_db_api.models import Clip, ClipProject, Credit, File, Project
-from offsets_db_api.query_helpers import _generate_next_page_url
 from offsets_db_api.schemas import Registries
 
 
@@ -191,3 +191,75 @@ def handle_pagination(
     results = session.exec(paginated_statement).all()
 
     return total_entries, current_page, total_pages, next_page, results
+
+
+def custom_urlencode(params):
+    """
+    Custom URL encoding function that handles list-type query parameters.
+
+    Parameters
+    ----------
+    params : dict
+        The query parameters to encode.
+
+    Returns
+    -------
+    str
+        The URL-encoded query string.
+    """
+    encoded = []
+    for key, value in params.items():
+        key = quote(str(key))
+        if isinstance(value, list):
+            # Extend list with multiple key-value pairs for list items
+            encoded.extend(f"{key}={quote(str(v), safe='')}" for v in value)
+        else:
+            # Append single key-value pair
+            encoded.append(f"{key}={quote(str(value), safe='')}")
+    return '&'.join(encoded)
+
+
+def _convert_query_params_to_dict(request):
+    # Convert the QueryParams to a dict, preserving list-type values
+    query_params = {}
+    for key, value in request.query_params.multi_items():
+        if key in query_params:
+            if isinstance(query_params[key], list):
+                query_params[key].append(value)
+            else:
+                query_params[key] = [query_params[key], value]
+        else:
+            query_params[key] = value
+
+    return query_params
+
+
+def _generate_next_page_url(*, request, current_page, per_page):
+    """
+    Generate the URL for the next page in pagination.
+
+    Parameters
+    ----------
+    request : Request
+        The current FastAPI request instance.
+    current_page : int
+        The current page number.
+    per_page : int
+        Number of records per page.
+
+    Returns
+    -------
+    str
+        The URL for the next page.
+    """
+    # Convert the QueryParams to a dict, preserving list-type values
+    query_params = _convert_query_params_to_dict(request)
+
+    # Update 'current_page' and 'per_page' for the next page
+    query_params['current_page'] = current_page + 1
+    query_params['per_page'] = per_page
+
+    # Generate the URL-encoded query string
+    query_string = custom_urlencode(query_params)
+
+    return f'{request.url.scheme}://{request.url.netloc}{request.url.path}?{query_string}'

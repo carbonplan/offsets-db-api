@@ -5,7 +5,7 @@ from fastapi import Request, Response
 from fastapi_cache import FastAPICache
 
 from offsets_db_api.log import get_logger
-from offsets_db_api.query_helpers import _convert_query_params_to_dict
+from offsets_db_api.sql_helpers import _convert_query_params_to_dict
 
 logger = get_logger()
 
