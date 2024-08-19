@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
-from sqlmodel import Session, and_, case, col, func, or_, select
+from sqlmodel import Date, Session, and_, case, cast, col, func, or_, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.database import get_engine, get_session
@@ -477,14 +477,18 @@ async def get_credits_by_project_id(
     authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated credit transaction data"""
+    from offsets_db_api.sql_helpers import apply_filters
+
     logger.info(f'Getting credit transaction data: {request.url}')
-    # Join Credit with Project and filter by project_id
-    query = (
-        session.query(Credit, Project.category, Project.listed_at)
-        .join(Project, Credit.project_id == Project.project_id)
-        .filter(Project.project_id == project_id)
+
+    # Base query
+    statement = (
+        select(col(Credit.transaction_date), col(Credit.quantity))
+        .join(Project)
+        .where(Project.project_id == project_id)
     )
 
+    # Apply filters
     filters = [
         ('transaction_type', transaction_type, 'ilike', Credit),
         ('transaction_date', transaction_date_from, '>=', Credit),
@@ -493,31 +497,88 @@ async def get_credits_by_project_id(
     ]
 
     for attribute, values, operation, model in filters:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
+        statement = apply_filters(
+            statement=statement,
+            model=model,
+            attribute=attribute,
+            values=values,
+            operation=operation,
         )
 
-    settings = get_settings()
-    engine = get_engine(database_url=settings.database_url)
+    # Get min and max transaction dates
+    min_max_query = select(func.min(Credit.transaction_date), func.max(Credit.transaction_date))
+    min_date, max_date = session.exec(min_max_query).fetchone()
 
-    logger.info(f'Query statement: {query.statement}')
+    if min_date is None or max_date is None:
+        logger.info('✅ No data to bin!')
+        return PaginatedProjectCreditTotals(
+            pagination=Pagination(
+                total_entries=0,
+                total_pages=1,
+                next_page=None,
+                current_page=current_page,
+            ),
+            data=[],
+        )
 
-    df = pd.read_sql_query(query.statement, engine)
-    # fix the data types
-    df = df.astype({'transaction_date': 'datetime64[ns]'})
-    results = single_project_credits_by_transaction_date(df=df, freq=freq)
+    # Determine frequency if not provided
+    if freq is None:
+        date_diff = max_date - min_date
+        if date_diff < datetime.timedelta(days=7):
+            freq = 'D'
+        elif date_diff < datetime.timedelta(days=30):
+            freq = 'W'
+        elif date_diff < datetime.timedelta(days=365):
+            freq = 'M'
+        else:
+            freq = 'Y'
 
-    total_entries = len(results)
-    total_pages = 1
-    next_page = None
+        # Check if all events fall within the same year or month
+        if min_date.year == max_date.year:
+            freq = 'Y'
+            if min_date.month == max_date.month:
+                freq = 'M'
+
+    # Generate date bins
+    date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq).tolist()
+
+    # Create a CASE statement for binning
+    bin_case = case(
+        *[
+            (
+                and_(Credit.transaction_date >= bin_start, Credit.transaction_date < bin_end),
+                cast(bin_start, Date),
+            )
+            for bin_start, bin_end in zip(date_bins[:-1], date_bins[1:])
+        ],
+        else_=cast(date_bins[-1], Date),
+    ).label('bin')
+
+    # Add binning to the query and aggregate
+    binned_query = (
+        statement.add_columns(bin_case)
+        .group_by('bin')
+        .with_only_columns(bin_case, func.sum(Credit.quantity).label('value'))
+    )
+
+    # Execute the query
+    results = session.exec(binned_query).fetchall()
+
+    # Format the results
+    formatted_results = []
+    for row in results:
+        start_date = row.bin
+        end_date = calculate_end_date(start_date, freq)
+        formatted_results.append({'start': start_date, 'end': end_date, 'value': row.value})
+
     return PaginatedProjectCreditTotals(
         pagination=Pagination(
-            total_entries=total_entries,
-            total_pages=total_pages,
-            next_page=next_page,
+            total_entries=len(formatted_results),
+            total_pages=1,
+            next_page=None,
             current_page=current_page,
         ),
-        data=results,
+        data=formatted_results,
     )
 
 
