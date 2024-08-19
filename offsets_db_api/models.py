@@ -5,7 +5,7 @@ import pydantic
 from sqlalchemy.dialects import postgresql
 from sqlmodel import BigInteger, Column, Field, Relationship, SQLModel, String
 
-from .schemas import FileCategory, FileStatus, Pagination
+from offsets_db_api.schemas import FileCategory, FileStatus, Pagination
 
 
 class File(SQLModel, table=True):
@@ -140,12 +140,12 @@ class CreditWithCategory(CreditBase):
 
 class PaginatedProjects(pydantic.BaseModel):
     pagination: Pagination
-    data: list[ProjectWithClips]
+    data: list[ProjectWithClips] | list[dict[str, typing.Any]]
 
 
 class PaginatedCredits(pydantic.BaseModel):
     pagination: Pagination
-    data: list[CreditWithCategory]
+    data: list[CreditWithCategory] | list[dict[str, typing.Any]]
 
 
 class BinnedValues(pydantic.BaseModel):
@@ -207,3 +207,8 @@ class PaginatedBinnedCreditTotals(pydantic.BaseModel):
 class PaginatedClips(pydantic.BaseModel):
     pagination: Pagination
     data: list[ClipwithProjects] | list[dict[str, typing.Any]]
+
+
+class PaginatedFiles(pydantic.BaseModel):
+    pagination: Pagination
+    data: list[File] | list[dict[str, typing.Any]]

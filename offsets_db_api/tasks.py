@@ -5,9 +5,9 @@ import pandas as pd
 from offsets_db_data.models import clip_schema, credit_schema, project_schema
 from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, String, text
 
-from .cache import watch_dog_file
-from .logging import get_logger
-from .models import File
+from offsets_db_api.cache import watch_dog_file
+from offsets_db_api.log import get_logger
+from offsets_db_api.models import File
 
 logger = get_logger()
 

@@ -4,7 +4,7 @@ import pydantic
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 
-from .settings import Settings, get_settings
+from offsets_db_api.settings import Settings, get_settings
 
 api_key_header = APIKeyHeader(name='X-API-KEY', auto_error=False)
 

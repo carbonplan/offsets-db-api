@@ -2,15 +2,15 @@ import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
-from sqlmodel import Session, or_
+from sqlmodel import Session, col, or_, select
 
-from ..cache import CACHE_NAMESPACE
-from ..database import get_session
-from ..logging import get_logger
-from ..models import Credit, PaginatedCredits, Project
-from ..query_helpers import apply_filters, apply_sorting, handle_pagination
-from ..schemas import Pagination, Registries
-from ..security import check_api_key
+from offsets_db_api.cache import CACHE_NAMESPACE
+from offsets_db_api.database import get_session
+from offsets_db_api.log import get_logger
+from offsets_db_api.models import Credit, PaginatedCredits, Project
+from offsets_db_api.schemas import Pagination, Registries
+from offsets_db_api.security import check_api_key
+from offsets_db_api.sql_helpers import apply_filters, apply_sorting, handle_pagination
 
 router = APIRouter()
 logger = get_logger()
@@ -49,8 +49,8 @@ async def get_credits(
     logger.info(f'Getting credits: {request.url}')
 
     # Outer join to get all credits, even if they don't have a project
-    query = session.query(Credit, Project.category).join(
-        Project, Credit.project_id == Project.project_id, isouter=True
+    statement = select(Credit, Project.category).join(
+        Project, col(Credit.project_id) == col(Project.project_id), isouter=True
     )
 
     filters = [
@@ -65,30 +65,37 @@ async def get_credits(
 
     # Filter for project_id
     if project_id:
-        # insert at the beginning of the list to ensure that it is applied first
         filters.insert(0, ('project_id', project_id, '==', Project))
 
     for attribute, values, operation, model in filters:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
+        statement = apply_filters(
+            statement=statement,
+            model=model,
+            attribute=attribute,
+            values=values,
+            operation=operation,
         )
 
     # Handle 'search' filter separately due to its unique logic
     if search:
         search_pattern = f'%{search}%'
-        query = query.filter(
-            or_(Project.project_id.ilike(search_pattern), Project.name.ilike(search_pattern))
+        statement = statement.where(
+            or_(
+                col(Project.project_id).ilike(search_pattern),
+                col(Project.name).ilike(search_pattern),
+            )
         )
 
     if sort:
-        query = apply_sorting(query=query, sort=sort, model=Credit, primary_key='id')
+        statement = apply_sorting(statement=statement, sort=sort, model=Credit, primary_key='id')
 
     total_entries, current_page, total_pages, next_page, results = handle_pagination(
-        query=query,
+        statement=statement,
         primary_key=Credit.id,
         current_page=current_page,
         per_page=per_page,
         request=request,
+        session=session,
     )
 
     credits_with_category = [
