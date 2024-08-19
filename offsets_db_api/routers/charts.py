@@ -396,19 +396,29 @@ async def get_credits_by_transaction_date(
     authorized_user: bool = Depends(check_api_key),
 ):
     """Get aggregated credit transaction data"""
+    from offsets_db_api.sql_helpers import apply_filters
+
     logger.info(f'Getting credit transaction data: {request.url}')
 
-    # join Credit with Project on project_id
-    query = session.query(Credit, Project.category).join(
-        Project, Credit.project_id == Project.project_id, isouter=True
+    # Base query
+    subquery = (
+        select(
+            col(Credit.transaction_date),
+            col(Credit.quantity),
+            func.unnest(Project.category).label('category'),
+        )
+        .join(Project, col(Credit.project_id) == col(Project.project_id))
+        .alias('subquery')
     )
 
+    query = select(subquery)
+
+    # Apply filters
     filters = [
         ('registry', registry, 'ilike', Project),
         ('country', country, 'ilike', Project),
         ('transaction_type', transaction_type, 'ilike', Credit),
         ('protocol', protocol, 'ANY', Project),
-        ('category', category, 'ANY', Project),
         ('is_compliance', is_compliance, '==', Project),
         ('vintage', vintage, '==', Credit),
         ('transaction_date', transaction_date_from, '>=', Credit),
@@ -417,41 +427,98 @@ async def get_credits_by_transaction_date(
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
+            statement=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
     # Handle 'search' filter separately due to its unique logic
     if search:
         search_pattern = f'%{search}%'
-        query = query.filter(
+        query = query.where(
             or_(
                 col(Project.project_id).ilike(search_pattern),
                 col(Project.name).ilike(search_pattern),
             )
         )
 
-    settings = get_settings()
-    engine = get_engine(database_url=settings.database_url)
+    # Apply category filter
+    if category:
+        query = query.where(subquery.c.category.in_(category))
 
-    logger.info(f'Query statement: {query.statement}')
+    # Get min and max transaction dates
+    min_max_query = select(
+        func.min(subquery.c.transaction_date), func.max(subquery.c.transaction_date)
+    )
+    min_date, max_date = session.exec(min_max_query.select_from(subquery)).fetchone()
 
-    df = pd.read_sql_query(query.statement, engine).explode('category')
-    logger.info(f'Sample of the dataframe with size: {df.shape}\n{df.head()}')
-    # fix the data types
-    df = df.astype({'transaction_date': 'datetime64[ns]'})
-    results = credits_by_transaction_date(df=df, freq=freq, categories=category)
+    if min_date is None or max_date is None:
+        logger.info('✅ No data to bin!')
+        return PaginatedBinnedValues(
+            pagination=Pagination(
+                total_entries=0,
+                total_pages=1,
+                next_page=None,
+                current_page=current_page,
+            ),
+            data=[],
+        )
 
-    total_entries = len(results)
-    total_pages = 1
-    next_page = None
+    # Generate date bins using the original function
+    date_bins = generate_date_bins(min_value=min_date, max_value=max_date, freq=freq)
+
+    # Create a CASE statement for binning
+    bin_case = case(
+        *[
+            (
+                and_(
+                    subquery.c.transaction_date >= bin_start, subquery.c.transaction_date < bin_end
+                ),
+                cast(bin_start, Date),
+            )
+            for bin_start, bin_end in zip(date_bins[:-1], date_bins[1:])
+        ],
+        else_=cast(date_bins[-1].to_pydatetime().date(), Date),
+    ).label('bin')
+
+    # Add binning to the query and aggregate
+    binned_query = (
+        select(bin_case, subquery.c.category, func.sum(subquery.c.quantity).label('value'))
+        .select_from(subquery)
+        .group_by(bin_case, subquery.c.category)
+    )
+
+    # Execute the query
+    results = session.execute(binned_query).fetchall()
+
+    # Format the results
+    formatted_results = []
+    current_year = datetime.datetime.now().year
+    for row in results:
+        start_date = row.bin
+        if start_date.year > current_year:
+            continue  # Skip future dates
+        end_date = date_bins[date_bins.get_loc(pd.Timestamp(start_date)) + 1] - datetime.timedelta(
+            days=1
+        )
+        formatted_results.append(
+            {
+                'start': start_date.strftime('%Y-%m-%d'),
+                'end': end_date.strftime('%Y-%m-%d'),
+                'category': row.category,
+                'value': int(row.value),
+            }
+        )
+
+    # Sort the results
+    formatted_results.sort(key=lambda x: (x['start'], x['category']))
+
     return PaginatedBinnedValues(
         pagination=Pagination(
-            total_entries=total_entries,
-            total_pages=total_pages,
-            next_page=next_page,
+            total_entries=len(formatted_results),
+            total_pages=1,
+            next_page=None,
             current_page=current_page,
         ),
-        data=results,
+        data=formatted_results,
     )
 
 
