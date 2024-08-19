@@ -545,7 +545,7 @@ async def get_credits_by_project_id(
     for row in results:
         start_date = row.bin
         end_date = calculate_end_date(start_date, freq)
-        formatted_results.append({'start': start_date, 'end': end_date, 'value': row.value})
+        formatted_results.append({'start': start_date, 'end': end_date, 'value': int(row.value)})
 
     return PaginatedProjectCreditTotals(
         pagination=Pagination(
@@ -701,7 +701,7 @@ async def get_projects_by_credit_totals(
         bin_index = bins.index(bin_start)
         bin_end = bins[bin_index + 1] if bin_index < len(bins) - 1 else None
         formatted_results.append(
-            {'start': bin_start, 'end': bin_end, 'category': row.category, 'value': row.value}
+            {'start': bin_start, 'end': bin_end, 'category': row.category, 'value': int(row.value)}
         )
 
     logger.info(f'✅ {len(formatted_results)} bins generated')
@@ -801,7 +801,7 @@ async def get_projects_by_category(
 
     results = session.exec(projects_count_query).fetchall()
 
-    formatted_results = [{'category': row.category, 'value': row.value} for row in results]
+    formatted_results = [{'category': row.category, 'value': int(row.value)} for row in results]
 
     return PaginatedProjectCounts(
         data=formatted_results,
