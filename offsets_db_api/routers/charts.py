@@ -36,27 +36,6 @@ def filter_valid_projects(df: pd.DataFrame, categories: list | None = None) -> p
     return valid_projects
 
 
-def projects_by_category(
-    *, df: pd.DataFrame, categories: list | None = None
-) -> list[dict[str, int]]:
-    valid_projects = filter_valid_projects(df, categories)
-    counts = valid_projects.groupby('category').count()['project_id']
-    return [{'category': category, 'value': count} for category, count in counts.items()]
-
-
-def credits_by_category(
-    *, df: pd.DataFrame, categories: list | None = None
-) -> list[dict[str, int]]:
-    valid_projects = filter_valid_projects(df, categories)
-    credits = (
-        valid_projects.groupby('category').agg({'issued': 'sum', 'retired': 'sum'}).reset_index()
-    )
-    return [
-        {'category': row['category'], 'issued': row['issued'], 'retired': row['retired']}
-        for _, row in credits.iterrows()
-    ]
-
-
 def calculate_end_date(start_date, freq):
     """Calculate the end date based on the start date and frequency."""
 
@@ -699,15 +678,17 @@ async def get_projects_by_category(
     authorized_user: bool = Depends(check_api_key),
 ):
     """Get project counts by category"""
+
+    from offsets_db_api.sql_helpers import apply_filters
+
     logger.info(f'Getting project count by category: {request.url}')
 
-    query = session.query(Project)
+    statement = select(Project)
 
     filters = [
         ('registry', registry, 'ilike', Project),
         ('country', country, 'ilike', Project),
         ('protocol', protocol, 'ANY', Project),
-        ('category', category, 'ANY', Project),
         ('is_compliance', is_compliance, '==', Project),
         ('listed_at', listed_at_from, '>=', Project),
         ('listed_at', listed_at_to, '<=', Project),
@@ -718,29 +699,46 @@ async def get_projects_by_category(
     ]
 
     for attribute, values, operation, model in filters:
-        query = apply_filters(
-            query=query, model=model, attribute=attribute, values=values, operation=operation
+        statement = apply_filters(
+            statement=statement,
+            model=model,
+            attribute=attribute,
+            values=values,
+            operation=operation,
         )
 
     # Handle 'search' filter separately due to its unique logic
     if search:
         search_pattern = f'%{search}%'
-        query = query.filter(
+        statement = statement.where(
             or_(
                 col(Project.project_id).ilike(search_pattern),
                 col(Project.name).ilike(search_pattern),
             )
         )
 
-    settings = get_settings()
-    engine = get_engine(database_url=settings.database_url)
+    subquery = statement.subquery()
+    exploded = (
+        select(func.unnest(subquery.c.category).label('category'), subquery.c.project_id)
+        .select_from(subquery)
+        .subquery()
+    )
 
-    df = pd.read_sql_query(query.statement, engine).explode('category')
-    logger.info(f'Sample of the dataframe with size: {df.shape}\n{df.head()}')
-    results = projects_by_category(df=df, categories=category)
+    # apply category filter after unnesting
+    if category:
+        exploded = select(exploded).where(exploded.c.category.in_(category)).subquery()
+
+    # count projects by category
+    projects_count_query = select(
+        exploded.c.category, func.count(exploded.c.project_id.distinct()).label('value')
+    ).group_by(exploded.c.category)
+
+    results = session.exec(projects_count_query).fetchall()
+
+    formatted_results = [{'category': row.category, 'value': row.value} for row in results]
 
     return PaginatedProjectCounts(
-        data=results,
+        data=formatted_results,
         pagination=Pagination(
             current_page=current_page, next_page=None, total_entries=len(results), total_pages=1
         ),
