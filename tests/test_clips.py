@@ -16,6 +16,8 @@ def safe_compare(a: Any, b: Any, direction: int) -> bool:
         return False if direction == 1 else True  # None is largest in ascending order
     if b is None:
         return True if direction == 1 else False  # None is smallest in descending order
+    if isinstance(a, str) and isinstance(b, str):
+        return a <= b if direction == 1 else a >= b  # Case-sensitive comparison
     return a <= b if direction == 1 else a >= b
 
 
@@ -120,7 +122,12 @@ def test_get_clips_with_sort(test_app: TestClient, sort_params: list[str]):
                     value1 = parse_date(value1)
                     value2 = parse_date(value2)
 
-                if not safe_compare(value1, value2, direction):
+                is_correct_order = safe_compare(value1, value2, direction)
+                print(
+                    f"\nComparing {field}: '{value1}' {'<=' if direction == 1 else '>='} '{value2}': {is_correct_order}"
+                )
+
+                if not is_correct_order:
                     print(f'\nSorting error at index {i}:')
                     print(f'Clip 1: {clip1}')
                     print(f'Clip 2: {clip2}')
