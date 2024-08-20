@@ -20,6 +20,7 @@ OffsetsDB-API, is a fastAPI application, designed to integrate and harmonize dat
 [![Fly.io Deployment](https://github.com/carbonplan/offsets-db-api/actions/workflows/fly.yml/badge.svg)](https://github.com/carbonplan/offsets-db-api/actions/workflows/fly.yml)
 [![Database Update](https://github.com/carbonplan/offsets-db-api/actions/workflows/update-db.yaml/badge.svg)](https://github.com/carbonplan/offsets-db-api/actions/workflows/updated-db.yaml)
 ![MIT License](https://badgen.net/badge/license/MIT/blue)
+[![Code Coverage Status][codecov-badge]][codecov-link]
 
 | Project         | GitHub Repo                                                                                    |
 | --------------- | ---------------------------------------------------------------------------------------------- |
@@ -61,3 +62,6 @@ All the code in this repository is [MIT](https://choosealicense.com/licenses/mit
 ## about us
 
 CarbonPlan is a non-profit organization that uses data and science for climate action. We aim to improve the transparency and scientific integrity of carbon removal and climate solutions through open data and tools. Find out more at [carbonplan.org](https://carbonplan.org/) or get in touch by [opening an issue](https://github.com/carbonplan/offsets-db/issues/new) or [sending us an email](mailto:hello@carbonplan.org).
+
+[codecov-badge]: https://img.shields.io/codecov/c/github/carbonplan/offsets-db-api.svg?logo=codecov
+[codecov-link]: https://codecov.io/gh/carbonplan/offsets-db-api
