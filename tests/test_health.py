@@ -55,8 +55,13 @@ class TestAuthorizationEndpoint:
 
     def test_missing_api_key(self, test_app: TestClient, auth_endpoint):
         """Test the response when the API key is missing."""
+
+        original_headers = test_app.headers.copy()
         del test_app.headers['X-API-Key']
         response = test_app.get(auth_endpoint, headers={})
+        # Restore the original headers
+        test_app.headers = original_headers
+
         assert response.status_code == 403
         assert response.json() == {
             'detail': 'Missing API key. Please provide one in the X-API-KEY header.'

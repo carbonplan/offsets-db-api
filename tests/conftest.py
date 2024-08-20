@@ -1,4 +1,4 @@
-import json
+import logging
 import time
 
 import pytest
@@ -8,38 +8,47 @@ from offsets_db_api.database import get_session
 from offsets_db_api.main import create_application
 from offsets_db_api.settings import Settings, get_settings
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Override settings for tests
+
 def get_settings_override():
     return Settings(staging=True, api_key='cowsay')
 
 
-# Fixture to provide a database session per test function
 @pytest.fixture(scope='function')
 def test_db_session():
     session = get_session()
-    yield session  # Yield control to the test function
-    session.close()  # Cleanup after test function is done
+    yield session
+    session.close()
 
 
-# Fixture to provide a test client for FastAPI app; reused across the test session
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='session')
 def test_app():
     app = create_application()
     app.dependency_overrides[get_settings] = get_settings_override
-
     headers = {'X-API-Key': 'cowsay'}
-
     with TestClient(app) as test_client:
         test_client.headers.update(headers)
-        yield test_client  # Yield control to dependent fixtures and tests
+        yield test_client
 
 
-# Auto-used fixture to perform a POST request once per test session
+def wait_for_file_processing(test_app: TestClient, file_ids: list[str], timeout: int = 60) -> bool:
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        all_processed = all(
+            test_app.get(f'/files/{file_id}').json()['status'] == 'success' for file_id in file_ids
+        )
+        if all_processed:
+            return True
+        time.sleep(2)  # Increased sleep time to reduce API calls
+    return False
+
+
 @pytest.fixture(scope='session', autouse=True)
-def setup_post(test_app):
-    # Define payload for POST request
-    payload = [
+def setup_post(test_app: TestClient):
+    payload: list[dict[str, str]] = [
         {
             'url': 's3://carbonplan-offsets-db/final/2024-03-05/credits-augmented.parquet',
             'category': 'credits',
@@ -63,23 +72,17 @@ def setup_post(test_app):
         'Content-Type': 'application/json',
     }
 
-    # Perform POST request
-    post_response = test_app.post('/files', headers=headers, data=json.dumps(payload))
-    print(f'POST response: {post_response.json()}')
+    try:
+        post_response = test_app.post('/files', headers=headers, json=payload)
+        post_response.raise_for_status()
+        logger.info(f'POST response: {post_response.json()}')
 
-    # Wait until files are processed or 10-second timeout is reached
-    timeout = time.time() + 20  # 10 seconds from now
-    while not time.time() > timeout:
-        response_file_1 = test_app.get(f"/files/{post_response.json()[0]['id']}")
-        response_file_2 = test_app.get(f"/files/{post_response.json()[1]['id']}")
-
-        # TODO: Implement your condition check here. If it passes, break out of loop.
-        if (
-            response_file_1.status_code == 200
-            and response_file_2.status_code == 200
-            and response_file_1.json()['status'] == 'success'
-            and response_file_2.json()['status'] == 'success'
-        ):
-            break
-
-        time.sleep(1)  # Sleep for 1 second between checks
+        file_ids = [file['id'] for file in post_response.json()]
+        if wait_for_file_processing(test_app, file_ids):
+            logger.info('All files processed successfully')
+        else:
+            logger.error('Timeout: Not all files were processed')
+            pytest.fail('File processing timeout')
+    except Exception as e:
+        logger.error(f'Error during file setup: {str(e)}')
+        pytest.fail(f'File setup failed: {str(e)}')
