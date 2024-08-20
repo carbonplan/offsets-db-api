@@ -15,14 +15,14 @@ def apply_sorting(
     *,
     statement: _Select[typing.Any] | SelectOfScalar[typing.Any],
     sort: list[str],
-    model: type[Credit | Project | Clip | ClipProject | File | SQLModel],
+    model: type[SQLModel],
     primary_key: str,
 ) -> _Select[typing.Any] | SelectOfScalar[typing.Any]:
     # Define valid column names
     columns = [c.name for c in model.__table__.columns]
 
     # Ensure that the primary key field is always included in the sort parameters list to ensure consistent pagination
-    if primary_key not in sort and f'-{primary_key}' not in sort and f'+{primary_key}' not in sort:
+    if all(s.lstrip('+-') != primary_key for s in sort):
         sort.append(primary_key)
 
     for sort_param in sort:
@@ -47,7 +47,14 @@ def apply_sorting(
             )
 
         # Apply sorting to the statement
-        statement = statement.order_by(nullslast(order(getattr(model, field))))
+        column = getattr(model, field, None)
+        if column is not None:
+            statement = statement.order_by(nullslast(order(column)))
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f'Invalid sort field: {field}. Column not found in model.',
+            )
 
     return statement
 
