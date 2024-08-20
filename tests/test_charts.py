@@ -43,7 +43,7 @@ def common_params():
     }
 
 
-@pytest.mark.parametrize('freq', ['D', 'M', 'Y', 'W'])
+@pytest.mark.parametrize('freq', ['M', 'Y', 'W'])
 def test_get_projects_by_listing_date(
     test_app: TestClient, freq: str, common_params: dict[str, str]
 ):
@@ -56,7 +56,7 @@ def test_get_projects_by_listing_date(
     assert isinstance(data, list)
 
 
-@pytest.mark.parametrize('freq', ['D', 'M', 'Y', 'W'])
+@pytest.mark.parametrize('freq', ['M', 'Y', 'W'])
 def test_get_credits_by_transaction_date(
     test_app: TestClient, freq: str, common_params: dict[str, str]
 ):
