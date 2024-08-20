@@ -61,7 +61,6 @@ jobs:
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         run: |
           flyctl deploy --remote-only --config fly.prod.toml
-          python update_database.py production https://offsets-db.fly.dev/files
 
       - name: Notify Slack on Failure
         if: failure() && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
@@ -111,3 +110,8 @@ jobs:
                 }
               ]
             }
+
+      - name: Update Production DB
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        run: |
+          python update_database.py production https://offsets-db.fly.dev/files
