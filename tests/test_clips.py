@@ -99,56 +99,66 @@ def test_get_clips_with_date_range(test_app: TestClient):
         assert datetime.fromisoformat(date_from) <= clip_date <= datetime.fromisoformat(date_to)
 
 
-@pytest.mark.parametrize('sort_params', [['+date'], ['-source'], ['+type', '-date']])
-def test_get_clips_with_sort(test_app: TestClient, sort_params: list[str]):
-    import itertools
-
-    query_params = '&'.join(f'sort={param}' for param in sort_params)
-    response = test_app.get(f'/clips/?{query_params}')
+def test_clips_sort_by_date(test_app: TestClient):
+    response = test_app.get('/clips/?sort=+date')
     assert response.status_code == 200
     data = response.json()['data']
 
     if not data:
         pytest.skip('No data returned from API')
 
-    print(f'\nSorting by parameters: {sort_params}')
+    dates = [parse_date(clip.get('date')) for clip in data]
+    assert is_sorted(dates), 'Clips are not sorted by date in ascending order'
 
-    for i, param in enumerate(sort_params):
-        direction = 1 if param.startswith('+') else -1
-        field = param.lstrip('+-')
 
-        if field == 'date':
-            values = [parse_date(clip.get(field)) for clip in data]
-        else:
-            values = [clip.get(field) for clip in data]
+def test_clips_sort_by_source_desc(test_app: TestClient):
+    response = test_app.get('/clips/?sort=-source')
+    assert response.status_code == 200
+    data = response.json()['data']
 
-        if i == 0:  # First sort parameter
-            is_correct_order = is_sorted(values, reverse=(direction == -1))
-            print(f"\nSorting by {field} ({'ascending' if direction == 1 else 'descending'}):")
-            for value in values:
-                print(f'  {value}')
-        else:  # Subsequent sort parameters
-            # Group by all previous sort fields
-            group_fields = [p.lstrip('+-') for p in sort_params[:i]]
-            groups = itertools.groupby(data, key=lambda x: tuple(x.get(f) for f in group_fields))
+    if not data:
+        pytest.skip('No data returned from API')
 
-            for group_key, group_data in groups:
-                group_values = [
-                    parse_date(item[field]) if field == 'date' else item.get(field)
-                    for item in group_data
-                ]
-                is_correct_order = is_sorted(group_values, reverse=(direction == -1))
-                print(
-                    f"\nGroup {group_key} sorted by {field} ({'ascending' if direction == 1 else 'descending'}):"
-                )
-                for value in group_values:
-                    print(f'  {value}')
-                if not is_correct_order:
-                    break
+    sources = [clip.get('source') for clip in data]
+    assert is_sorted(sources, reverse=True), 'Clips are not sorted by source in descending order'
 
-        assert is_correct_order, f'Sorting by {field} failed'
 
-    print(f'\nSorting successful for parameters: {sort_params}')
+def test_clips_sort_by_type_and_date(test_app: TestClient):
+    response = test_app.get('/clips/?sort=+type&sort=-date')
+    assert response.status_code == 200
+    data = response.json()['data']
+
+    if not data:
+        pytest.skip('No data returned from API')
+
+    # Check if sorted by type
+    types = [clip.get('type') for clip in data]
+    assert is_sorted(types), 'Clips are not sorted by type in ascending order'
+
+    # Check if sorted by date within each type
+    from itertools import groupby
+
+    for _, group in groupby(data, key=lambda x: x.get('type')):
+        group_dates = [parse_date(clip.get('date')) for clip in group]
+        assert is_sorted(
+            group_dates, reverse=True
+        ), f'Dates are not sorted in descending order within type {_}'
+
+
+def test_clips_sort_with_missing_values(test_app: TestClient):
+    response = test_app.get('/clips/?sort=+source')
+    assert response.status_code == 200
+    data = response.json()['data']
+
+    if not data:
+        pytest.skip('No data returned from API')
+
+    sources = [clip.get('source') for clip in data]
+    non_none_sources = [s for s in sources if s is not None]
+    assert is_sorted(non_none_sources), 'Non-None sources are not sorted in ascending order'
+    assert all(
+        s is None for s in sources[len(non_none_sources) :]
+    ), 'None values are not at the end'
 
 
 def test_get_clips_with_invalid_sort(test_app: TestClient):
