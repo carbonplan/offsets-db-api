@@ -5,12 +5,16 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-def parse_date(date_string):
+def parse_date(date_string: str) -> datetime:
     return datetime.fromisoformat(date_string.rstrip('Z')) if date_string else None
 
 
 def is_sorted(items: list[Any], reverse: bool = False) -> bool:
-    return all(a >= b if reverse else a <= b for a, b in zip(items, items[1:]))
+    return all(
+        a >= b if reverse else a <= b
+        for a, b in zip(items, items[1:])
+        if a is not None and b is not None
+    )
 
 
 @pytest.fixture
@@ -97,6 +101,8 @@ def test_get_clips_with_date_range(test_app: TestClient):
 
 @pytest.mark.parametrize('sort_params', [['+date'], ['-source'], ['+type', '-date']])
 def test_get_clips_with_sort(test_app: TestClient, sort_params: list[str]):
+    import itertools
+
     query_params = '&'.join(f'sort={param}' for param in sort_params)
     response = test_app.get(f'/clips/?{query_params}')
     assert response.status_code == 200
@@ -105,20 +111,40 @@ def test_get_clips_with_sort(test_app: TestClient, sort_params: list[str]):
     if not data:
         pytest.skip('No data returned from API')
 
-    for param in sort_params:
+    print(f'\nSorting by parameters: {sort_params}')
+
+    for i, param in enumerate(sort_params):
         direction = 1 if param.startswith('+') else -1
         field = param.lstrip('+-')
 
         if field == 'date':
-            values = [parse_date(clip[field]) for clip in data]
+            values = [parse_date(clip.get(field)) for clip in data]
         else:
             values = [clip.get(field) for clip in data]
 
-        is_correct_order = is_sorted(values, reverse=(direction == -1))
+        if i == 0:  # First sort parameter
+            is_correct_order = is_sorted(values, reverse=(direction == -1))
+            print(f"\nSorting by {field} ({'ascending' if direction == 1 else 'descending'}):")
+            for value in values:
+                print(f'  {value}')
+        else:  # Subsequent sort parameters
+            # Group by all previous sort fields
+            group_fields = [p.lstrip('+-') for p in sort_params[:i]]
+            groups = itertools.groupby(data, key=lambda x: tuple(x.get(f) for f in group_fields))
 
-        print(f"\nSorting by {field} ({'ascending' if direction == 1 else 'descending'}):")
-        for value in values:
-            print(f'  {value}')
+            for group_key, group_data in groups:
+                group_values = [
+                    parse_date(item[field]) if field == 'date' else item.get(field)
+                    for item in group_data
+                ]
+                is_correct_order = is_sorted(group_values, reverse=(direction == -1))
+                print(
+                    f"\nGroup {group_key} sorted by {field} ({'ascending' if direction == 1 else 'descending'}):"
+                )
+                for value in group_values:
+                    print(f'  {value}')
+                if not is_correct_order:
+                    break
 
         assert is_correct_order, f'Sorting by {field} failed'
 
