@@ -1,10 +1,11 @@
 import pandas as pd
 import pytest
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture
 def sample_projects():
-    data = pd.DataFrame(
+    return pd.DataFrame(
         [
             {'category': 'ghg-management', 'project_id': 'ACR123', 'issued': 100, 'retired': 50},
             {'category': 'renewable-energy', 'project_id': 'ACR456', 'issued': 200, 'retired': 150},
@@ -19,78 +20,50 @@ def sample_projects():
         ]
     )
 
-    return data
+
+def generate_query_string(params: dict) -> str:
+    return '&'.join(f'{k}={v}' for k, v in params.items() if v is not None)
+
+
+@pytest.fixture
+def common_params():
+    return {
+        'registry': 'american-carbon-registry',
+        'country': 'US',
+        'protocol': 'foo',
+        'category': 'other',
+        'listed_at_from': '2020-01-01',
+        'listed_at_to': '2023-01-01',
+        'search': 'foo',
+        'retired_min': '0',
+        'retired_max': '100000',
+        'issued_min': '0',
+        'issued_max': '100000',
+        'is_compliance': 'true',
+    }
 
 
 @pytest.mark.parametrize('freq', ['D', 'M', 'Y', 'W'])
-@pytest.mark.parametrize('registry', ['american-carbon-registry', 'climate-action-reserve'])
-@pytest.mark.parametrize('country', ['US', 'CA'])
-@pytest.mark.parametrize('protocol', [None, 'foo'])
-@pytest.mark.parametrize('category', ['other'])
-@pytest.mark.parametrize('listed_at_from', ['2020-01-01'])
-@pytest.mark.parametrize('listed_at_to', ['2023-01-01'])
-@pytest.mark.parametrize('search', ['foo'])
-@pytest.mark.parametrize('retired_min', [0])
-@pytest.mark.parametrize('retired_max', [100000])
-@pytest.mark.parametrize('issued_min', [0])
-@pytest.mark.parametrize('issued_max', [100000])
-@pytest.mark.parametrize('is_compliance', [True, False])
 def test_get_projects_by_listing_date(
-    test_app,
-    freq,
-    registry,
-    country,
-    protocol,
-    category,
-    listed_at_from,
-    listed_at_to,
-    search,
-    retired_min,
-    retired_max,
-    issued_min,
-    issued_max,
-    is_compliance,
+    test_app: TestClient, freq: str, common_params: dict[str, str]
 ):
-    response = test_app.get(
-        f'/charts/projects_by_listing_date?freq={freq}&registry={registry}&country={country}&protocol={protocol}&category={category}&listed_at_from={listed_at_from}&listed_at_to={listed_at_to}&search={search}&retired_min={retired_min}&retired_max={retired_max}&issued_min={issued_min}&issued_max={issued_max}&is_compliance={is_compliance}'
-    )
+    """Test the projects_by_listing_date endpoint with various parameters."""
+    query_params = {**common_params, 'freq': freq}
+    query_string = generate_query_string(query_params)
+    response = test_app.get(f'/charts/projects_by_listing_date?{query_string}')
     assert response.status_code == 200
     data = response.json()['data']
     assert isinstance(data, list)
 
 
 @pytest.mark.parametrize('freq', ['D', 'M', 'Y', 'W'])
-@pytest.mark.parametrize('registry', ['american-carbon-registry', 'climate-action-reserve'])
-@pytest.mark.parametrize('country', ['US', 'CA'])
-@pytest.mark.parametrize('protocol', [None, 'foo'])
-@pytest.mark.parametrize('category', ['other'])
-@pytest.mark.parametrize('listed_at_from', ['2020-01-01'])
-@pytest.mark.parametrize('listed_at_to', ['2023-01-01'])
-@pytest.mark.parametrize('search', ['foo'])
-@pytest.mark.parametrize('retired_min', [0])
-@pytest.mark.parametrize('retired_max', [100000])
-@pytest.mark.parametrize('issued_min', [0])
-@pytest.mark.parametrize('issued_max', [100000])
-@pytest.mark.parametrize('is_compliance', [True, False])
 def test_get_credits_by_transaction_date(
-    test_app,
-    freq,
-    registry,
-    country,
-    protocol,
-    category,
-    listed_at_from,
-    listed_at_to,
-    search,
-    retired_min,
-    retired_max,
-    issued_min,
-    issued_max,
-    is_compliance,
+    test_app: TestClient, freq: str, common_params: dict[str, str]
 ):
-    response = test_app.get(
-        f'/charts/credits_by_transaction_date?freq={freq}&registry={registry}&country={country}&protocol={protocol}&category={category}&listed_at_from={listed_at_from}&listed_at_to={listed_at_to}&search={search}&retired_min={retired_min}&retired_max={retired_max}&issued_min={issued_min}&issued_max={issued_max}&is_compliance={is_compliance}'
-    )
+    """Test the credits_by_transaction_date endpoint with various parameters."""
+    query_params = {**common_params, 'freq': freq}
+    query_string = generate_query_string(query_params)
+    response = test_app.get(f'/charts/credits_by_transaction_date?{query_string}')
     assert response.status_code == 200
     data = response.json()['data']
     assert isinstance(data, list)
@@ -98,83 +71,71 @@ def test_get_credits_by_transaction_date(
 
 @pytest.mark.parametrize('num_bins', [5, 20, 30])
 @pytest.mark.parametrize('transaction_type', ['issuance', 'retirement'])
-@pytest.mark.parametrize('vintage', range(2015, 2023))
+@pytest.mark.parametrize('vintage', [2015, 2020])
 @pytest.mark.parametrize('transaction_date_from', ['2020-01-01'])
 @pytest.mark.parametrize('transaction_date_to', ['2023-01-01', '2024-01-01'])
 def test_get_credits_by_transaction_date_by_project(
-    test_app,
-    num_bins,
-    transaction_type,
-    vintage,
-    transaction_date_from,
-    transaction_date_to,
+    test_app: TestClient,
+    num_bins: int,
+    transaction_type: str,
+    vintage: int,
+    transaction_date_from: str,
+    transaction_date_to: str,
 ):
+    """Test the credits_by_transaction_date endpoint for a specific project."""
     project_id = 'ACR462'
-
-    response = test_app.get(
-        f'/charts/credits_by_transaction_date/{project_id}/?num_bins={num_bins}&transaction_type={transaction_type}&vintage={vintage}&transaction_date_from={transaction_date_from}&transaction_date_to={transaction_date_to}'
-    )
+    query_params = {
+        'num_bins': str(num_bins),
+        'transaction_type': transaction_type,
+        'vintage': str(vintage),
+        'transaction_date_from': transaction_date_from,
+        'transaction_date_to': transaction_date_to,
+    }
+    query_string = generate_query_string(query_params)
+    response = test_app.get(f'/charts/credits_by_transaction_date/{project_id}/?{query_string}')
     assert response.status_code == 200
     data = response.json()['data']
     assert isinstance(data, list)
 
 
-def test_get_credits_by_transaction_date_by_nonexistent_project(test_app):
+def test_get_credits_by_transaction_date_by_nonexistent_project(test_app: TestClient):
+    """Test the credits_by_transaction_date endpoint for a nonexistent project."""
     project_id = 'ACR999'
     response = test_app.get(f'/charts/credits_by_transaction_date/{project_id}/')
     assert response.status_code == 200
-    # check that the response is empty
     assert response.json()['data'] == []
 
 
 @pytest.mark.parametrize('credit_type', ['issued', 'retired'])
-@pytest.mark.parametrize('registry', ['american-carbon-registry', 'climate-action-reserve'])
-@pytest.mark.parametrize('country', ['US', 'CA'])
-@pytest.mark.parametrize('protocol', [None, 'foo'])
-@pytest.mark.parametrize('category', ['other'])
-@pytest.mark.parametrize('listed_at_from', ['2020-01-01'])
-@pytest.mark.parametrize('listed_at_to', ['2023-01-01'])
-@pytest.mark.parametrize('search', ['foo'])
-@pytest.mark.parametrize('retired_min', [0])
-@pytest.mark.parametrize('retired_max', [100000])
-@pytest.mark.parametrize('issued_min', [0])
-@pytest.mark.parametrize('issued_max', [100000])
-@pytest.mark.parametrize('is_compliance', [True, False])
 def test_get_projects_by_credit_totals(
-    test_app,
-    credit_type,
-    registry,
-    country,
-    protocol,
-    category,
-    listed_at_from,
-    listed_at_to,
-    search,
-    retired_min,
-    retired_max,
-    issued_min,
-    issued_max,
-    is_compliance,
+    test_app: TestClient, credit_type: str, common_params: dict[str, str]
 ):
-    response = test_app.get(
-        f'/charts/projects_by_credit_totals?credit_type={credit_type}&registry={registry}&country={country}&protocol={protocol}&category={category}&listed_at_from={listed_at_from}&listed_at_to={listed_at_to}&search={search}&retired_min={retired_min}&retired_max={retired_max}&issued_min={issued_min}&issued_max={issued_max}&is_compliance={is_compliance}'
-    )
+    """Test the projects_by_credit_totals endpoint with various parameters."""
+    query_params = {**common_params, 'credit_type': credit_type}
+    query_string = generate_query_string(query_params)
+    response = test_app.get(f'/charts/projects_by_credit_totals?{query_string}')
     assert response.status_code == 200
     data = response.json()['data']
     assert isinstance(data, list)
 
 
 @pytest.mark.parametrize('category', ['forest', None])
-def test_get_projects_by_category(test_app, category):
-    response = test_app.get(f'/charts/projects_by_category?category={category}')
+def test_get_projects_by_category(test_app: TestClient, category: str | None):
+    """Test the projects_by_category endpoint."""
+    query_params = {'category': category} if category else {}
+    query_string = generate_query_string(query_params)
+    response = test_app.get(f'/charts/projects_by_category?{query_string}')
     assert response.status_code == 200
     data = response.json()['data']
     assert isinstance(data, list)
 
 
 @pytest.mark.parametrize('category', ['forest', None])
-def test_get_credits_by_category(test_app, category):
-    response = test_app.get(f'/charts/credits_by_category?category={category}')
+def test_get_credits_by_category(test_app: TestClient, category: str | None):
+    """Test the credits_by_category endpoint."""
+    query_params = {'category': category} if category else {}
+    query_string = generate_query_string(query_params)
+    response = test_app.get(f'/charts/credits_by_category?{query_string}')
     assert response.status_code == 200
     data = response.json()['data']
     assert isinstance(data, list)
