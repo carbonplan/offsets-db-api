@@ -9,16 +9,8 @@ def parse_date(date_string):
     return datetime.fromisoformat(date_string.rstrip('Z')) if date_string else None
 
 
-def safe_compare(a: Any, b: Any, direction: int) -> bool:
-    if a is None and b is None:
-        return True
-    if a is None:
-        return False if direction == 1 else True  # None is largest in ascending order
-    if b is None:
-        return True if direction == 1 else False  # None is smallest in descending order
-    if isinstance(a, str) and isinstance(b, str):
-        return a <= b if direction == 1 else a >= b  # Case-sensitive comparison
-    return a <= b if direction == 1 else a >= b
+def is_sorted(items: list[Any], reverse: bool = False) -> bool:
+    return all(a >= b if reverse else a <= b for a, b in zip(items, items[1:]))
 
 
 @pytest.fixture
@@ -108,35 +100,29 @@ def test_get_clips_with_sort(test_app: TestClient, sort_params: list[str]):
     query_params = '&'.join(f'sort={param}' for param in sort_params)
     response = test_app.get(f'/clips/?{query_params}')
     assert response.status_code == 200
-    if data := response.json()['data']:
-        for i, clip1 in enumerate(data[:-1]):
-            clip2 = data[i + 1]
-            for param in sort_params:
-                direction = 1 if param.startswith('+') else -1
-                field = param.lstrip('+-')
+    data = response.json()['data']
 
-                value1 = clip1.get(field)
-                value2 = clip2.get(field)
+    if not data:
+        pytest.skip('No data returned from API')
 
-                if field == 'date':
-                    value1 = parse_date(value1)
-                    value2 = parse_date(value2)
+    for param in sort_params:
+        direction = 1 if param.startswith('+') else -1
+        field = param.lstrip('+-')
 
-                is_correct_order = safe_compare(value1, value2, direction)
-                print(
-                    f"\nComparing {field}: '{value1}' {'<=' if direction == 1 else '>='} '{value2}': {is_correct_order}"
-                )
+        if field == 'date':
+            values = [parse_date(clip[field]) for clip in data]
+        else:
+            values = [clip.get(field) for clip in data]
 
-                if not is_correct_order:
-                    print(f'\nSorting error at index {i}:')
-                    print(f'Clip 1: {clip1}')
-                    print(f'Clip 2: {clip2}')
-                    assert False, f'Sorting by {field} failed'
+        is_correct_order = is_sorted(values, reverse=(direction == -1))
 
-                if value1 != value2:
-                    break  # If values are different, don't check next sort parameter
+        print(f"\nSorting by {field} ({'ascending' if direction == 1 else 'descending'}):")
+        for value in values:
+            print(f'  {value}')
 
-        print(f'\nSorting successful for parameters: {sort_params}')
+        assert is_correct_order, f'Sorting by {field} failed'
+
+    print(f'\nSorting successful for parameters: {sort_params}')
 
 
 def test_get_clips_with_invalid_sort(test_app: TestClient):
