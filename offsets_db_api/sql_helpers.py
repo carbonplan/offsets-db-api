@@ -4,7 +4,20 @@ from urllib.parse import quote
 
 from fastapi import HTTPException, Request
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlmodel import Session, SQLModel, and_, asc, desc, distinct, func, nullslast, or_, select
+from sqlmodel import (
+    Session,
+    SQLModel,
+    String,
+    Text,
+    and_,
+    asc,
+    desc,
+    distinct,
+    func,
+    nullslast,
+    or_,
+    select,
+)
 from sqlmodel.sql.expression import Select as _Select, SelectOfScalar
 
 from offsets_db_api.models import Clip, ClipProject, Credit, File, Project
@@ -48,14 +61,17 @@ def apply_sorting(
 
         # Apply sorting to the statement
         column = getattr(model, field, None)
-        if column is not None:
-            statement = statement.order_by(nullslast(order(column)))
-        else:
+        if column is None:
             raise HTTPException(
                 status_code=400,
                 detail=f'Invalid sort field: {field}. Column not found in model.',
             )
 
+        if isinstance(column.type, String | Text):
+            # Case-insensitive sort for string fields
+            statement = statement.order_by(nullslast(order(func.lower(column))))
+        else:
+            statement = statement.order_by(nullslast(order(column)))
     return statement
 
 
