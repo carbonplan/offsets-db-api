@@ -1,84 +1,128 @@
-import datetime
-import json
-import time
+from datetime import datetime, timedelta
+
+import pytest
+from fastapi.testclient import TestClient
 
 
-def test_submit_bad_file(test_app):
-    response = test_app.post('/files', json=[{'url': 'http://foo.com', 'category': 'projects'}])
+@pytest.mark.parametrize(
+    'url, category',
+    [
+        ('http://foo.com', 'projects'),
+        ('https://example.com', 'credits'),
+    ],
+)
+def test_submit_bad_file(test_app: TestClient, url: str, category: str):
+    response = test_app.post('/files', json=[{'url': url, 'category': category}])
     assert response.status_code == 200
     data = response.json()[0]
-    assert data['url'] == 'http://foo.com'
+    assert data['url'] == url
     assert data['content_hash'] is None
     assert data['status'] == 'pending'
 
-    response = test_app.get(f"/files/{data['id']}")
-    assert response.json()['url'] == 'http://foo.com'
+    file_response = test_app.get(f"/files/{data['id']}")
+    assert file_response.json()['url'] == url
 
 
-def test_submit_file(test_app):
-    urls = [
+@pytest.fixture
+def file_urls():
+    return [
         {
-            'url': 's3://carbonplan-offsets-db/final/2024-03-05/credits-augmented.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2024-08-13/credits-augmented.parquet',
             'category': 'credits',
         },
         {
-            'url': 's3://carbonplan-offsets-db/final/2024-03-05/projects-augmented.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2024-08-13/projects-augmented.parquet',
             'category': 'projects',
         },
         {
-            'url': 's3://carbonplan-offsets-db/final/2024-03-05/curated-clips.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2024-08-13/curated-clips.parquet',
             'category': 'clips',
         },
         {
-            'url': 's3://carbonplan-offsets-db/final/2024-03-05/weekly-summary-clips.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2024-08-13/weekly-summary-clips.parquet',
             'category': 'clips',
         },
     ]
 
+
+def test_submit_file(test_app: TestClient, file_urls):
     headers = {
         'accept': 'application/json',
         'Content-Type': 'application/json',
     }
-    response = test_app.post('/files', headers=headers, data=json.dumps(urls))
+    response = test_app.post('/files', headers=headers, json=file_urls)
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
-    assert len(data) == len(urls)
-    for i, url in enumerate(urls):
-        assert data[i]['url'] == url['url']
-        assert data[i]['content_hash'] is None
-        assert data[i]['status'] == 'pending'
+    assert len(data) == len(file_urls)
 
-    time.sleep(2)
-    response = test_app.get(f"/files/{response.json()[0]['id']}")
-    assert response.json()['url'] == urls[0]['url']
-    assert response.json()['status'] == 'success'
+    for submitted_file, url_data in zip(data, file_urls):
+        assert submitted_file['url'] == url_data['url']
+        assert submitted_file['content_hash'] is None
+        assert submitted_file['status'] == 'pending'
+
+    # Check the status of the first file after submission
+    file_response = test_app.get(f"/files/{data[0]['id']}")
+    assert file_response.json()['url'] == file_urls[0]['url']
+    assert file_response.json()['status'] == 'success'
 
 
-def test_get_files(test_app):
+def test_get_files(test_app: TestClient):
     response = test_app.get('/files')
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
+    data = response.json()
+    assert isinstance(data, dict)
+    assert 'data' in data
+    assert isinstance(data['data'], list)
 
 
-def test_get_files_limit_offset(test_app):
-    response = test_app.get('/files?limit=1&offset=1')
+@pytest.mark.parametrize(
+    'current_page, per_page',
+    [
+        (1, 1),
+        (2, 5),
+        (3, 10),
+    ],
+)
+def test_get_files_pagination(test_app: TestClient, current_page: int, per_page: int):
+    response = test_app.get(f'/files?current_page={current_page}&per_page={per_page}')
     assert response.status_code == 200
-    assert len(response.json()) == 1
+    data = response.json()
+    assert isinstance(data, dict)
+    assert 'data' in data
+    assert isinstance(data['data'], list)
+    assert len(data['data']) <= per_page
+    assert data['pagination']['current_page'] == current_page
 
 
-def test_get_files_with_filters(test_app):
-    recorded_at_from = datetime.datetime.now() - datetime.timedelta(days=30)
-    recorded_at_to = datetime.datetime.now() + datetime.timedelta(days=1)
+@pytest.mark.parametrize(
+    'status, category',
+    [
+        ('success', 'projects'),
+        ('success', 'credits'),
+        ('success', 'clips'),
+    ],
+)
+def test_get_files_with_filters(test_app: TestClient, status: str, category: str):
+    recorded_at_from = (datetime.now() - timedelta(days=30)).isoformat()
+    recorded_at_to = (datetime.now() + timedelta(days=1)).isoformat()
+
     response = test_app.get(
-        f'/files?status=success&category=projects&recorded_at_from={recorded_at_from.isoformat()}&recorded_at_to={recorded_at_to.isoformat()}'
+        f'/files?status={status}&category={category}&recorded_at_from={recorded_at_from}&recorded_at_to={recorded_at_to}'
     )
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
-    assert len(response.json()) > 0
-    for file in response.json():
-        assert file['status'] == 'success'
-        assert file['category'] == 'projects'
-        recorded_at = datetime.datetime.fromisoformat(file['recorded_at'])
-        assert recorded_at >= recorded_at_from
-        assert recorded_at <= recorded_at_to
+    data = response.json()
+    assert isinstance(data, dict)
+    assert 'data' in data
+    assert isinstance(data['data'], list)
+    assert len(data['data']) > 0
+
+    for file in data['data']:
+        assert file['status'] == status
+        assert file['category'] == category
+        recorded_at = datetime.fromisoformat(file['recorded_at'])
+        assert (
+            datetime.fromisoformat(recorded_at_from)
+            <= recorded_at
+            <= datetime.fromisoformat(recorded_at_to)
+        )

@@ -73,4 +73,13 @@ jobs:
 
       - name: Run tests
         run: |
-          python -m pytest -v
+          python -m pytest
+
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v4.5.0
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          env_vars: OS,PYTHON
+          name: codecov-umbrella
+          fail_ci_if_error: false

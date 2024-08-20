@@ -7,7 +7,6 @@ gunicorn
 httpx
 offsets-db-data>=2024.6.0
 pandas>=1.5.3
-pandera>=0.17
 psycopg2-binary==2.9.9
 pydantic-settings>=2.1
 pydantic>=2.5
