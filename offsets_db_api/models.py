@@ -119,6 +119,10 @@ class CreditBase(SQLModel):
         description='Date of transaction', strict=False
     )
     transaction_type: str | None = Field(description='Type of transaction')
+    account: str | None = Field(description='Account used for transaction')
+    beneficiary: str | None = Field(description='Beneficiary of credits')
+    reason: str | None = Field(description='Reason for transaction')
+    note: str | None = Field(description='Note')
 
 
 class Credit(CreditBase, table=True):
