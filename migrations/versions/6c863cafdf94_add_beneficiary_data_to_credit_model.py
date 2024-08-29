@@ -1,8 +1,8 @@
-"""reset migrations and add new fields to project
+"""add beneficiary data to credit model
 
-Revision ID: 895a2d11e837
+Revision ID: 6c863cafdf94
 Revises:
-Create Date: 2023-12-06 04:34:16.583574
+Create Date: 2024-08-28 16:25:27.798958
 
 """
 
@@ -12,7 +12,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = '895a2d11e837'
+revision = '6c863cafdf94'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -29,7 +29,7 @@ def upgrade() -> None:
         sa.Column('tags', postgresql.ARRAY(sa.String()), nullable=True),
         sa.Column('notes', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column('is_waybacked', sa.Boolean(), nullable=True),
-        sa.Column('type', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column('type', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column('id', sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint('id'),
     )
@@ -91,6 +91,10 @@ def upgrade() -> None:
         sa.Column('vintage', sa.Integer(), nullable=True),
         sa.Column('transaction_date', sa.Date(), nullable=True),
         sa.Column('transaction_type', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column('account', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column('beneficiary', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column('reason', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column('note', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('project_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.ForeignKeyConstraint(
