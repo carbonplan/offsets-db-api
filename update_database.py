@@ -13,7 +13,7 @@ def generate_path(*, date: datetime.date, bucket: str, category: str) -> str:
 
 
 def calculate_date(*, days_back: int) -> datetime.date:
-    return datetime.datetime.utcnow().date() - datetime.timedelta(days=days_back)
+    return datetime.datetime.now(datetime.timezone.utc).date() - datetime.timedelta(days=days_back)
 
 
 def get_latest(*, bucket: str):
@@ -41,7 +41,7 @@ def get_latest(*, bucket: str):
         data.append({'category': key, 'url': entry_url})
 
     weekly_summary_start = datetime.date(year=2024, month=2, day=6)
-    weekly_summary_end = datetime.datetime.utcnow().date()
+    weekly_summary_end = datetime.datetime.now(datetime.timezone.utc).date()
     date_ranges = pd.date_range(
         start=weekly_summary_start, end=weekly_summary_end, freq='W-TUE', inclusive='both'
     )
@@ -62,12 +62,6 @@ def get_latest(*, bucket: str):
 
 
 def post_data_to_environment(*, env: str, bucket: str) -> None:
-    # Set up the headers for the request
-    headers = {
-        'accept': 'application/json',
-        'Content-Type': 'application/json',
-    }
-
     if env == 'production':
         files = get_latest(bucket=bucket)
 
@@ -104,8 +98,11 @@ def post_data_to_environment(*, env: str, bucket: str) -> None:
         if api_key is None:
             raise ValueError('OFFSETS_DB_API_KEY_STAGING environment variable not set')
 
-    headers['X-API-KEY'] = api_key
-
+    headers = {
+        'accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-API-KEY': api_key,
+    }
     # Send the request
     response = requests.post(url, headers=headers, data=json.dumps(files))
 
