@@ -68,19 +68,19 @@ def post_data_to_environment(*, env: str, bucket: str) -> None:
     else:
         files = [
             {
-                'url': 's3://carbonplan-offsets-db/final/2024-03-05/credits-augmented.parquet',
+                'url': 's3://carbonplan-offsets-db/final/2024-08-28/credits-augmented.parquet',
                 'category': 'credits',
             },
             {
-                'url': 's3://carbonplan-offsets-db/final/2024-03-05/projects-augmented.parquet',
+                'url': 's3://carbonplan-offsets-db/final/2024-08-28/projects-augmented.parquet',
                 'category': 'projects',
             },
             {
-                'url': 's3://carbonplan-offsets-db/final/2024-03-05/curated-clips.parquet',
+                'url': 's3://carbonplan-offsets-db/final/2024-08-28/curated-clips.parquet',
                 'category': 'clips',
             },
             {
-                'url': 's3://carbonplan-offsets-db/final/2024-03-05/weekly-summary-clips.parquet',
+                'url': 's3://carbonplan-offsets-db/final/2024-08-27/weekly-summary-clips.parquet',
                 'category': 'clips',
             },
         ]
