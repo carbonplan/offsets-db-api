@@ -34,10 +34,10 @@ async def get_credits(
     ),
     search: str | None = Query(
         None,
-        description='Search string. Use "r:" prefix for regex search, "e:" for exact match, "entity:" for entity-specific search, or leave blank for case-insensitive partial match.',
+        description='Search string. Use "r:" prefix for regex search, or leave blank for case-insensitive partial match.',
     ),
     search_fields: list[str] = Query(
-        ['beneficiary', 'account', 'note', 'reason'],
+        default=['beneficiary', 'account', 'note', 'reason'],
         description='Fields to search in',
     ),
     sort: list[str] = Query(
@@ -109,7 +109,7 @@ async def get_credits(
     if sort:
         statement = apply_sorting(statement=statement, sort=sort, model=Credit, primary_key='id')
 
-    logger.info(f"SQL Query: {statement.compile(compile_kwargs={'literal_binds': True})}")
+    logger.info(f"SQL Credits Query: {statement.compile(compile_kwargs={'literal_binds': True})}")
 
     total_entries, current_page, total_pages, next_page, results = handle_pagination(
         statement=statement,
