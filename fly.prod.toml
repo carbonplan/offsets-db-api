@@ -5,7 +5,7 @@ kill_timeout = 5
 primary_region = "dfw"
 
 [build]
-builder = "paketobuildpacks/builder-jammy-full:latest"
+builder = "paketobuildpacks/builder-jammy-full:0.3.387" # pin until https://github.com/paketo-buildpacks/builder-jammy-full/issues/556 is fixed
 buildpacks = ["gcr.io/paketo-buildpacks/python"]
 
 [[vm]]
