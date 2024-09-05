@@ -54,13 +54,13 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy to Staging
         run: |
-          flyctl deploy --remote-only --config fly.staging.toml
+          flyctl deploy --remote-only --config fly.staging.toml --depot
           python update_database.py staging https://offsets-db-staging.fly.dev/files
 
       - name: Deploy to Production
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         run: |
-          flyctl deploy --remote-only --config fly.prod.toml
+          flyctl deploy --remote-only --config fly.prod.toml --depot
 
       - name: Notify Slack on Failure
         if: failure() && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
