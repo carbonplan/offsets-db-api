@@ -37,7 +37,12 @@ async def get_credits(
         description='Search string. Use "r:" prefix for regex search, or leave blank for case-insensitive partial match.',
     ),
     search_fields: list[str] = Query(
-        default=['beneficiary', 'account', 'note', 'reason'],
+        default=[
+            'retirement_beneficiary',
+            'retirement_account',
+            'retirement_note',
+            'retirement_reason',
+        ],
         description='Fields to search in',
     ),
     sort: list[str] = Query(
