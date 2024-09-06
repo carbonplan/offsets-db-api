@@ -5,8 +5,8 @@ kill_timeout = 5
 primary_region = "dfw"
 
 [build]
-builder = "paketobuildpacks/builder-jammy-full:0.3.387" # pin until https://github.com/paketo-buildpacks/builder-jammy-full/issues/556 is fixed
-buildpacks = ["gcr.io/paketo-buildpacks/python"]
+builder = "heroku/builder:24"
+buildpacks = ["heroku/buildpack-python:0.17.0"]
 
 [[vm]]
   size = "performance-2x"
