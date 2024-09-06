@@ -35,8 +35,8 @@ class ProjectBase(SQLModel):
     )
     status: str | None
     country: str | None
-    listed_at: datetime.date | None = pydantic.Field(
-        description='Date project was listed', strict=False
+    listed_at: datetime.date | None = Field(
+        description='Date project was listed',
     )
     is_compliance: bool | None = Field(description='Whether project is compliance project')
     retired: int | None = Field(
@@ -45,11 +45,11 @@ class ProjectBase(SQLModel):
     issued: int | None = Field(
         description='Total of issued credits', default=0, sa_column=Column(BigInteger())
     )
-    first_issuance_at: datetime.date | None = pydantic.Field(
-        description='Date of first issuance of credits', strict=False
+    first_issuance_at: datetime.date | None = Field(
+        description='Date of first issuance of credits',
     )
-    first_retirement_at: datetime.date | None = pydantic.Field(
-        description='Date of first retirement of credits', strict=False
+    first_retirement_at: datetime.date | None = Field(
+        description='Date of first retirement of credits',
     )
     project_url: str | None = Field(description='URL to project details')
 
@@ -67,7 +67,7 @@ class Project(ProjectBase, table=True):
 
 
 class ClipBase(SQLModel):
-    date: datetime.date = pydantic.Field(description='Date the clip was published', strict=False)
+    date: datetime.date = Field(description='Date the clip was published')
     title: str | None = Field(description='Title of the clip')
     url: str | None = Field(description='URL to the clip')
     source: str | None = Field(description='Source of the clip')
@@ -115,14 +115,14 @@ class ProjectWithClips(ProjectBase):
 class CreditBase(SQLModel):
     quantity: int = Field(description='Number of credits', sa_column=Column(BigInteger()))
     vintage: int | None = Field(description='Vintage year of credits')
-    transaction_date: datetime.date | None = pydantic.Field(
-        description='Date of transaction', strict=False
-    )
+    transaction_date: datetime.date | None = Field(description='Date of transaction', index=True)
     transaction_type: str | None = Field(description='Type of transaction')
-    account: str | None = Field(description='Account used for the transaction')
-    beneficiary: str | None = Field(description='Beneficiary of credits')
-    reason: str | None = Field(description='Reason for transaction')
-    note: str | None = Field(description='Note')
+    retirement_account: str | None = Field(
+        description='Account used for the transaction', index=True
+    )
+    retirement_beneficiary: str | None = Field(description='Beneficiary of credits', index=True)
+    retirement_reason: str | None = Field(description='Reason for transaction', index=True)
+    retirement_note: str | None = Field(description='Note', index=True)
 
 
 class Credit(CreditBase, table=True):
