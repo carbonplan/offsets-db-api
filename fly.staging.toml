@@ -5,8 +5,8 @@ kill_timeout = 5
 primary_region = "dfw"
 
 [build]
-builder = "heroku/builder"
-buildpacks = ["heroku/buildpack-python"]
+builder = "heroku/builder:24"
+buildpacks = ["heroku/buildpack-python:0.17.0"]
 
 
 [[vm]]
