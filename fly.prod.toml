@@ -23,11 +23,11 @@ PORT = "8000"
 release_command = "bash -l release.sh"
 
 [processes]
-  web = "gunicorn -w $OFFSETS_DB_WEB_CONCURRENCY -t 120 -k uvicorn.workers.UvicornWorker offsets_db_api.main:app --config gunicorn_config.py --access-logfile '-' --error-logfile '-'"
+  app = "gunicorn -w $OFFSETS_DB_WEB_CONCURRENCY -t 120 -k uvicorn.workers.UvicornWorker offsets_db_api.main:app --config gunicorn_config.py --access-logfile '-' --error-logfile '-'"
 
 
 [[services]]
-processes = ["web"]
+processes = ["app"]
 protocol = "tcp"
 internal_port = 8000
 force_https = true
