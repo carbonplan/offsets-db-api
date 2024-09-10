@@ -25,7 +25,15 @@ def update_file_status(file, session, status, error=None):
 def process_dataframe(df, table_name, engine, dtype_dict=None):
     logger.info(f'📝 Writing DataFrame to {table_name}')
     logger.info(f'engine: {engine}')
-    df.to_sql(table_name, engine, if_exists='replace', index=False, dtype=dtype_dict)
+
+    with engine.begin() as conn:
+        if engine.dialect.has_table(conn, table_name):
+            # Instead of dropping table (which results in data type, schema overrides), delete all rows.
+            conn.execute(text(f'TRUNCATE TABLE {table_name} RESTART IDENTITY'))
+
+    # write the data
+    df.to_sql(table_name, engine, if_exists='append', index=False, dtype=dtype_dict)
+
     logger.info(f'✅ Written 🧬 shape {df.shape} to {table_name}')
 
 
