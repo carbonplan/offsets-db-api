@@ -5,7 +5,7 @@ import pandas as pd
 from offsets_db_data.models import clip_schema, credit_schema, project_schema
 from offsets_db_data.registry import get_registry_from_project_id
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, String, select, text
+from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, Session, String, col, select, text
 
 from offsets_db_api.cache import watch_dog_file
 from offsets_db_api.database import get_session
@@ -26,6 +26,45 @@ def update_file_status(file, session, status, error=None):
     logger.info(f'✅ File status updated: {file.url}')
 
 
+def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
+    """
+    Ensure all project IDs in the dataframe exist in the database.
+    If not, create placeholder projects for missing IDs.
+    """
+    logger.info('🔍 Checking for missing project IDs')
+
+    # Get all unique project IDs from the dataframe
+    credit_project_ids = df['project_id'].unique()
+
+    # Query existing project IDs
+    existing_project_ids = set(
+        session.exec(
+            select(Project.project_id).where(col(Project.project_id).in_(credit_project_ids))
+        ).all()
+    )
+
+    # Identify missing project IDs
+    missing_project_ids = set(credit_project_ids) - existing_project_ids
+
+    logger.info(f'🔍 Found {len(existing_project_ids)} existing project IDs')
+    logger.info(f'🔍 Found {len(missing_project_ids)} missing project IDs: {missing_project_ids}')
+
+    # Create placeholder projects for missing IDs
+    for project_id in missing_project_ids:
+        placeholder_project = Project(
+            project_id=project_id, registry=get_registry_from_project_id(project_id)
+        )
+        session.add(placeholder_project)
+
+    try:
+        session.commit()
+        logger.info(f'✅ Added {len(missing_project_ids)} missing project IDs to the database')
+    except IntegrityError as exc:
+        session.rollback()
+        logger.error(f'❌ Error creating placeholder projects: {exc}')
+        raise
+
+
 def process_dataframe(df, table_name, engine, dtype_dict=None):
     logger.info(f'📝 Writing DataFrame to {table_name}')
     logger.info(f'engine: {engine}')
@@ -38,38 +77,10 @@ def process_dataframe(df, table_name, engine, dtype_dict=None):
         if table_name in {'credit', 'clipproject'}:
             session = next(get_session())
             try:
-                # Get all unique project IDs from the credits dataframe
-                credit_project_ids = df['project_id'].unique()
-
-                # Query existing project IDs
-                existing_project_ids = set(
-                    session.exec(
-                        select(Project.project_id).where(Project.project_id.in_(credit_project_ids))
-                    ).all()
-                )
-
-                # Identify missing project IDs
-                missing_project_ids = set(credit_project_ids) - existing_project_ids
-
-                logger.info(f'🔍 Found {len(existing_project_ids)} existing project IDs')
-                logger.info(
-                    f'🔍 Found {len(missing_project_ids)} missing project IDs: {missing_project_ids}'
-                )
-
-                for project_id in missing_project_ids:
-                    placeholder_project = Project(
-                        project_id=project_id, registry=get_registry_from_project_id(project_id)
-                    )
-                    session.add(placeholder_project)
-
-                session.commit()
-                logger.info(
-                    f'✅ Added {len(missing_project_ids)} missing project IDs: {missing_project_ids} to the database'
-                )
-
-            except IntegrityError as exc:
-                session.rollback()
-                logger.error(f'❌ Error creating placeholder projects: {exc}')
+                logger.info(f'Processing data destined for {table_name} table...')
+                ensure_projects_exist(df, session)
+            except IntegrityError:
+                logger.error('❌ Failed to ensure projects exist. Continuing with data insertion.')
 
         # write the data
         df.to_sql(table_name, conn, if_exists='append', index=False, dtype=dtype_dict)
