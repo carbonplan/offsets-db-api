@@ -18,6 +18,7 @@ depends_on = ${repr(depends_on)}
 
 
 def upgrade() -> None:
+    op.execute('CREATE EXTENSION IF NOT EXISTS pg_trgm')
     ${upgrades if upgrades else "pass"}
 
 

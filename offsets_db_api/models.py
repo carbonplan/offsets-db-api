@@ -3,13 +3,13 @@ import typing
 
 import pydantic
 from sqlalchemy.dialects import postgresql
-from sqlmodel import BigInteger, Column, Field, Relationship, SQLModel, String
+from sqlmodel import BigInteger, Column, Field, Index, Relationship, SQLModel, String, text
 
 from offsets_db_api.schemas import FileCategory, FileStatus, Pagination
 
 
 class File(SQLModel, table=True):
-    id: int = Field(default=None, primary_key=True)
+    id: int = Field(default=None, primary_key=True, index=True)
     url: str
     content_hash: str | None = Field(description='Hash of file contents')
     status: FileStatus = Field(default='pending', description='Status of file processing')
@@ -55,6 +55,14 @@ class ProjectBase(SQLModel):
 
 
 class Project(ProjectBase, table=True):
+    __table_args__ = (
+        Index(
+            'ix_project_project_id_gin',
+            text('lower(project_id) gin_trgm_ops'),
+            postgresql_using='gin',
+        ),
+        Index('ix_project_name_gin', text('lower(name) gin_trgm_ops'), postgresql_using='gin'),
+    )
     credits: list['Credit'] = Relationship(
         back_populates='project',
         sa_relationship_kwargs={
@@ -82,7 +90,7 @@ class ClipBase(SQLModel):
 
 
 class Clip(ClipBase, table=True):
-    id: int = Field(default=None, primary_key=True)
+    id: int = Field(default=None, primary_key=True, index=True)
     project_relationships: list['ClipProject'] = Relationship(
         back_populates='clip', sa_relationship_kwargs={'cascade': 'all,delete,delete-orphan'}
     )
@@ -99,9 +107,11 @@ class ClipwithProjects(ClipBase):
 
 
 class ClipProject(SQLModel, table=True):
-    id: int = Field(default=None, primary_key=True)
-    clip_id: int = Field(description='Id of clip', foreign_key='clip.id')
-    project_id: str = Field(description='Id of project', foreign_key='project.project_id')
+    id: int = Field(default=None, primary_key=True, index=True)
+    clip_id: int = Field(description='Id of clip', foreign_key='clip.id', index=True)
+    project_id: str = Field(
+        description='Id of project', foreign_key='project.project_id', index=True
+    )
     clip: Clip | None = Relationship(back_populates='project_relationships')
     project: Project | None = Relationship(back_populates='clip_relationships')
 
@@ -117,15 +127,41 @@ class CreditBase(SQLModel):
     vintage: int | None = Field(description='Vintage year of credits')
     transaction_date: datetime.date | None = Field(description='Date of transaction', index=True)
     transaction_type: str | None = Field(description='Type of transaction')
-    retirement_account: str | None = Field(
-        description='Account used for the transaction', index=True
-    )
-    retirement_beneficiary: str | None = Field(description='Beneficiary of credits', index=True)
-    retirement_reason: str | None = Field(description='Reason for transaction', index=True)
-    retirement_note: str | None = Field(description='Note', index=True)
+    retirement_account: str | None = Field(description='Account used for the transaction')
+    retirement_beneficiary: str | None = Field(description='Beneficiary of credits')
+    retirement_reason: str | None = Field(description='Reason for transaction')
+    retirement_note: str | None = Field(description='Note')
 
 
 class Credit(CreditBase, table=True):
+    __table_args__ = (
+        Index(
+            'ix_credit_transaction_type_gin',
+            text('lower(transaction_type) gin_trgm_ops'),
+            postgresql_using='gin',
+        ),
+        Index(
+            'ix_credit_retirement_account_gin',
+            text('lower(retirement_account) gin_trgm_ops'),
+            postgresql_using='gin',
+        ),
+        Index(
+            'ix_credit_retirement_beneficiary_gin',
+            text('lower(retirement_beneficiary) gin_trgm_ops'),
+            postgresql_using='gin',
+        ),
+        Index(
+            'ix_credit_retirement_reason_gin',
+            text('lower(retirement_reason) gin_trgm_ops'),
+            postgresql_using='gin',
+        ),
+        Index(
+            'ix_credit_retirement_note_gin',
+            text('lower(retirement_note) gin_trgm_ops'),
+            postgresql_using='gin',
+        ),
+    )
+
     id: int = Field(default=None, primary_key=True)
     project_id: str | None = Field(
         description='Project id used by registry system',
