@@ -127,12 +127,10 @@ class CreditBase(SQLModel):
     vintage: int | None = Field(description='Vintage year of credits')
     transaction_date: datetime.date | None = Field(description='Date of transaction', index=True)
     transaction_type: str | None = Field(description='Type of transaction')
-    retirement_account: str | None = Field(
-        description='Account used for the transaction', index=True
-    )
-    retirement_beneficiary: str | None = Field(description='Beneficiary of credits', index=True)
-    retirement_reason: str | None = Field(description='Reason for transaction', index=True)
-    retirement_note: str | None = Field(description='Note', index=True)
+    retirement_account: str | None = Field(description='Account used for the transaction')
+    retirement_beneficiary: str | None = Field(description='Beneficiary of credits')
+    retirement_reason: str | None = Field(description='Reason for transaction')
+    retirement_note: str | None = Field(description='Note')
 
 
 class Credit(CreditBase, table=True):
