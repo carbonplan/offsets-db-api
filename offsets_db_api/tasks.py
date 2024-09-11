@@ -50,9 +50,23 @@ def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
     logger.info(f'🔍 Found {len(missing_project_ids)} missing project IDs: {missing_project_ids}')
 
     # Create placeholder projects for missing IDs
+    urls = {
+        'verra': 'https://registry.verra.org/app/projectDetail/VCS/',
+        'gold-standard': 'https://registry.goldstandard.org/projects?q=gs',
+        'american-carbon-registry': 'https://acr2.apx.com/mymodule/reg/prjView.asp?id1=',
+        'climate-action-reserve': 'https://thereserve2.apx.com/mymodule/reg/prjView.asp?id1=',
+        'art-trees': 'https://art.apx.com/mymodule/reg/prjView.asp?id1=',
+    }
     for project_id in missing_project_ids:
+        registry = get_registry_from_project_id(project_id)
+        if url := urls.get(registry):
+            url = f'{url}{project_id[3:]}'
         placeholder_project = Project(
-            project_id=project_id, registry=get_registry_from_project_id(project_id)
+            project_id=project_id,
+            registry=registry,
+            category=['unknown'],
+            protocol=['unknown'],
+            project_url=url,
         )
         session.add(placeholder_project)
 
