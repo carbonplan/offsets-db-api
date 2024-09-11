@@ -3,11 +3,14 @@ import traceback
 
 import pandas as pd
 from offsets_db_data.models import clip_schema, credit_schema, project_schema
-from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, String, text
+from offsets_db_data.registry import get_registry_from_project_id
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, Session, String, col, select, text
 
 from offsets_db_api.cache import watch_dog_file
+from offsets_db_api.database import get_session
 from offsets_db_api.log import get_logger
-from offsets_db_api.models import File
+from offsets_db_api.models import File, Project
 
 logger = get_logger()
 
@@ -16,10 +19,64 @@ def update_file_status(file, session, status, error=None):
     logger.info(f'🔄 Updating file status: {file.url}')
     file.status = status
     file.error = error
+    file.recorded_at = datetime.datetime.now(datetime.timezone.utc)
     session.add(file)
     session.commit()
     session.refresh(file)
     logger.info(f'✅ File status updated: {file.url}')
+
+
+def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
+    """
+    Ensure all project IDs in the dataframe exist in the database.
+    If not, create placeholder projects for missing IDs.
+    """
+    logger.info('🔍 Checking for missing project IDs')
+
+    # Get all unique project IDs from the dataframe
+    credit_project_ids = df['project_id'].unique()
+
+    # Query existing project IDs
+    existing_project_ids = set(
+        session.exec(
+            select(Project.project_id).where(col(Project.project_id).in_(credit_project_ids))
+        ).all()
+    )
+
+    # Identify missing project IDs
+    missing_project_ids = set(credit_project_ids) - existing_project_ids
+
+    logger.info(f'🔍 Found {len(existing_project_ids)} existing project IDs')
+    logger.info(f'🔍 Found {len(missing_project_ids)} missing project IDs: {missing_project_ids}')
+
+    # Create placeholder projects for missing IDs
+    urls = {
+        'verra': 'https://registry.verra.org/app/projectDetail/VCS/',
+        'gold-standard': 'https://registry.goldstandard.org/projects?q=gs',
+        'american-carbon-registry': 'https://acr2.apx.com/mymodule/reg/prjView.asp?id1=',
+        'climate-action-reserve': 'https://thereserve2.apx.com/mymodule/reg/prjView.asp?id1=',
+        'art-trees': 'https://art.apx.com/mymodule/reg/prjView.asp?id1=',
+    }
+    for project_id in missing_project_ids:
+        registry = get_registry_from_project_id(project_id)
+        if url := urls.get(registry):
+            url = f'{url}{project_id[3:]}'
+        placeholder_project = Project(
+            project_id=project_id,
+            registry=registry,
+            category=['unknown'],
+            protocol=['unknown'],
+            project_url=url,
+        )
+        session.add(placeholder_project)
+
+    try:
+        session.commit()
+        logger.info(f'✅ Added {len(missing_project_ids)} missing project IDs to the database')
+    except IntegrityError as exc:
+        session.rollback()
+        logger.error(f'❌ Error creating placeholder projects: {exc}')
+        raise
 
 
 def process_dataframe(df, table_name, engine, dtype_dict=None):
@@ -29,10 +86,18 @@ def process_dataframe(df, table_name, engine, dtype_dict=None):
     with engine.begin() as conn:
         if engine.dialect.has_table(conn, table_name):
             # Instead of dropping table (which results in data type, schema overrides), delete all rows.
-            conn.execute(text(f'TRUNCATE TABLE {table_name} RESTART IDENTITY'))
+            conn.execute(text(f'TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE;'))
 
-    # write the data
-    df.to_sql(table_name, engine, if_exists='append', index=False, dtype=dtype_dict)
+        if table_name in {'credit', 'clipproject'}:
+            session = next(get_session())
+            try:
+                logger.info(f'Processing data destined for {table_name} table...')
+                ensure_projects_exist(df, session)
+            except IntegrityError:
+                logger.error('❌ Failed to ensure projects exist. Continuing with data insertion.')
+
+        # write the data
+        df.to_sql(table_name, conn, if_exists='append', index=False, dtype=dtype_dict)
 
     logger.info(f'✅ Written 🧬 shape {df.shape} to {table_name}')
 
@@ -93,11 +158,6 @@ async def process_files(*, engine, session, files: list[File]):
                     'project_url': String,
                 }
 
-                # Execute raw SQL to drop dependent tables and the project table
-                with engine.begin() as conn:
-                    # conn.execute(text("DROP TABLE IF EXISTS clip, credit, project;"))
-                    conn.execute(text('DROP TABLE IF EXISTS project CASCADE;'))
-
                 process_dataframe(df, 'project', engine, project_dtype_dict)
                 update_file_status(file, session, 'success')
 
@@ -129,7 +189,7 @@ async def process_files(*, engine, session, files: list[File]):
             update_file_status(file, session, 'failure', error=str(e))
 
     with engine.begin() as conn:
-        conn.execute(text('DROP TABLE IF EXISTS clipproject, clip CASCADE;'))
+        conn.execute(text('TRUNCATE TABLE clipproject, clip RESTART IDENTITY CASCADE;'))
 
     df = pd.concat(clips_dfs).reset_index(drop=True).reset_index().rename(columns={'index': 'id'})
     df = clip_schema.validate(df)
@@ -155,6 +215,6 @@ async def process_files(*, engine, session, files: list[File]):
 
     # modify the watch_dog_file
     with open(watch_dog_file, 'w') as f:
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         logger.info(f'✅ Updated watch_dog_file: {watch_dog_file} to {now}')
         f.write(now.strftime('%Y-%m-%d %H:%M:%S'))
