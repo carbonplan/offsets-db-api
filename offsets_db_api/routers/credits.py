@@ -34,7 +34,16 @@ async def get_credits(
     ),
     search: str | None = Query(
         None,
-        description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
+        description='Case insensitive search string. Currently searches in fields specified in `search_fileds` parameter',
+    ),
+    search_fields: list[str] = Query(
+        default=[
+            'retirement_beneficiary',
+            'retirement_account',
+            'retirement_note',
+            'retirement_reason',
+        ],
+        description='Fields to search in',
     ),
     sort: list[str] = Query(
         default=['project_id'],
@@ -76,18 +85,23 @@ async def get_credits(
             operation=operation,
         )
 
-    # Handle 'search' filter separately due to its unique logic
     if search:
-        search_pattern = f'%{search}%'
-        statement = statement.where(
-            or_(
-                col(Project.project_id).ilike(search_pattern),
-                col(Project.name).ilike(search_pattern),
-            )
-        )
+        # Default to case-insensitive partial match
+        search_term = f'%{search}%'
+        search_conditions = []
+        for field in search_fields:
+            if field in Credit.__table__.columns:
+                search_conditions.append(getattr(Credit, field).ilike(search_term))
+            elif field in Project.__table__.columns:
+                search_conditions.append(getattr(Project, field).ilike(search_term))
+
+        if search_conditions:
+            statement = statement.where(or_(*search_conditions))
 
     if sort:
         statement = apply_sorting(statement=statement, sort=sort, model=Credit, primary_key='id')
+
+    logger.info(f"SQL Credits Query: {statement.compile(compile_kwargs={'literal_binds': True})}")
 
     total_entries, current_page, total_pages, next_page, results = handle_pagination(
         statement=statement,
