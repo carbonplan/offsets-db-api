@@ -2,7 +2,7 @@ import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
-from sqlmodel import Session, col, func, or_, select
+from sqlmodel import Session, col, or_, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.database import get_session
@@ -34,7 +34,7 @@ async def get_credits(
     ),
     search: str | None = Query(
         None,
-        description='Search string. Use "r:" prefix for regex search, "t:" for trigram search, "w:" for weighted search, or leave blank for case-insensitive partial match.',
+        description='Case insensitive search string. Currently searches in fields specified in `search_fileds` parameter',
     ),
     search_fields: list[str] = Query(
         default=[
@@ -91,13 +91,9 @@ async def get_credits(
         search_conditions = []
         for field in search_fields:
             if field in Credit.__table__.columns:
-                search_conditions.append(
-                    func.lower(getattr(Credit, field)).like(func.lower(search_term))
-                )
+                search_conditions.append(getattr(Credit, field).ilike(search_term))
             elif field in Project.__table__.columns:
-                search_conditions.append(
-                    func.lower(getattr(Project, field)).like(func.lower(search_term))
-                )
+                search_conditions.append(getattr(Project, field).ilike(search_term))
 
         if search_conditions:
             statement = statement.where(or_(*search_conditions))
