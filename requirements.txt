@@ -1,5 +1,5 @@
 aiofiles>=23.2
-alembic==1.13
+alembic==1.14
 apscheduler>=3.10.1
 fastapi==0.115.5
 fastparquet
@@ -7,7 +7,7 @@ gunicorn
 httpx
 offsets-db-data>=2024.11
 pandas>=1.5.3
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.10
 pydantic-settings>=2.1
 pydantic>=2.5
 s3fs>=2023
