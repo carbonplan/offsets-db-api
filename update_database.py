@@ -62,28 +62,7 @@ def get_latest(*, bucket: str):
 
 
 def post_data_to_environment(*, env: str, bucket: str) -> None:
-    if env == 'production':
-        files = get_latest(bucket=bucket)
-
-    else:
-        files = [
-            {
-                'url': 's3://carbonplan-offsets-db/final/2024-09-05/credits-augmented.parquet',
-                'category': 'credits',
-            },
-            {
-                'url': 's3://carbonplan-offsets-db/final/2024-09-05/projects-augmented.parquet',
-                'category': 'projects',
-            },
-            {
-                'url': 's3://carbonplan-offsets-db/final/2024-09-05/curated-clips.parquet',
-                'category': 'clips',
-            },
-            {
-                'url': 's3://carbonplan-offsets-db/final/2024-09-03/weekly-summary-clips.parquet',
-                'category': 'clips',
-            },
-        ]
+    files = get_latest(bucket=bucket)
 
     [print(file) for file in files]
 

@@ -6,11 +6,11 @@ primary_region = "dfw"
 
 [build]
 builder = "heroku/builder:24"
-buildpacks = ["heroku/buildpack-python:0.17.0"]
+buildpacks = ["heroku/buildpack-python:0.19.1"]
 
 [[vm]]
-  size = "performance-2x"
-  memory = "4gb"
+size = "shared-cpu-4x"
+memory = "8gb"
 
 
 [env]
@@ -23,7 +23,7 @@ PORT = "8000"
 release_command = "bash -l release.sh"
 
 [processes]
-  app = "gunicorn -w $OFFSETS_DB_WEB_CONCURRENCY -t 120 -k uvicorn.workers.UvicornWorker offsets_db_api.main:app --config gunicorn_config.py --access-logfile '-' --error-logfile '-'"
+app = "gunicorn -w $OFFSETS_DB_WEB_CONCURRENCY -t 300 -k uvicorn.workers.UvicornWorker offsets_db_api.main:app --config gunicorn_config.py --access-logfile '-' --error-logfile '-'"
 
 
 [[services]]
