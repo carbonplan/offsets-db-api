@@ -35,12 +35,8 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::631969445205:role/github-action-role
-          role-session-name: samplerolesession
+          role-session-name: offsets-db-update-role-session
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
-
-      - name: Copy sample file to s3
-        run: |
-          aws s3 cp ./update_database.py s3://carbonplan-scratch/
 
       - name: Get Current time in UTC in format YYYY-MM-DD HH:MM
         if: always()
