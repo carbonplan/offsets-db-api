@@ -35,6 +35,7 @@ async def get_projects(
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
+    project_type: list[str] | None = Query(None, description='Project type'),
     is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
     listed_at_from: datetime.datetime | datetime.date | None = Query(
         default=None, description='Format: YYYY-MM-DD'
@@ -75,6 +76,7 @@ async def get_projects(
         ('issued', issued_max, '<=', Project),
         ('retired', retired_min, '>=', Project),
         ('retired', retired_max, '<=', Project),
+        ('project_type', project_type, 'ilike', ProjectType),
     ]
 
     # Modified to include ProjectType in the initial query
