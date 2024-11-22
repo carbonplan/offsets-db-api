@@ -48,6 +48,8 @@ async def submit_file(
     settings = get_settings()
     engine = get_engine(database_url=settings.database_url)
 
+    logger.info(f'Processing files: {file_objs}')
+
     background_tasks.add_task(process_files, engine=engine, session=session, files=file_objs)
     return file_objs
 

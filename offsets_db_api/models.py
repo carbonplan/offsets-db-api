@@ -3,7 +3,7 @@ import typing
 
 import pydantic
 from sqlalchemy.dialects import postgresql
-from sqlmodel import BigInteger, Column, Field, Index, Relationship, SQLModel, String, text
+from sqlmodel import BigInteger, Column, Enum, Field, Index, Relationship, SQLModel, String, text
 
 from offsets_db_api.schemas import FileCategory, FileStatus, Pagination
 
@@ -17,7 +17,9 @@ class File(SQLModel, table=True):
     recorded_at: datetime.datetime = Field(
         default_factory=datetime.datetime.utcnow, description='Date file was recorded in database'
     )
-    category: FileCategory = Field(description='Category of file', default='unknown')
+    category: FileCategory = Field(
+        description='Category of file', sa_column=Column(Enum(FileCategory))
+    )
 
 
 class ProjectBase(SQLModel):
@@ -72,6 +74,7 @@ class Project(ProjectBase, table=True):
     clip_relationships: list['ClipProject'] = Relationship(
         back_populates='project', sa_relationship_kwargs={'cascade': 'all,delete,delete-orphan'}
     )
+    project_type: 'ProjectType' = Relationship(back_populates='project')
 
 
 class ClipBase(SQLModel):
@@ -120,6 +123,7 @@ class ProjectWithClips(ProjectBase):
     clips: list[Clip] | None = Field(
         default=None, description='List of clips associated with project'
     )
+    project_type: str | None = Field(description='Type of project', default=None)
 
 
 class CreditBase(SQLModel):
@@ -252,3 +256,15 @@ class PaginatedClips(pydantic.BaseModel):
 class PaginatedFiles(pydantic.BaseModel):
     pagination: Pagination
     data: list[File] | list[dict[str, typing.Any]]
+
+
+class ProjectType(SQLModel, table=True):
+    project_id: str = Field(
+        description='Project id used by registry system',
+        foreign_key='project.project_id',
+        primary_key=True,
+        index=True,
+    )
+    project_type: str | None = Field(description='Type of project', default=None)
+    source: str | None = Field(description='Source of project type', default=None)
+    project: Project | None = Relationship(back_populates='project_type')

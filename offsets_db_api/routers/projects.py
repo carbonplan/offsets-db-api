@@ -9,7 +9,14 @@ from sqlmodel import Session, col, select
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.database import get_session
 from offsets_db_api.log import get_logger
-from offsets_db_api.models import Clip, ClipProject, PaginatedProjects, Project, ProjectWithClips
+from offsets_db_api.models import (
+    Clip,
+    ClipProject,
+    PaginatedProjects,
+    Project,
+    ProjectType,
+    ProjectWithClips,
+)
 from offsets_db_api.schemas import Pagination, Registries
 from offsets_db_api.security import check_api_key
 from offsets_db_api.sql_helpers import apply_filters, apply_sorting, handle_pagination
@@ -70,7 +77,10 @@ async def get_projects(
         ('retired', retired_max, '<=', Project),
     ]
 
-    statement = select(Project)
+    # Modified to include ProjectType in the initial query
+    statement = select(Project, ProjectType.project_type).outerjoin(
+        ProjectType, Project.project_id == ProjectType.project_id
+    )
 
     for attribute, values, operation, model in filters:
         statement = apply_filters(
@@ -105,7 +115,7 @@ async def get_projects(
     )
 
     # Get the list of project IDs from the results
-    project_ids = [project.project_id for project in results]
+    project_ids = [project.project_id for project, _ in results]
 
     # Subquery to get clips related to the project IDs
     clip_statement = (
@@ -120,10 +130,11 @@ async def get_projects(
     for project_id, clip in clip_results:
         project_to_clips[project_id].append(clip)
 
-    # Transform the dictionary into a list of projects with clips
+    # Transform the dictionary into a list of projects with clips and project_type
     projects_with_clips = []
-    for project in results:
+    for project, project_type in results:
         project_data = project.model_dump()
+        project_data['project_type'] = project_type
         project_data['clips'] = [
             clip.model_dump() for clip in project_to_clips.get(project.project_id, [])
         ]
@@ -156,13 +167,20 @@ async def get_project(
     logger.info(f'Getting project: {request.url}')
 
     # main query to get the project details
-    statement = select(Project).where(Project.project_id == project_id)
-    project = session.exec(statement).one_or_none()
+    statement = (
+        select(Project, ProjectType.project_type)
+        .outerjoin(ProjectType, Project.project_id == ProjectType.project_id)
+        .where(Project.project_id == project_id)
+    )
 
-    if not project:
+    result = session.exec(statement).one_or_none()
+
+    if not result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f'project {project_id} not found'
         )
+
+    project, project_type = result
 
     # Subquery to get the related clips
     clip_statement = (
@@ -174,5 +192,6 @@ async def get_project(
 
     # Construct the response data
     project_data = project.model_dump()
+    project_data['project_type'] = project_type
     project_data['clips'] = [clip.model_dump() for clip in clip_projects_subquery]
     return project_data
