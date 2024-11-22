@@ -24,6 +24,7 @@ def get_latest(*, bucket: str):
         ('credits', 'credits-augmented', today, yesterday),
         ('projects', 'projects-augmented', today, yesterday),
         ('clips', 'curated-clips', today, yesterday),
+        ('projecttypes', 'project-types', today, yesterday),
     ]
 
     data = []

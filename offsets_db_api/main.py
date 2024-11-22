@@ -39,7 +39,7 @@ async def lifespan_event(app: FastAPI):
 
     # set up cache
     logger.info('🔥 Setting up cache...')
-    expiration = int(60 * 60 * 24)  # 24 hours
+    expiration = int(60 * 60 * 2)  # 2 hours
     cache_status_header = 'X-OffsetsDB-Cache'
     FastAPICache.init(
         InMemoryBackend(),
@@ -59,7 +59,7 @@ async def lifespan_event(app: FastAPI):
     yield
 
     logger.info('Application shutdown...')
-    logger.info('Clearing cache...')
+    logger.info('🧹 Clearing cache...')
     FastAPICache.reset()
     observer.stop()
     observer.join()

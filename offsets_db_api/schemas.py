@@ -25,6 +25,7 @@ class FileCategory(str, enum.Enum):
     projects = 'projects'
     credits = 'credits'
     clips = 'clips'
+    projecttypes = 'projecttypes'
     unknown = 'unknown'
 
 

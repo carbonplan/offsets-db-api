@@ -2,7 +2,7 @@ import datetime
 import traceback
 
 import pandas as pd
-from offsets_db_data.models import clip_schema, credit_schema, project_schema
+from offsets_db_data.models import clip_schema, credit_schema, project_schema, project_types_schema
 from offsets_db_data.registry import get_registry_from_project_id
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, Session, String, col, select, text
@@ -88,7 +88,7 @@ def process_dataframe(df, table_name, engine, dtype_dict=None):
             # Instead of dropping table (which results in data type, schema overrides), delete all rows.
             conn.execute(text(f'TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE;'))
 
-        if table_name in {'credit', 'clipproject'}:
+        if table_name in {'credit', 'clipproject', 'projecttype'}:
             session = next(get_session())
             try:
                 logger.info(f'Processing data destined for {table_name} table...')
@@ -159,6 +159,17 @@ async def process_files(*, engine, session, files: list[File]):
                 }
 
                 process_dataframe(df, 'project', engine, project_dtype_dict)
+                update_file_status(file, session, 'success')
+            elif file.category == 'projecttypes':
+                logger.info(f'📚 Loading project type file: {file.url}')
+                data = pd.read_parquet(file.url, engine='fastparquet')
+                df = project_types_schema.validate(data)
+                project_type_dtype_dict = {
+                    'project_id': String,
+                    'project_type': String,
+                    'source': String,
+                }
+                process_dataframe(df, 'projecttype', engine, project_type_dtype_dict)
                 update_file_status(file, session, 'success')
 
             else:
