@@ -66,10 +66,10 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         with:
-          channel-id: 'C06CXEYKMBP'
+          method: chat.postMessage
           payload: |
             {
-
+              "channel": "C06CXEYKMBP",
               "attachments": [
                 {
                   "color": "#ff0000",
@@ -91,11 +91,10 @@ jobs:
                         {
                           "type": "mrkdwn",
                           "text": "*Time:*\n${{ steps.time.outputs.date }} UTC"
-
                         }
                       ]
                     },
-                     {
+                    {
                       "type": "section",
                       "fields": [
                         {
