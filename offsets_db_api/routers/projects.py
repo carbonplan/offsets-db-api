@@ -80,7 +80,7 @@ async def get_projects(
     ]
 
     # Modified to include ProjectType in the initial query
-    statement = select(Project, ProjectType.project_type).outerjoin(
+    statement = select(Project, ProjectType.project_type, ProjectType.source).outerjoin(
         ProjectType, Project.project_id == ProjectType.project_id
     )
 
@@ -117,7 +117,7 @@ async def get_projects(
     )
 
     # Get the list of project IDs from the results
-    project_ids = [project.project_id for project, _ in results]
+    project_ids = [project.project_id for project, _, _ in results]
 
     # Subquery to get clips related to the project IDs
     clip_statement = (
@@ -134,9 +134,10 @@ async def get_projects(
 
     # Transform the dictionary into a list of projects with clips and project_type
     projects_with_clips = []
-    for project, project_type in results:
+    for project, project_type, project_type_source in results:
         project_data = project.model_dump()
         project_data['project_type'] = project_type
+        project_data['project_type_source'] = project_type_source
         project_data['clips'] = [
             clip.model_dump() for clip in project_to_clips.get(project.project_id, [])
         ]
@@ -170,7 +171,7 @@ async def get_project(
 
     # main query to get the project details
     statement = (
-        select(Project, ProjectType.project_type)
+        select(Project, ProjectType.project_type, ProjectType.source)
         .outerjoin(ProjectType, Project.project_id == ProjectType.project_id)
         .where(Project.project_id == project_id)
     )
@@ -182,7 +183,7 @@ async def get_project(
             status_code=status.HTTP_404_NOT_FOUND, detail=f'project {project_id} not found'
         )
 
-    project, project_type = result
+    project, project_type, project_type_source = result
 
     # Subquery to get the related clips
     clip_statement = (
@@ -195,5 +196,6 @@ async def get_project(
     # Construct the response data
     project_data = project.model_dump()
     project_data['project_type'] = project_type
+    project_data['project_type_source'] = project_type_source
     project_data['clips'] = [clip.model_dump() for clip in clip_projects_subquery]
     return project_data
