@@ -124,6 +124,9 @@ class ProjectWithClips(ProjectBase):
         default=None, description='List of clips associated with project'
     )
     project_type: str | None = Field(description='Type of project', default=None)
+    project_type_source: str | None = Field(
+        description='Source of project type information', default=None
+    )
 
 
 class CreditBase(SQLModel):
