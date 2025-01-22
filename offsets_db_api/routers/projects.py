@@ -51,18 +51,20 @@ async def get_projects(
     retired_max: int | None = Query(None, description='Maximum number of retired credits'),
     search: str | None = Query(
         None,
-        description='Case insensitive search string. Currently searches on the specified `search_fields`',
+        description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
-    search_fields: list[str] = Query(
+    beneficiary_search: str | None = Query(
+        None,
+        description='Case insensitive search string. Currently searches on specified beneficiary_search_fields only.',
+    ),
+    beneficiary_search_fields: list[str] = Query(
         default=[
-            'project_id',
-            'name',
             'retirement_beneficiary',
             'retirement_account',
             'retirement_note',
             'retirement_reason',
         ],
-        description='Fields to search in',
+        description='Beneficiary fields to search in',
     ),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
@@ -100,15 +102,28 @@ async def get_projects(
 
     if search:
         search_pattern = f'%{search}%'
-        search_conditions = []
+        matching_projects = matching_projects.where(
+            or_(
+                col(Project.project_id).ilike(search_pattern),
+                col(Project.name).ilike(search_pattern),
+            )
+        )
 
-        for field in search_fields:
+    if beneficiary_search:
+        beneficiary_search_pattern = f'%{beneficiary_search}%'
+        beneficiary_search_conditions = []
+
+        for field in beneficiary_search_fields:
             if hasattr(Credit_alias, field):
-                search_conditions.append(getattr(Credit_alias, field).ilike(search_pattern))
+                beneficiary_search_conditions.append(
+                    getattr(Credit_alias, field).ilike(beneficiary_search_pattern)
+                )
             elif hasattr(Project, field):
-                search_conditions.append(getattr(Project, field).ilike(search_pattern))
+                beneficiary_search_conditions.append(
+                    getattr(Project, field).ilike(beneficiary_search_pattern)
+                )
 
-        matching_projects = matching_projects.where(or_(*search_conditions))
+        matching_projects = matching_projects.where(or_(*beneficiary_search_conditions))
 
     matching_projects_select = select(matching_projects.subquery())
 
