@@ -79,11 +79,8 @@ async def get_projects(
 
     logger.info(f'Getting projects: {request.url}')
 
-    Credit_alias = aliased(Credit)
-
-    matching_projects = select(distinct(Project.project_id)).outerjoin(
-        Credit_alias, col(Project.project_id) == col(Credit_alias.project_id)
-    )
+    # Base query without Credit join
+    matching_projects = select(distinct(Project.project_id))
 
     filters = [
         ('registry', registry, 'ilike', Project),
@@ -110,6 +107,10 @@ async def get_projects(
         )
 
     if beneficiary_search:
+        Credit_alias = aliased(Credit)
+        matching_projects = matching_projects.outerjoin(
+            Credit_alias, col(Project.project_id) == col(Credit_alias.project_id)
+        )
         beneficiary_search_pattern = f'%{beneficiary_search}%'
         beneficiary_search_conditions = []
 
