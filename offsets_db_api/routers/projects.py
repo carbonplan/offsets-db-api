@@ -4,7 +4,8 @@ from collections import defaultdict
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi_cache.decorator import cache
 from sqlalchemy import or_
-from sqlmodel import Session, col, select
+from sqlalchemy.orm import aliased
+from sqlmodel import Session, col, distinct, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.database import get_session
@@ -12,6 +13,7 @@ from offsets_db_api.log import get_logger
 from offsets_db_api.models import (
     Clip,
     ClipProject,
+    Credit,
     PaginatedProjects,
     Project,
     ProjectType,
@@ -51,6 +53,19 @@ async def get_projects(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
+    beneficiary_search: str | None = Query(
+        None,
+        description='Case insensitive search string. Currently searches on specified beneficiary_search_fields only.',
+    ),
+    beneficiary_search_fields: list[str] = Query(
+        default=[
+            'retirement_beneficiary',
+            'retirement_account',
+            'retirement_note',
+            'retirement_reason',
+        ],
+        description='Beneficiary fields to search in',
+    ),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     sort: list[str] = Query(
@@ -63,6 +78,9 @@ async def get_projects(
     """Get projects with pagination and filtering"""
 
     logger.info(f'Getting projects: {request.url}')
+
+    # Base query without Credit join
+    matching_projects = select(distinct(Project.project_id))
 
     filters = [
         ('registry', registry, 'ilike', Project),
@@ -79,9 +97,42 @@ async def get_projects(
         ('project_type', project_type, 'ilike', ProjectType),
     ]
 
-    # Modified to include ProjectType in the initial query
-    statement = select(Project, ProjectType.project_type, ProjectType.source).outerjoin(
-        ProjectType, Project.project_id == ProjectType.project_id
+    if search:
+        search_pattern = f'%{search}%'
+        matching_projects = matching_projects.where(
+            or_(
+                col(Project.project_id).ilike(search_pattern),
+                col(Project.name).ilike(search_pattern),
+            )
+        )
+
+    if beneficiary_search:
+        Credit_alias = aliased(Credit)
+        matching_projects = matching_projects.outerjoin(
+            Credit_alias, col(Project.project_id) == col(Credit_alias.project_id)
+        )
+        beneficiary_search_pattern = f'%{beneficiary_search}%'
+        beneficiary_search_conditions = []
+
+        for field in beneficiary_search_fields:
+            if hasattr(Credit_alias, field):
+                beneficiary_search_conditions.append(
+                    getattr(Credit_alias, field).ilike(beneficiary_search_pattern)
+                )
+            elif hasattr(Project, field):
+                beneficiary_search_conditions.append(
+                    getattr(Project, field).ilike(beneficiary_search_pattern)
+                )
+
+        matching_projects = matching_projects.where(or_(*beneficiary_search_conditions))
+
+    matching_projects_select = select(matching_projects.subquery())
+
+    # Use the subquery to filter the main query
+    statement = (
+        select(Project, ProjectType.project_type, ProjectType.source)
+        .outerjoin(ProjectType, col(Project.project_id) == col(ProjectType.project_id))
+        .where(col(Project.project_id).in_(matching_projects_select))
     )
 
     for attribute, values, operation, model in filters:
@@ -91,15 +142,6 @@ async def get_projects(
             attribute=attribute,
             values=values,
             operation=operation,
-        )
-
-    if search:
-        search_pattern = f'%{search}%'
-        statement = statement.where(
-            or_(
-                col(Project.project_id).ilike(search_pattern),
-                col(Project.name).ilike(search_pattern),
-            )
         )
 
     if sort:

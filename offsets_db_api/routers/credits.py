@@ -32,11 +32,11 @@ async def get_credits(
     transaction_date_to: datetime.datetime | datetime.date | None = Query(
         default=None, description='Format: YYYY-MM-DD'
     ),
-    search: str | None = Query(
+    beneficiary_search: str | None = Query(
         None,
         description='Case insensitive search string. Currently searches in fields specified in `search_fileds` parameter',
     ),
-    search_fields: list[str] = Query(
+    beneficiary_search_fields: list[str] = Query(
         default=[
             'retirement_beneficiary',
             'retirement_account',
@@ -85,11 +85,11 @@ async def get_credits(
             operation=operation,
         )
 
-    if search:
+    if beneficiary_search:
         # Default to case-insensitive partial match
-        search_term = f'%{search}%'
+        search_term = f'%{beneficiary_search}%'
         search_conditions = []
-        for field in search_fields:
+        for field in beneficiary_search_fields:
             if field in Credit.__table__.columns:
                 search_conditions.append(getattr(Credit, field).ilike(search_term))
             elif field in Project.__table__.columns:
@@ -101,7 +101,7 @@ async def get_credits(
     if sort:
         statement = apply_sorting(statement=statement, sort=sort, model=Credit, primary_key='id')
 
-    logger.info(f"SQL Credits Query: {statement.compile(compile_kwargs={'literal_binds': True})}")
+    logger.info(f'SQL Credits Query: {statement.compile(compile_kwargs={"literal_binds": True})}')
 
     total_entries, current_page, total_pages, next_page, results = handle_pagination(
         statement=statement,

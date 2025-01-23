@@ -94,6 +94,14 @@ def test_get_projects_with_filters(
         assert issued_min <= project['issued'] <= issued_max
 
 
+@pytest.mark.parametrize('beneficiary_search', ['foo'])
+def test_projects_beneficiary_search(test_app: TestClient, beneficiary_search):
+    response = test_app.get(f'/projects?beneficiary_search={beneficiary_search}')
+    assert response.status_code == 200
+    data = response.json()['data']
+    assert isinstance(data, list)
+
+
 def test_get_projects_with_invalid_sort(test_app: TestClient):
     response = test_app.get('/projects?sort=+foo')
     assert response.status_code == 400

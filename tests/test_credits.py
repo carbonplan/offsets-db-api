@@ -128,3 +128,11 @@ def test_get_credits_with_invalid_sort(test_app: TestClient):
     response = test_app.get('/credits/?sort=invalid_field')
     assert response.status_code == 400
     assert 'Invalid sort field' in response.json()['detail']
+
+
+@pytest.mark.parametrize('beneficiary_search', ['foo'])
+def test_credits_beneficiary_search(test_app: TestClient, beneficiary_search):
+    response = test_app.get(f'/credits?beneficiary_search={beneficiary_search}')
+    assert response.status_code == 200
+    data = response.json()['data']
+    assert isinstance(data, list)
