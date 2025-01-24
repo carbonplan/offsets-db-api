@@ -15,8 +15,8 @@ def test_get_projects_types(test_app: TestClient):
     response = test_app.get('/projects/types')
     assert response.status_code == 200
     data = response.json()
-    assert isinstance(data['others'], list)
-    assert isinstance(data['top'], list)
+    assert isinstance(data['Other'], list)
+    assert isinstance(data['Top'], list)
 
 
 def test_get_nonexistent_project(test_app: TestClient):
