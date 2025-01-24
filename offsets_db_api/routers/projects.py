@@ -31,7 +31,7 @@ logger = get_logger()
 @cache(namespace=CACHE_NAMESPACE)
 async def get_project_types(
     request: Request,
-    top_n: int = Query(6, description='Number of top project types to return'),
+    top_n: int = Query(5, description='Number of top project types to return'),
     session: Session = Depends(get_session),
     authorized_user: bool = Depends(check_api_key),
 ):
@@ -48,7 +48,7 @@ async def get_project_types(
     result = session.exec(statement).all()
     top = [project_type for project_type, _ in result[:top_n]]
     others = [project_type for project_type, _ in result[top_n:]]
-    return ProjectTypes(top=top, others=others)
+    return ProjectTypes(Top=top, Other=others)
 
 
 @router.get(
