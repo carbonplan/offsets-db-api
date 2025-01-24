@@ -41,9 +41,9 @@ async def get_project_types(request: Request, session: Session = Depends(get_ses
     )
 
     result = session.exec(statement).all()
-    top_6 = [project_type for project_type, _ in result[:6]]
+    top = [project_type for project_type, _ in result[:6]]
     others = [project_type for project_type, _ in result[6:]]
-    return ProjectTypes(top_6=top_6, others=others)
+    return ProjectTypes(top=top, others=others)
 
 
 @router.get(

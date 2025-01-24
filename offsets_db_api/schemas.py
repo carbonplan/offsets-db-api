@@ -47,5 +47,5 @@ class Pagination(pydantic.BaseModel):
 
 
 class ProjectTypes(pydantic.BaseModel):
-    top_6: list[str]
+    top: list[str]
     others: list[str]
