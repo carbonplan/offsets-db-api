@@ -33,6 +33,7 @@ async def get_project_types(
     request: Request,
     top_n: int = Query(6, description='Number of top project types to return'),
     session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
 ):
     """Get project types"""
     logger.info(f'Getting project types: {request.url}')
