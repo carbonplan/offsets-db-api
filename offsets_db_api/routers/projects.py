@@ -1,5 +1,4 @@
 import datetime
-import typing
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -20,7 +19,7 @@ from offsets_db_api.models import (
     ProjectType,
     ProjectWithClips,
 )
-from offsets_db_api.schemas import Pagination, Registries
+from offsets_db_api.schemas import Pagination, ProjectTypes, Registries
 from offsets_db_api.security import check_api_key
 from offsets_db_api.sql_helpers import apply_filters, apply_sorting, handle_pagination
 
@@ -28,7 +27,8 @@ router = APIRouter()
 logger = get_logger()
 
 
-@router.get('/types', response_model=dict[str, typing.Any], summary='Get project types')
+@router.get('/types', response_model=ProjectTypes, summary='Get project types')
+@cache(namespace=CACHE_NAMESPACE)
 async def get_project_types(request: Request, session: Session = Depends(get_session)):
     """Get project types"""
     logger.info(f'Getting project types: {request.url}')
@@ -41,15 +41,9 @@ async def get_project_types(request: Request, session: Session = Depends(get_ses
     )
 
     result = session.exec(statement).all()
-    top_6: list[str] = []
-    others: list[str] = []
-    for project_type, total_issued in result:
-        if len(top_6) < 6:
-            top_6.append(project_type)
-        else:
-            others.append(project_type)
-
-    return {'top_6': top_6, 'others': others}
+    top_6 = [project_type for project_type, _ in result[:6]]
+    others = [project_type for project_type, _ in result[6:]]
+    return ProjectTypes(top_6=top_6, others=others)
 
 
 @router.get(

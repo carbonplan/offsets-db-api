@@ -44,3 +44,8 @@ class Pagination(pydantic.BaseModel):
     current_page: int
     total_pages: int
     next_page: str | None = None
+
+
+class ProjectTypes(pydantic.BaseModel):
+    top_6: list[str]
+    others: list[str]

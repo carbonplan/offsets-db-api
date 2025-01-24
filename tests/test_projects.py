@@ -11,6 +11,14 @@ def sample_project(test_app):
     return response.json()['data'][0]
 
 
+def test_get_projects_types(test_app: TestClient):
+    response = test_app.get('/projects/types')
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) > 0
+
+
 def test_get_nonexistent_project(test_app: TestClient):
     response = test_app.get('/projects/123')
     assert response.status_code == 404
