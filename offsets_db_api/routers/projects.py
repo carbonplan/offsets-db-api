@@ -1,11 +1,12 @@
 import datetime
+import typing
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi_cache.decorator import cache
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased
-from sqlmodel import Session, col, distinct, select
+from sqlmodel import Session, col, distinct, func, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.database import get_session
@@ -25,6 +26,30 @@ from offsets_db_api.sql_helpers import apply_filters, apply_sorting, handle_pagi
 
 router = APIRouter()
 logger = get_logger()
+
+
+@router.get('/types', response_model=dict[str, typing.Any], summary='Get project types')
+async def get_project_types(request: Request, session: Session = Depends(get_session)):
+    """Get project types"""
+    logger.info(f'Getting project types: {request.url}')
+
+    statement = (
+        select(ProjectType.project_type, func.sum(Project.issued).label('total_issued'))
+        .join(Project, col(Project.project_id) == col(ProjectType.project_id))
+        .group_by(ProjectType.project_type)
+        .order_by(func.sum(Project.issued).desc())
+    )
+
+    result = session.exec(statement).all()
+    top_6: list[str] = []
+    others: list[str] = []
+    for project_type, total_issued in result:
+        if len(top_6) < 6:
+            top_6.append(project_type)
+        else:
+            others.append(project_type)
+
+    return {'top_6': top_6, 'others': others}
 
 
 @router.get(

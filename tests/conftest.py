@@ -50,23 +50,23 @@ def wait_for_file_processing(test_app: TestClient, file_ids: list[str], timeout:
 def setup_post(test_app: TestClient):
     payload: list[dict[str, str]] = [
         {
-            'url': 's3://carbonplan-offsets-db/final/2024-11-19/credits-augmented.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2025-01-23/credits-augmented.parquet',
             'category': 'credits',
         },
         {
-            'url': 's3://carbonplan-offsets-db/final/2024-11-19/projects-augmented.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2025-01-23/projects-augmented.parquet',
             'category': 'projects',
         },
         {
-            'url': 's3://carbonplan-offsets-db/final/2024-11-19/curated-clips.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2025-01-23/curated-clips.parquet',
             'category': 'clips',
         },
         {
-            'url': 's3://carbonplan-offsets-db/final/2024-11-19/weekly-summary-clips.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2025-01-23/weekly-summary-clips.parquet',
             'category': 'clips',
         },
         {
-            'url': 's3://carbonplan-offsets-db/final/2024-11-19/project-types.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2025-01-23/project-types.parquet',
             'category': 'projecttypes',
         },
     ]
