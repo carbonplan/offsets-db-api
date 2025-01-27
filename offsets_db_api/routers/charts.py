@@ -860,9 +860,6 @@ async def get_credits_by_category(
     # Base query without Credit join
     matching_projects = select(distinct(Project.project_id))
 
-    # Start with a base query
-    query = select(Project)
-
     # Apply filters
     filters = [
         ('registry', registry, 'ilike', Project),
