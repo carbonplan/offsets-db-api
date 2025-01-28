@@ -27,17 +27,8 @@ router = APIRouter()
 logger = get_logger()
 
 
-@router.get('/types', response_model=ProjectTypes, summary='Get project types')
-@cache(namespace=CACHE_NAMESPACE)
-async def get_project_types(
-    request: Request,
-    top_n: int = Query(5, description='Number of top project types to return'),
-    session: Session = Depends(get_session),
-    authorized_user: bool = Depends(check_api_key),
-):
-    """Get project types"""
-    logger.info(f'Getting project types: {request.url}')
-
+def _get_project_types(session: Session) -> ProjectTypes:
+    top_n = 5
     statement = (
         select(ProjectType.project_type, func.sum(Project.issued).label('total_issued'))
         .join(Project, col(Project.project_id) == col(ProjectType.project_id))
@@ -49,6 +40,18 @@ async def get_project_types(
     top = [project_type for project_type, _ in result[:top_n]]
     others = [project_type for project_type, _ in result[top_n:]]
     return ProjectTypes(Top=top, Other=others)
+
+
+@router.get('/types', response_model=ProjectTypes, summary='Get project types')
+@cache(namespace=CACHE_NAMESPACE)
+async def get_project_types(
+    request: Request,
+    session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
+):
+    """Get project types"""
+    logger.info(f'Getting project types: {request.url}')
+    return _get_project_types(session)
 
 
 @router.get(
@@ -102,6 +105,16 @@ async def get_projects(
     """Get projects with pagination and filtering"""
 
     logger.info(f'Getting projects: {request.url}')
+
+    if project_type and 'Other' in project_type:
+        logger.info(f'Found {len(project_type)} project types: {project_type}')
+        logger.info(f'Project type: {project_type}')
+        project_types = _get_project_types(session)
+        project_type.remove('Other')
+        project_type.extend(project_types.Other)
+        logger.info(
+            f'The new project type list has {len(project_type)} project types: {project_type}'
+        )
 
     # Base query without Credit join
     matching_projects = select(distinct(Project.project_id))
