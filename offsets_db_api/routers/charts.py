@@ -22,7 +22,7 @@ from offsets_db_api.models import (
 )
 from offsets_db_api.schemas import Pagination, Registries
 from offsets_db_api.security import check_api_key
-from offsets_db_api.sql_helpers import apply_filters
+from offsets_db_api.sql_helpers import apply_beneficiary_search, apply_filters
 
 router = APIRouter()
 logger = get_logger()
@@ -889,19 +889,15 @@ async def get_credits_by_category(
         matching_projects = matching_projects.outerjoin(
             Credit_alias, col(Project.project_id) == col(Credit_alias.project_id)
         )
-        beneficiary_search_pattern = f'%{beneficiary_search}%'
-        beneficiary_search_conditions = []
 
-        for field in beneficiary_search_fields:
-            if hasattr(Credit_alias, field):
-                beneficiary_search_conditions.append(
-                    getattr(Credit_alias, field).ilike(beneficiary_search_pattern)
-                )
-            elif hasattr(Project, field):
-                beneficiary_search_conditions.append(
-                    getattr(Project, field).ilike(beneficiary_search_pattern)
-                )
-        matching_projects = matching_projects.where(or_(*beneficiary_search_conditions))
+        matching_projects = apply_beneficiary_search(
+            statement=matching_projects,
+            search_term=beneficiary_search,
+            search_fields=beneficiary_search_fields,
+            credit_model=Credit_alias,
+            project_model=Project,
+        )
+
     matching_projects_select = select(matching_projects.subquery())
 
     query = select(Project).where(Project.project_id.in_(matching_projects_select))

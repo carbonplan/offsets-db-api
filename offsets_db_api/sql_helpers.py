@@ -235,10 +235,10 @@ def custom_urlencode(params):
         key = quote(str(key))
         if isinstance(value, list):
             # Extend list with multiple key-value pairs for list items
-            encoded.extend(f"{key}={quote(str(v), safe='')}" for v in value)
+            encoded.extend(f'{key}={quote(str(v), safe="")}' for v in value)
         else:
             # Append single key-value pair
-            encoded.append(f"{key}={quote(str(value), safe='')}")
+            encoded.append(f'{key}={quote(str(value), safe="")}')
     return '&'.join(encoded)
 
 
@@ -286,3 +286,28 @@ def _generate_next_page_url(*, request, current_page, per_page):
     query_string = custom_urlencode(query_params)
 
     return f'{request.url.scheme}://{request.url.netloc}{request.url.path}?{query_string}'
+
+
+def apply_beneficiary_search(
+    *,
+    statement: _Select[typing.Any],
+    search_term: str,
+    search_fields: list[str],
+    credit_model: type[Credit],
+    project_model: type[Project],
+) -> _Select[typing.Any]:
+    if not search_term:
+        return statement
+    search_pattern = f'%{search_term}%'
+    search_conditions = []
+
+    # Loop through fields to create search conditions
+    for field in search_fields:
+        if hasattr(credit_model, field):
+            search_conditions.append(getattr(credit_model, field).ilike(search_pattern))
+        elif hasattr(project_model, field):
+            search_conditions.append(getattr(project_model, field).ilike(search_pattern))
+
+    if search_conditions:
+        statement = statement.where(or_(*search_conditions))
+    return statement
