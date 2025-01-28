@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi_cache.decorator import cache
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased
-from sqlmodel import Session, col, distinct, select
+from sqlmodel import Session, col, distinct, func, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.database import get_session
@@ -19,12 +19,39 @@ from offsets_db_api.models import (
     ProjectType,
     ProjectWithClips,
 )
-from offsets_db_api.schemas import Pagination, Registries
+from offsets_db_api.schemas import Pagination, ProjectTypes, Registries
 from offsets_db_api.security import check_api_key
 from offsets_db_api.sql_helpers import apply_filters, apply_sorting, handle_pagination
 
 router = APIRouter()
 logger = get_logger()
+
+
+def _get_project_types(session: Session) -> ProjectTypes:
+    top_n = 5
+    statement = (
+        select(ProjectType.project_type, func.sum(Project.issued).label('total_issued'))
+        .join(Project, col(Project.project_id) == col(ProjectType.project_id))
+        .group_by(ProjectType.project_type)
+        .order_by(func.sum(Project.issued).desc())
+    )
+
+    result = session.exec(statement).all()
+    top = [project_type for project_type, _ in result[:top_n]]
+    others = [project_type for project_type, _ in result[top_n:]]
+    return ProjectTypes(Top=top, Other=others)
+
+
+@router.get('/types', response_model=ProjectTypes, summary='Get project types')
+@cache(namespace=CACHE_NAMESPACE)
+async def get_project_types(
+    request: Request,
+    session: Session = Depends(get_session),
+    authorized_user: bool = Depends(check_api_key),
+):
+    """Get project types"""
+    logger.info(f'Getting project types: {request.url}')
+    return _get_project_types(session)
 
 
 @router.get(
@@ -78,6 +105,16 @@ async def get_projects(
     """Get projects with pagination and filtering"""
 
     logger.info(f'Getting projects: {request.url}')
+
+    if project_type and 'Other' in project_type:
+        logger.info(f'Found {len(project_type)} project types: {project_type}')
+        logger.info(f'Project type: {project_type}')
+        project_types = _get_project_types(session)
+        project_type.remove('Other')
+        project_type.extend(project_types.Other)
+        logger.info(
+            f'The new project type list has {len(project_type)} project types: {project_type}'
+        )
 
     # Base query without Credit join
     matching_projects = select(distinct(Project.project_id))
