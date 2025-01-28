@@ -5,7 +5,8 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
-from sqlmodel import Date, Session, and_, case, cast, col, func, or_, select
+from sqlalchemy.orm import aliased
+from sqlmodel import Date, Session, and_, case, cast, col, distinct, func, or_, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.database import get_session
@@ -21,7 +22,7 @@ from offsets_db_api.models import (
 )
 from offsets_db_api.schemas import Pagination, Registries
 from offsets_db_api.security import check_api_key
-from offsets_db_api.sql_helpers import apply_filters
+from offsets_db_api.sql_helpers import apply_beneficiary_search, apply_filters
 
 router = APIRouter()
 logger = get_logger()
@@ -834,6 +835,19 @@ async def get_credits_by_category(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
+    beneficiary_search: str | None = Query(
+        None,
+        description='Case insensitive search string. Currently searches on specified beneficiary_search_fields only.',
+    ),
+    beneficiary_search_fields: list[str] = Query(
+        default=[
+            'retirement_beneficiary',
+            'retirement_account',
+            'retirement_note',
+            'retirement_reason',
+        ],
+        description='Beneficiary fields to search in',
+    ),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
@@ -843,8 +857,8 @@ async def get_credits_by_category(
 
     logger.info(f'Getting project count by category: {request.url}')
 
-    # Start with a base query
-    query = select(Project)
+    # Base query without Credit join
+    matching_projects = select(distinct(Project.project_id))
 
     # Apply filters
     filters = [
@@ -860,19 +874,37 @@ async def get_credits_by_category(
         ('retired', retired_max, '<=', Project),
     ]
 
-    for attribute, values, operation, model in filters:
-        query = apply_filters(
-            statement=query, model=model, attribute=attribute, values=values, operation=operation
-        )
-
     # Handle 'search' filter separately due to its unique logic
     if search:
         search_pattern = f'%{search}%'
-        query = query.where(
+        matching_projects = matching_projects.where(
             or_(
                 col(Project.project_id).ilike(search_pattern),
                 col(Project.name).ilike(search_pattern),
             )
+        )
+
+    if beneficiary_search:
+        Credit_alias = aliased(Credit)
+        matching_projects = matching_projects.outerjoin(
+            Credit_alias, col(Project.project_id) == col(Credit_alias.project_id)
+        )
+
+        matching_projects = apply_beneficiary_search(
+            statement=matching_projects,
+            search_term=beneficiary_search,
+            search_fields=beneficiary_search_fields,
+            credit_model=Credit_alias,
+            project_model=Project,
+        )
+
+    matching_projects_select = select(matching_projects.subquery())
+
+    query = select(Project).where(Project.project_id.in_(matching_projects_select))
+
+    for attribute, values, operation, model in filters:
+        query = apply_filters(
+            statement=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
     # Explode the category column

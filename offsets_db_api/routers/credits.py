@@ -2,7 +2,7 @@ import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
-from sqlmodel import Session, col, or_, select
+from sqlmodel import Session, col, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.database import get_session
@@ -10,7 +10,12 @@ from offsets_db_api.log import get_logger
 from offsets_db_api.models import Credit, PaginatedCredits, Project
 from offsets_db_api.schemas import Pagination, Registries
 from offsets_db_api.security import check_api_key
-from offsets_db_api.sql_helpers import apply_filters, apply_sorting, handle_pagination
+from offsets_db_api.sql_helpers import (
+    apply_beneficiary_search,
+    apply_filters,
+    apply_sorting,
+    handle_pagination,
+)
 
 router = APIRouter()
 logger = get_logger()
@@ -86,17 +91,13 @@ async def get_credits(
         )
 
     if beneficiary_search:
-        # Default to case-insensitive partial match
-        search_term = f'%{beneficiary_search}%'
-        search_conditions = []
-        for field in beneficiary_search_fields:
-            if field in Credit.__table__.columns:
-                search_conditions.append(getattr(Credit, field).ilike(search_term))
-            elif field in Project.__table__.columns:
-                search_conditions.append(getattr(Project, field).ilike(search_term))
-
-        if search_conditions:
-            statement = statement.where(or_(*search_conditions))
+        statement = apply_beneficiary_search(
+            statement=statement,
+            search_term=beneficiary_search,
+            search_fields=beneficiary_search_fields,
+            credit_model=Credit,
+            project_model=Project,
+        )
 
     if sort:
         statement = apply_sorting(statement=statement, sort=sort, model=Credit, primary_key='id')
