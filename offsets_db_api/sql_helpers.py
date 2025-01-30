@@ -11,6 +11,7 @@ from sqlmodel import (
     Text,
     and_,
     asc,
+    col,
     desc,
     distinct,
     func,
@@ -20,8 +21,8 @@ from sqlmodel import (
 )
 from sqlmodel.sql.expression import Select as _Select, SelectOfScalar
 
-from offsets_db_api.models import Clip, ClipProject, Credit, File, Project
-from offsets_db_api.schemas import Registries
+from offsets_db_api.models import Clip, ClipProject, Credit, File, Project, ProjectType
+from offsets_db_api.schemas import ProjectTypes, Registries
 
 
 def apply_sorting(
@@ -311,3 +312,31 @@ def apply_beneficiary_search(
     if search_conditions:
         statement = statement.where(or_(*search_conditions))
     return statement
+
+
+def get_project_types(session: Session) -> ProjectTypes:
+    top_n = 5
+    statement = (
+        select(ProjectType.project_type, func.sum(Project.issued).label('total_issued'))
+        .join(Project, col(Project.project_id) == col(ProjectType.project_id))
+        .group_by(ProjectType.project_type)
+        .order_by(func.sum(Project.issued).desc())
+    )
+
+    result = session.exec(statement).all()
+    top = [project_type for project_type, _ in result[:top_n]]
+    others = [project_type for project_type, _ in result[top_n:]]
+    return ProjectTypes(Top=top, Other=others)
+
+
+def expand_project_types(session: Session, project_type: list[str] | None) -> list[str]:
+    if not project_type:
+        return project_type
+
+    new_project_type = project_type.copy()
+    if 'Other' in new_project_type:
+        project_types = get_project_types(session)
+        new_project_type.remove('Other')
+        new_project_type.extend(project_types.Other)
+
+    return new_project_type
