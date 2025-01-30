@@ -912,8 +912,6 @@ async def get_credits_by_category(
         .where(col(Project.project_id).in_(matching_projects_select))
     )
 
-    # query = select(Project).where(Project.project_id.in_(matching_projects_select))
-
     for attribute, values, operation, model in filters:
         query = apply_filters(
             statement=query, model=model, attribute=attribute, values=values, operation=operation
