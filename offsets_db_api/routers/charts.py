@@ -19,10 +19,11 @@ from offsets_db_api.models import (
     PaginatedProjectCounts,
     PaginatedProjectCreditTotals,
     Project,
+    ProjectType,
 )
 from offsets_db_api.schemas import Pagination, Registries
 from offsets_db_api.security import check_api_key
-from offsets_db_api.sql_helpers import apply_beneficiary_search, apply_filters
+from offsets_db_api.sql_helpers import apply_beneficiary_search, apply_filters, expand_project_types
 
 router = APIRouter()
 logger = get_logger()
@@ -820,6 +821,7 @@ async def get_credits_by_category(
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
+    project_type: list[str] | None = Query(None, description='Project type'),
     is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
     listed_at_from: datetime.date | datetime.datetime | None = Query(
         default=None, description='Format: YYYY-MM-DD'
@@ -857,6 +859,8 @@ async def get_credits_by_category(
 
     logger.info(f'Getting project count by category: {request.url}')
 
+    project_type = expand_project_types(session, project_type)
+
     # Base query without Credit join
     matching_projects = select(distinct(Project.project_id))
 
@@ -872,6 +876,7 @@ async def get_credits_by_category(
         ('issued', issued_max, '<=', Project),
         ('retired', retired_min, '>=', Project),
         ('retired', retired_max, '<=', Project),
+        ('project_type', project_type, 'ilike', ProjectType),
     ]
 
     # Handle 'search' filter separately due to its unique logic
@@ -900,7 +905,14 @@ async def get_credits_by_category(
 
     matching_projects_select = select(matching_projects.subquery())
 
-    query = select(Project).where(Project.project_id.in_(matching_projects_select))
+    # Use the subquery to filter the main query
+    query = (
+        select(Project, ProjectType.project_type, ProjectType.source)
+        .outerjoin(ProjectType, col(Project.project_id) == col(ProjectType.project_id))
+        .where(col(Project.project_id).in_(matching_projects_select))
+    )
+
+    # query = select(Project).where(Project.project_id.in_(matching_projects_select))
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
