@@ -4,7 +4,7 @@ api:
           - offsets_db_api/**/*
           - migrations/**/*
           - Procfile
-          - requirements.txt
+          - pyproject.toml
           - release.sh
           - fly.*.toml
 
