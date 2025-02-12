@@ -9,7 +9,7 @@ import requests
 
 
 def generate_path(*, date: datetime.date, bucket: str, category: str) -> str:
-    return f"{bucket.rstrip('/')}/final/{date.strftime('%Y-%m-%d')}/{category}.parquet"
+    return f'{bucket.rstrip("/")}/final/{date.strftime("%Y-%m-%d")}/{category}.parquet'
 
 
 def calculate_date(*, days_back: int) -> datetime.date:
@@ -50,7 +50,8 @@ def get_latest(*, bucket: str):
     added_weeks = set()
 
     for entry in date_ranges:
-        week_num = entry.isocalendar()[1]
+        value = entry.isocalendar()
+        week_num = f'{value.year}-{value.week}'
         if week_num not in added_weeks:
             weekly_summary_path = generate_path(
                 date=entry.date(), bucket=bucket, category='weekly-summary-clips'
@@ -58,6 +59,8 @@ def get_latest(*, bucket: str):
             if fs.exists(weekly_summary_path):
                 data.append({'category': 'clips', 'url': weekly_summary_path})
                 added_weeks.add(week_num)
+            else:
+                print(f"weekly summary path {weekly_summary_path} doesn't exist")
 
     return data
 
