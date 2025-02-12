@@ -1,4 +1,3 @@
-import datetime
 import typing
 from urllib.parse import quote
 
@@ -21,8 +20,8 @@ from sqlmodel import (
 )
 from sqlmodel.sql.expression import Select as _Select, SelectOfScalar
 
-from offsets_db_api.models import Clip, ClipProject, Credit, File, Project, ProjectType
-from offsets_db_api.schemas import ProjectTypes, Registries
+from offsets_db_api.models import Clip, ClipProject, Credit, Project, ProjectType
+from offsets_db_api.schemas import ProjectTypes
 
 
 def apply_sorting(
@@ -78,76 +77,66 @@ def apply_sorting(
 
 def apply_filters(
     *,
-    statement: _Select[typing.Any] | SelectOfScalar[typing.Any],
-    model: type[Credit | Project | Clip | ClipProject | File | SQLModel],
+    statement: typing.Any,  # _Select or SelectOfScalar
+    model: type[SQLModel],
     attribute: str,
-    values: list[str] | None | int | datetime.date | list[Registries] | typing.Any,
+    values: typing.Any,  # can be a single value or an iterable
     operation: str,
-) -> _Select[typing.Any] | SelectOfScalar[typing.Any]:
+) -> typing.Any:
     """
     Apply filters to the statement based on operation type.
-    Supports 'ilike', '==', '>=', and '<=' operations.
+    Supports 'ilike', '==', '>=', '<=' and a special 'ALL' for ARRAY types.
 
     Parameters
     ----------
-    statement: Select
-        SQLAlchemy Select statement
-    model: Credit | Project | Clip | ClipProject
-        SQLAlchemy model class
-    attribute: str
-        model attribute to apply filter on
-    values: list
-        list of values to filter with
-    operation: str
-        operation type to apply to the filter ('ilike', '==', '>=', '<=')
-
+    statement : SQLAlchemy Select statement
+    model : SQLModel subclass
+        The model containing the column to filter.
+    attribute : str
+        The attribute (column name) to filter.
+    values : any
+        A single value or an iterable of values to filter by.
+    operation : str
+        The operation to use ('ilike', '==', '>=', '<=', or 'ALL' for ARRAY fields).
 
     Returns
     -------
-    statement: Select
-        updated SQLAlchemy Select statement
+    statement : Updated SQLAlchemy Select statement
     """
+    if values is None:
+        return statement
 
-    if values is not None:
-        attr_type = getattr(model, attribute).type
-        is_array = isinstance(attr_type, ARRAY)
-        is_list = isinstance(values, list | tuple | set)
+    column = getattr(model, attribute)
+    is_iterable = isinstance(values, list | tuple | set)
 
-        if is_array and is_list:
-            if operation == 'ALL':
-                statement = statement.where(
-                    and_(*[getattr(model, attribute).op('@>')(f'{{{v}}}') for v in values])
-                )
-            else:
-                statement = statement.where(
-                    or_(*[getattr(model, attribute).op('@>')(f'{{{v}}}') for v in values])
-                )
+    # Special handling for ARRAY types (PostgreSQL)
+    if isinstance(column.type, ARRAY) and is_iterable:
+        conditions = [column.op('@>')(f'{{{v}}}') for v in values]
+        if operation == 'ALL':
+            statement = statement.where(and_(*conditions))
+        else:
+            statement = statement.where(or_(*conditions))
+        return statement
 
-        if operation == 'ilike':
-            statement = (
-                statement.where(or_(*[getattr(model, attribute).ilike(v) for v in values]))
-                if is_list
-                else statement.where(getattr(model, attribute).ilike(values))
-            )
-        elif operation == '==':
-            statement = (
-                statement.where(or_(*[getattr(model, attribute) == v for v in values]))
-                if is_list
-                else statement.where(getattr(model, attribute) == values)
-            )
-        elif operation == '>=':
-            statement = (
-                statement.where(or_(*[getattr(model, attribute) >= v for v in values]))
-                if is_list
-                else statement.where(getattr(model, attribute) >= values)
-            )
-        elif operation == '<=':
-            statement = (
-                statement.where(or_(*[getattr(model, attribute) <= v for v in values]))
-                if is_list
-                else statement.where(getattr(model, attribute) <= values)
-            )
+    # Mapping for standard operations
+    operations_map = {
+        'ilike': lambda col, v: col.ilike(v),
+        '==': lambda col, v: col == v,
+        '>=': lambda col, v: col >= v,
+        '<=': lambda col, v: col <= v,
+    }
+    if operation not in operations_map:
+        raise ValueError(
+            f'Unsupported operation: {operation}. Supported operations: {list(operations_map.keys())}',
+        )
 
+    op_func = operations_map[operation]
+
+    if is_iterable:
+        conditions = [op_func(column, v) for v in values]
+        statement = statement.where(or_(*conditions))
+    else:
+        statement = statement.where(op_func(column, values))
     return statement
 
 
