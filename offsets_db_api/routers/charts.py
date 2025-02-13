@@ -145,6 +145,7 @@ async def get_projects_by_listing_date(
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
+    project_type: list[str] | None = Query(None, description='Project type'),
     is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
     listed_at_from: datetime.date | datetime.datetime | None = Query(
         default=None, description='Format: YYYY-MM-DD'
@@ -169,14 +170,12 @@ async def get_projects_by_listing_date(
 
     logger.info(f'Getting project registration data: {request.url}')
 
-    # Base query
-    subquery = select(
-        col(Project.listed_at),
-        col(Project.project_id),
-        func.unnest(Project.category).label('category'),
-    ).alias('subquery')
+    project_type = expand_project_types(session, project_type)
 
-    query = select(subquery)
+    # Start with the base query on the Project model
+    query = select(Project, ProjectType.project_type, ProjectType.source).outerjoin(
+        ProjectType, col(Project.project_id) == col(ProjectType.project_id)
+    )
 
     # Apply filters
     filters = [
@@ -190,6 +189,7 @@ async def get_projects_by_listing_date(
         ('issued', issued_max, '<=', Project),
         ('retired', retired_min, '>=', Project),
         ('retired', retired_max, '<=', Project),
+        ('project_type', project_type, 'ilike', ProjectType),
     ]
 
     for attribute, values, operation, model in filters:
@@ -207,9 +207,14 @@ async def get_projects_by_listing_date(
             )
         )
 
+    # Now create the subquery with unnested category
+    subquery = query.add_columns(
+        func.unnest(Project.category).label('unnested_category'),
+    ).alias('subquery')
+
     # Apply category filter
     if category:
-        query = query.where(subquery.c.category.in_(category))
+        query = query.where(subquery.c.unnested_category.in_(category))
 
     # Get min and max listing dates
     min_max_query = select(func.min(subquery.c.listed_at), func.max(subquery.c.listed_at))
@@ -246,11 +251,11 @@ async def get_projects_by_listing_date(
     binned_query = (
         select(
             bin_case,
-            subquery.c.category,
+            subquery.c.unnested_category,
             func.count(subquery.c.project_id.distinct()).label('value'),
         )
         .select_from(subquery)
-        .group_by(bin_case, subquery.c.category)
+        .group_by(bin_case, subquery.c.unnested_category)
     )
 
     # Execute the query
@@ -268,7 +273,7 @@ async def get_projects_by_listing_date(
             {
                 'start': start_date.strftime('%Y-%m-%d'),
                 'end': end_date.strftime('%Y-%m-%d'),
-                'category': row.category,
+                'category': row.unnested_category,
                 'value': int(row.value),
             }
         )
@@ -296,6 +301,7 @@ async def get_credits_by_transaction_date(
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
+    project_type: list[str] | None = Query(None, description='Project type'),
     is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
     transaction_type: list[str] | None = Query(None, description='Transaction type'),
     vintage: list[int] | None = Query(None, description='Vintage'),
@@ -318,18 +324,14 @@ async def get_credits_by_transaction_date(
 
     logger.info(f'Getting credit transaction data: {request.url}')
 
-    # Base query
-    subquery = (
-        select(
-            col(Credit.transaction_date),
-            col(Credit.quantity),
-            func.unnest(Project.category).label('category'),
-        )
-        .join(Project, col(Credit.project_id) == col(Project.project_id))
-        .alias('subquery')
-    )
+    project_type = expand_project_types(session, project_type)
 
-    query = select(subquery)
+    # Base query
+    base_query = (
+        select(Credit, Project)
+        .join(Project, col(Credit.project_id) == col(Project.project_id))
+        .outerjoin(ProjectType, col(Project.project_id) == col(ProjectType.project_id))
+    )
 
     # Apply filters
     filters = [
@@ -341,26 +343,40 @@ async def get_credits_by_transaction_date(
         ('vintage', vintage, '==', Credit),
         ('transaction_date', transaction_date_from, '>=', Credit),
         ('transaction_date', transaction_date_to, '<=', Credit),
+        ('project_type', project_type, 'ilike', ProjectType),
     ]
 
     for attribute, values, operation, model in filters:
-        query = apply_filters(
-            statement=query, model=model, attribute=attribute, values=values, operation=operation
+        base_query = apply_filters(
+            statement=base_query,
+            model=model,
+            attribute=attribute,
+            values=values,
+            operation=operation,
         )
 
     # Handle 'search' filter separately due to its unique logic
     if search:
         search_pattern = f'%{search}%'
-        query = query.where(
+        base_query = base_query.where(
             or_(
                 col(Project.project_id).ilike(search_pattern),
                 col(Project.name).ilike(search_pattern),
             )
         )
 
+    # Create the subquery with unnested category
+    subquery = base_query.add_columns(
+        Credit.transaction_date,
+        Credit.quantity,
+        func.unnest(Project.category).label('unnested_category'),
+    ).alias('subquery')
+
+    query = select(subquery)
+
     # Apply category filter
     if category:
-        query = query.where(subquery.c.category.in_(category))
+        query = query.where(subquery.c.unnested_category.in_(category))
 
     # Get min and max transaction dates
     min_max_query = select(
@@ -399,9 +415,9 @@ async def get_credits_by_transaction_date(
 
     # Add binning to the query and aggregate
     binned_query = (
-        select(bin_case, subquery.c.category, func.sum(subquery.c.quantity).label('value'))
+        select(bin_case, subquery.c.unnested_category, func.sum(subquery.c.quantity).label('value'))
         .select_from(subquery)
-        .group_by(bin_case, subquery.c.category)
+        .group_by(bin_case, subquery.c.unnested_category)
     )
 
     # Execute the query
@@ -419,7 +435,7 @@ async def get_credits_by_transaction_date(
             {
                 'start': start_date.strftime('%Y-%m-%d'),
                 'end': end_date.strftime('%Y-%m-%d'),
-                'category': row.category,
+                'category': row.unnested_category,
                 'value': int(row.value),
             }
         )
@@ -569,6 +585,7 @@ async def get_projects_by_credit_totals(
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
+    project_type: list[str] | None = Query(None, description='Project type'),
     is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
     listed_at_from: datetime.date | datetime.datetime | None = Query(
         default=None, description='Format: YYYY-MM-DD'
@@ -599,8 +616,11 @@ async def get_projects_by_credit_totals(
     """Get aggregated project credit totals"""
 
     logger.info(f'📊 Generating projects by {credit_type} totals...: {request.url}')
+    project_type = expand_project_types(session, project_type)
 
-    statement = select(Project)
+    query = select(Project, ProjectType.project_type, ProjectType.source).outerjoin(
+        ProjectType, col(Project.project_id) == col(ProjectType.project_id)
+    )
 
     filters = [
         ('registry', registry, 'ilike', Project),
@@ -615,11 +635,12 @@ async def get_projects_by_credit_totals(
         ('issued', issued_max, '<=', Project),
         ('retired', retired_min, '>=', Project),
         ('retired', retired_max, '<=', Project),
+        ('project_type', project_type, 'ilike', ProjectType),
     ]
 
     for attribute, values, operation, model in filters:
-        statement = apply_filters(
-            statement=statement,
+        query = apply_filters(
+            statement=query,
             model=model,
             attribute=attribute,
             values=values,
@@ -629,7 +650,7 @@ async def get_projects_by_credit_totals(
     # Handle 'search' filter separately due to its unique logic
     if search:
         search_pattern = f'%{search}%'
-        statement = statement.where(
+        query = query.where(
             or_(
                 col(Project.project_id).ilike(search_pattern),
                 col(Project.name).ilike(search_pattern),
@@ -637,7 +658,7 @@ async def get_projects_by_credit_totals(
         )
 
     # Explode the category column
-    subquery = statement.subquery()
+    subquery = query.subquery()
     exploded = (
         select(
             func.unnest(subquery.c.category).label('category'),
@@ -727,6 +748,7 @@ async def get_projects_by_category(
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
+    project_type: list[str] | None = Query(None, description='Project type'),
     is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
     listed_at_from: datetime.date | datetime.datetime | None = Query(
         default=None, description='Format: YYYY-MM-DD'
@@ -750,8 +772,11 @@ async def get_projects_by_category(
     """Get project counts by category"""
 
     logger.info(f'Getting project count by category: {request.url}')
+    project_type = expand_project_types(session, project_type)
 
-    statement = select(Project)
+    query = select(Project, ProjectType.project_type, ProjectType.source).outerjoin(
+        ProjectType, col(Project.project_id) == col(ProjectType.project_id)
+    )
 
     filters = [
         ('registry', registry, 'ilike', Project),
@@ -764,11 +789,12 @@ async def get_projects_by_category(
         ('issued', issued_max, '<=', Project),
         ('retired', retired_min, '>=', Project),
         ('retired', retired_max, '<=', Project),
+        ('project_type', project_type, 'ilike', ProjectType),
     ]
 
     for attribute, values, operation, model in filters:
-        statement = apply_filters(
-            statement=statement,
+        query = apply_filters(
+            statement=query,
             model=model,
             attribute=attribute,
             values=values,
@@ -778,14 +804,14 @@ async def get_projects_by_category(
     # Handle 'search' filter separately due to its unique logic
     if search:
         search_pattern = f'%{search}%'
-        statement = statement.where(
+        query = query.where(
             or_(
                 col(Project.project_id).ilike(search_pattern),
                 col(Project.name).ilike(search_pattern),
             )
         )
 
-    subquery = statement.subquery()
+    subquery = query.subquery()
     exploded = (
         select(func.unnest(subquery.c.category).label('category'), subquery.c.project_id)
         .select_from(subquery)
