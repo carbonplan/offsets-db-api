@@ -137,7 +137,7 @@ def generate_dynamic_numeric_bins(*, min_value, max_value, bin_width=None):
 
 
 @router.get('/projects_by_listing_date', response_model=PaginatedBinnedValues)
-@cache(namespace=CACHE_NAMESPACE)
+# @cache(namespace=CACHE_NAMESPACE)
 async def get_projects_by_listing_date(
     request: Request,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
@@ -145,6 +145,7 @@ async def get_projects_by_listing_date(
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
+    project_type: list[str] | None = Query(None, description='Project type'),
     is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
     listed_at_from: datetime.date | datetime.datetime | None = Query(
         default=None, description='Format: YYYY-MM-DD'
@@ -169,14 +170,12 @@ async def get_projects_by_listing_date(
 
     logger.info(f'Getting project registration data: {request.url}')
 
-    # Base query
-    subquery = select(
-        col(Project.listed_at),
-        col(Project.project_id),
-        func.unnest(Project.category).label('category'),
-    ).alias('subquery')
+    project_type = expand_project_types(session, project_type)
 
-    query = select(subquery)
+    # Start with the base query on the Project model
+    query = select(Project, ProjectType.project_type, ProjectType.source).outerjoin(
+        ProjectType, col(Project.project_id) == col(ProjectType.project_id)
+    )
 
     # Apply filters
     filters = [
@@ -190,6 +189,7 @@ async def get_projects_by_listing_date(
         ('issued', issued_max, '<=', Project),
         ('retired', retired_min, '>=', Project),
         ('retired', retired_max, '<=', Project),
+        ('project_type', project_type, 'ilike', ProjectType),
     ]
 
     for attribute, values, operation, model in filters:
@@ -207,9 +207,14 @@ async def get_projects_by_listing_date(
             )
         )
 
+    # Now create the subquery with unnested category
+    subquery = query.add_columns(
+        func.unnest(Project.category).label('new_category'),
+    ).alias('subquery')
+
     # Apply category filter
     if category:
-        query = query.where(subquery.c.category.in_(category))
+        query = query.where(subquery.c.new_category.in_(category))
 
     # Get min and max listing dates
     min_max_query = select(func.min(subquery.c.listed_at), func.max(subquery.c.listed_at))
@@ -246,11 +251,11 @@ async def get_projects_by_listing_date(
     binned_query = (
         select(
             bin_case,
-            subquery.c.category,
+            subquery.c.new_category,
             func.count(subquery.c.project_id.distinct()).label('value'),
         )
         .select_from(subquery)
-        .group_by(bin_case, subquery.c.category)
+        .group_by(bin_case, subquery.c.new_category)
     )
 
     # Execute the query
@@ -268,7 +273,7 @@ async def get_projects_by_listing_date(
             {
                 'start': start_date.strftime('%Y-%m-%d'),
                 'end': end_date.strftime('%Y-%m-%d'),
-                'category': row.category,
+                'category': row.new_category,
                 'value': int(row.value),
             }
         )
