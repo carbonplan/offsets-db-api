@@ -585,6 +585,7 @@ async def get_projects_by_credit_totals(
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
+    project_type: list[str] | None = Query(None, description='Project type'),
     is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
     listed_at_from: datetime.date | datetime.datetime | None = Query(
         default=None, description='Format: YYYY-MM-DD'
@@ -615,8 +616,11 @@ async def get_projects_by_credit_totals(
     """Get aggregated project credit totals"""
 
     logger.info(f'📊 Generating projects by {credit_type} totals...: {request.url}')
+    project_type = expand_project_types(session, project_type)
 
-    statement = select(Project)
+    query = select(Project, ProjectType.project_type, ProjectType.source).outerjoin(
+        ProjectType, col(Project.project_id) == col(ProjectType.project_id)
+    )
 
     filters = [
         ('registry', registry, 'ilike', Project),
@@ -631,11 +635,12 @@ async def get_projects_by_credit_totals(
         ('issued', issued_max, '<=', Project),
         ('retired', retired_min, '>=', Project),
         ('retired', retired_max, '<=', Project),
+        ('project_type', project_type, 'ilike', ProjectType),
     ]
 
     for attribute, values, operation, model in filters:
-        statement = apply_filters(
-            statement=statement,
+        query = apply_filters(
+            statement=query,
             model=model,
             attribute=attribute,
             values=values,
@@ -645,7 +650,7 @@ async def get_projects_by_credit_totals(
     # Handle 'search' filter separately due to its unique logic
     if search:
         search_pattern = f'%{search}%'
-        statement = statement.where(
+        query = query.where(
             or_(
                 col(Project.project_id).ilike(search_pattern),
                 col(Project.name).ilike(search_pattern),
@@ -653,7 +658,7 @@ async def get_projects_by_credit_totals(
         )
 
     # Explode the category column
-    subquery = statement.subquery()
+    subquery = query.subquery()
     exploded = (
         select(
             func.unnest(subquery.c.category).label('category'),
