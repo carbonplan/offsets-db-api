@@ -469,6 +469,19 @@ async def get_credits_by_project_id(
     transaction_date_to: datetime.date | datetime.datetime | None = Query(
         default=None, description='Format: YYYY-MM-DD'
     ),
+    beneficiary_search: str | None = Query(
+        None,
+        description='Case insensitive search string. Currently searches on specified beneficiary_search_fields only.',
+    ),
+    beneficiary_search_fields: list[str] = Query(
+        default=[
+            'retirement_beneficiary',
+            'retirement_account',
+            'retirement_note',
+            'retirement_reason',
+        ],
+        description='Beneficiary fields to search in',
+    ),
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
@@ -480,8 +493,16 @@ async def get_credits_by_project_id(
     logger.info(f'Getting credit transaction data: {request.url}')
 
     # Base query
-    statement = (
-        select(col(Credit.transaction_date), col(Credit.quantity))
+    query = (
+        select(
+            col(Credit.transaction_date),
+            col(Credit.quantity),
+            col(Credit.vintage),
+            col(Credit.retirement_account),
+            col(Credit.retirement_beneficiary),
+            col(Credit.retirement_note),
+            col(Credit.retirement_reason),
+        )
         .join(Project)
         .where(Project.project_id == project_id)
     )
@@ -495,16 +516,28 @@ async def get_credits_by_project_id(
     ]
 
     for attribute, values, operation, model in filters:
-        statement = apply_filters(
-            statement=statement,
+        query = apply_filters(
+            statement=query,
             model=model,
             attribute=attribute,
             values=values,
             operation=operation,
         )
 
-    # Get min and max transaction dates
-    min_max_query = select(func.min(Credit.transaction_date), func.max(Credit.transaction_date))
+    if beneficiary_search:
+        query = apply_beneficiary_search(
+            statement=query,
+            search_term=beneficiary_search,
+            search_fields=beneficiary_search_fields,
+            credit_model=Credit,
+            project_model=Project,
+        )
+
+    # Get min and max transaction dates from the filtered query
+    min_max_subquery = query.subquery()
+    min_max_query = select(
+        func.min(min_max_subquery.c.transaction_date), func.max(min_max_subquery.c.transaction_date)
+    )
     min_date, max_date = session.exec(min_max_query).fetchone()
 
     if min_date is None or max_date is None:
@@ -550,9 +583,10 @@ async def get_credits_by_project_id(
 
     # Add binning to the query and aggregate
     binned_query = (
-        statement.add_columns(bin_case)
+        query.add_columns(bin_case)
         .group_by('bin')
         .with_only_columns(bin_case, func.sum(Credit.quantity).label('value'))
+        .order_by('bin')
     )
 
     # Execute the query
