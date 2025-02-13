@@ -741,7 +741,7 @@ async def get_projects_by_credit_totals(
 
 
 @router.get('/projects_by_category', response_model=PaginatedProjectCounts)
-# @cache(namespace=CACHE_NAMESPACE)
+@cache(namespace=CACHE_NAMESPACE)
 async def get_projects_by_category(
     request: Request,
     registry: list[Registries] | None = Query(None, description='Registry name'),
@@ -774,7 +774,7 @@ async def get_projects_by_category(
     logger.info(f'Getting project count by category: {request.url}')
     project_type = expand_project_types(session, project_type)
 
-    statement = select(Project, ProjectType.project_type, ProjectType.source).outerjoin(
+    query = select(Project, ProjectType.project_type, ProjectType.source).outerjoin(
         ProjectType, col(Project.project_id) == col(ProjectType.project_id)
     )
 
@@ -793,8 +793,8 @@ async def get_projects_by_category(
     ]
 
     for attribute, values, operation, model in filters:
-        statement = apply_filters(
-            statement=statement,
+        query = apply_filters(
+            statement=query,
             model=model,
             attribute=attribute,
             values=values,
@@ -804,14 +804,14 @@ async def get_projects_by_category(
     # Handle 'search' filter separately due to its unique logic
     if search:
         search_pattern = f'%{search}%'
-        statement = statement.where(
+        query = query.where(
             or_(
                 col(Project.project_id).ilike(search_pattern),
                 col(Project.name).ilike(search_pattern),
             )
         )
 
-    subquery = statement.subquery()
+    subquery = query.subquery()
     exploded = (
         select(func.unnest(subquery.c.category).label('category'), subquery.c.project_id)
         .select_from(subquery)
