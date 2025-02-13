@@ -137,7 +137,7 @@ def generate_dynamic_numeric_bins(*, min_value, max_value, bin_width=None):
 
 
 @router.get('/projects_by_listing_date', response_model=PaginatedBinnedValues)
-# @cache(namespace=CACHE_NAMESPACE)
+@cache(namespace=CACHE_NAMESPACE)
 async def get_projects_by_listing_date(
     request: Request,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
@@ -209,12 +209,12 @@ async def get_projects_by_listing_date(
 
     # Now create the subquery with unnested category
     subquery = query.add_columns(
-        func.unnest(Project.category).label('new_category'),
+        func.unnest(Project.category).label('unnested_category'),
     ).alias('subquery')
 
     # Apply category filter
     if category:
-        query = query.where(subquery.c.new_category.in_(category))
+        query = query.where(subquery.c.unnested_category.in_(category))
 
     # Get min and max listing dates
     min_max_query = select(func.min(subquery.c.listed_at), func.max(subquery.c.listed_at))
@@ -251,11 +251,11 @@ async def get_projects_by_listing_date(
     binned_query = (
         select(
             bin_case,
-            subquery.c.new_category,
+            subquery.c.unnested_category,
             func.count(subquery.c.project_id.distinct()).label('value'),
         )
         .select_from(subquery)
-        .group_by(bin_case, subquery.c.new_category)
+        .group_by(bin_case, subquery.c.unnested_category)
     )
 
     # Execute the query
@@ -273,7 +273,7 @@ async def get_projects_by_listing_date(
             {
                 'start': start_date.strftime('%Y-%m-%d'),
                 'end': end_date.strftime('%Y-%m-%d'),
-                'category': row.new_category,
+                'category': row.unnested_category,
                 'value': int(row.value),
             }
         )
@@ -301,6 +301,7 @@ async def get_credits_by_transaction_date(
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
+    project_type: list[str] | None = Query(None, description='Project type'),
     is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
     transaction_type: list[str] | None = Query(None, description='Transaction type'),
     vintage: list[int] | None = Query(None, description='Vintage'),
@@ -323,18 +324,14 @@ async def get_credits_by_transaction_date(
 
     logger.info(f'Getting credit transaction data: {request.url}')
 
-    # Base query
-    subquery = (
-        select(
-            col(Credit.transaction_date),
-            col(Credit.quantity),
-            func.unnest(Project.category).label('category'),
-        )
-        .join(Project, col(Credit.project_id) == col(Project.project_id))
-        .alias('subquery')
-    )
+    project_type = expand_project_types(session, project_type)
 
-    query = select(subquery)
+    # Base query
+    base_query = (
+        select(Credit, Project)
+        .join(Project, col(Credit.project_id) == col(Project.project_id))
+        .outerjoin(ProjectType, col(Project.project_id) == col(ProjectType.project_id))
+    )
 
     # Apply filters
     filters = [
@@ -346,26 +343,40 @@ async def get_credits_by_transaction_date(
         ('vintage', vintage, '==', Credit),
         ('transaction_date', transaction_date_from, '>=', Credit),
         ('transaction_date', transaction_date_to, '<=', Credit),
+        ('project_type', project_type, 'ilike', ProjectType),
     ]
 
     for attribute, values, operation, model in filters:
-        query = apply_filters(
-            statement=query, model=model, attribute=attribute, values=values, operation=operation
+        base_query = apply_filters(
+            statement=base_query,
+            model=model,
+            attribute=attribute,
+            values=values,
+            operation=operation,
         )
 
     # Handle 'search' filter separately due to its unique logic
     if search:
         search_pattern = f'%{search}%'
-        query = query.where(
+        base_query = base_query.where(
             or_(
                 col(Project.project_id).ilike(search_pattern),
                 col(Project.name).ilike(search_pattern),
             )
         )
 
+    # Create the subquery with unnested category
+    subquery = base_query.add_columns(
+        Credit.transaction_date,
+        Credit.quantity,
+        func.unnest(Project.category).label('unnested_category'),
+    ).alias('subquery')
+
+    query = select(subquery)
+
     # Apply category filter
     if category:
-        query = query.where(subquery.c.category.in_(category))
+        query = query.where(subquery.c.unnested_category.in_(category))
 
     # Get min and max transaction dates
     min_max_query = select(
@@ -404,9 +415,9 @@ async def get_credits_by_transaction_date(
 
     # Add binning to the query and aggregate
     binned_query = (
-        select(bin_case, subquery.c.category, func.sum(subquery.c.quantity).label('value'))
+        select(bin_case, subquery.c.unnested_category, func.sum(subquery.c.quantity).label('value'))
         .select_from(subquery)
-        .group_by(bin_case, subquery.c.category)
+        .group_by(bin_case, subquery.c.unnested_category)
     )
 
     # Execute the query
@@ -424,7 +435,7 @@ async def get_credits_by_transaction_date(
             {
                 'start': start_date.strftime('%Y-%m-%d'),
                 'end': end_date.strftime('%Y-%m-%d'),
-                'category': row.category,
+                'category': row.unnested_category,
                 'value': int(row.value),
             }
         )
