@@ -720,13 +720,14 @@ async def get_projects_by_credit_totals(
 
 
 @router.get('/projects_by_category', response_model=PaginatedProjectCounts)
-@cache(namespace=CACHE_NAMESPACE)
+# @cache(namespace=CACHE_NAMESPACE)
 async def get_projects_by_category(
     request: Request,
     registry: list[Registries] | None = Query(None, description='Registry name'),
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
     category: list[str] | None = Query(None, description='Category name'),
+    project_type: list[str] | None = Query(None, description='Project type'),
     is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
     listed_at_from: datetime.date | datetime.datetime | None = Query(
         default=None, description='Format: YYYY-MM-DD'
@@ -750,8 +751,11 @@ async def get_projects_by_category(
     """Get project counts by category"""
 
     logger.info(f'Getting project count by category: {request.url}')
+    project_type = expand_project_types(session, project_type)
 
-    statement = select(Project)
+    statement = select(Project, ProjectType.project_type, ProjectType.source).outerjoin(
+        ProjectType, col(Project.project_id) == col(ProjectType.project_id)
+    )
 
     filters = [
         ('registry', registry, 'ilike', Project),
@@ -764,6 +768,7 @@ async def get_projects_by_category(
         ('issued', issued_max, '<=', Project),
         ('retired', retired_min, '>=', Project),
         ('retired', retired_max, '<=', Project),
+        ('project_type', project_type, 'ilike', ProjectType),
     ]
 
     for attribute, values, operation, model in filters:
