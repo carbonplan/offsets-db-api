@@ -8,6 +8,8 @@ on:
     branches:
       - main
   workflow_dispatch:
+  repository_dispatch:
+    types: [update-db] # This is the event type we'll trigger from the API. It is currently used in carbonplan/offsets-db-download/.github/workflows
 
   schedule:
     - cron: '45 6 * * *' # 6:45am UTC every day
