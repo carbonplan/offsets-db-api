@@ -138,6 +138,9 @@ class CreditBase(SQLModel):
     retirement_beneficiary: str | None = Field(description='Beneficiary of credits')
     retirement_reason: str | None = Field(description='Reason for transaction')
     retirement_note: str | None = Field(description='Note')
+    retirement_beneficiary_harmonized: str | None = Field(
+        description='Harmonized beneficiary of credits'
+    )
 
 
 class Credit(CreditBase, table=True):
@@ -165,6 +168,11 @@ class Credit(CreditBase, table=True):
         Index(
             'ix_credit_retirement_note_gin',
             text('lower(retirement_note) gin_trgm_ops'),
+            postgresql_using='gin',
+        ),
+        Index(
+            'ix_credit_retirement_beneficiary_harmonized_gin',
+            text('lower(retirement_beneficiary_harmonized) gin_trgm_ops'),
             postgresql_using='gin',
         ),
     )
