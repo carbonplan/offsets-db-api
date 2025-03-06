@@ -137,12 +137,12 @@ def test_get_projects_with_valid_sort(test_app: TestClient):
             if prev_country is not None:
                 assert country >= prev_country, 'Projects are not sorted by country'
                 if country == prev_country:
-                    assert (
-                        project_id >= prev_project_id
-                    ), 'Projects are not sorted by project_id within the same country'
+                    assert project_id >= prev_project_id, (
+                        'Projects are not sorted by project_id within the same country'
+                    )
                     if project_id == prev_project_id and listed_at and prev_listed_at:
-                        assert (
-                            listed_at <= prev_listed_at
-                        ), 'Projects are not sorted by listed_at within the same project_id'
+                        assert listed_at <= prev_listed_at, (
+                            'Projects are not sorted by listed_at within the same project_id'
+                        )
 
             prev_country, prev_project_id, prev_listed_at = country, project_id, listed_at
