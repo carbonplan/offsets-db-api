@@ -939,7 +939,9 @@ async def get_credits_by_category(
             )
         )
 
+    use_dynamic_retirement = False
     if beneficiary_search:
+        use_dynamic_retirement = True
         Credit_alias = aliased(Credit)
         matching_projects = matching_projects.outerjoin(
             Credit_alias, col(Project.project_id) == col(Credit_alias.project_id)
@@ -969,15 +971,51 @@ async def get_credits_by_category(
 
     # Explode the category column
     subquery = query.subquery()
-    exploded = (
-        select(
-            func.unnest(subquery.c.category).label('category'),
-            subquery.c.issued,
-            subquery.c.retired,
+
+    if use_dynamic_retirement:
+        # If beneficiary search is provided, compute retirement dynamically from transactions
+        # Join with credits table to get transactions
+        Credits_table = aliased(Credit)
+        dynamic_data = (
+            select(
+                func.unnest(subquery.c.category).label('category'),
+                subquery.c.issued,
+                func.sum(
+                    case(
+                        (
+                            Credits_table.transaction_type.ilike('%retirement%'),
+                            Credits_table.quantity,
+                        ),
+                        else_=0,
+                    )
+                ).label('retired'),
+            )
+            .select_from(subquery)
+            .outerjoin(Credits_table, subquery.c.project_id == Credits_table.project_id)
+            .where(
+                or_(
+                    *[
+                        getattr(Credits_table, field).ilike(f'%{beneficiary_search}%')
+                        for field in beneficiary_search_fields
+                        if hasattr(Credits_table, field)
+                    ]
+                )
+            )
+            .group_by('category', subquery.c.issued)
         )
-        .select_from(subquery)
-        .subquery()
-    )
+
+        exploded = dynamic_data.subquery()
+
+    else:
+        exploded = (
+            select(
+                func.unnest(subquery.c.category).label('category'),
+                subquery.c.issued,
+                subquery.c.retired,
+            )
+            .select_from(subquery)
+            .subquery()
+        )
 
     # Apply category filter after unnesting
     if category:
