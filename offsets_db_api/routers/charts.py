@@ -6,7 +6,7 @@ import pandas as pd
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
 from sqlalchemy.orm import aliased
-from sqlmodel import Date, Session, and_, case, cast, col, distinct, func, or_, select
+from sqlmodel import Date, Session, and_, case, cast, col, distinct, func, literal, or_, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.database import get_session
@@ -979,7 +979,9 @@ async def get_credits_by_category(
         dynamic_data = (
             select(
                 func.unnest(subquery.c.category).label('category'),
-                subquery.c.issued,
+                literal(0).label(
+                    'issued'
+                ),  # Return 0 for issued credits when using beneficiary search
                 func.sum(
                     case(
                         (
