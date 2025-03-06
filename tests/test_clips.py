@@ -185,9 +185,9 @@ def test_clips_sort_by_type_and_date(test_app: TestClient):
 
     for _, group in groupby(data, key=lambda x: x.get('type')):
         group_dates = [parse_date(clip.get('date')) for clip in group]
-        assert is_sorted(
-            group_dates, reverse=True
-        ), f'Dates are not sorted in descending order within type {_}'
+        assert is_sorted(group_dates, reverse=True), (
+            f'Dates are not sorted in descending order within type {_}'
+        )
 
 
 def test_clips_sort_with_missing_values(test_app: TestClient):
@@ -215,9 +215,9 @@ def test_clips_sort_with_missing_values(test_app: TestClient):
     logger.info(f'Number of None values: {len(sources) - len(non_none_sources)}')
 
     assert is_sorted(non_none_sources), 'Non-None sources are not sorted in ascending order'
-    assert all(
-        s is None for s in sources[len(non_none_sources) :]
-    ), 'None values are not at the end'
+    assert all(s is None for s in sources[len(non_none_sources) :]), (
+        'None values are not at the end'
+    )
 
 
 def test_get_clips_with_invalid_sort(test_app: TestClient):
