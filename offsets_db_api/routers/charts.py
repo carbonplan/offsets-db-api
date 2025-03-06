@@ -474,12 +474,7 @@ async def get_credits_by_project_id(
         description='Case insensitive search string. Currently searches on specified beneficiary_search_fields only.',
     ),
     beneficiary_search_fields: list[str] = Query(
-        default=[
-            'retirement_beneficiary',
-            'retirement_account',
-            'retirement_note',
-            'retirement_reason',
-        ],
+        default=['retirement_beneficiary_harmonized'],
         description='Beneficiary fields to search in',
     ),
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
@@ -902,12 +897,7 @@ async def get_credits_by_category(
         description='Case insensitive search string. Currently searches on specified beneficiary_search_fields only.',
     ),
     beneficiary_search_fields: list[str] = Query(
-        default=[
-            'retirement_beneficiary',
-            'retirement_account',
-            'retirement_note',
-            'retirement_reason',
-        ],
+        default=['retirement_beneficiary_harmonized'],
         description='Beneficiary fields to search in',
     ),
     current_page: int = Query(1, description='Page number', ge=1),

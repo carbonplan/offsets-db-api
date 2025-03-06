@@ -27,15 +27,15 @@ def test_submit_bad_file(test_app: TestClient, url: str, category: str):
 def file_urls():
     return [
         {
-            'url': 's3://carbonplan-offsets-db/final/2025-01-23/credits-augmented.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2025-03-06/credits-augmented.parquet',
             'category': 'credits',
         },
         {
-            'url': 's3://carbonplan-offsets-db/final/2025-01-23/projects-augmented.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2025-03-06/projects-augmented.parquet',
             'category': 'projects',
         },
         {
-            'url': 's3://carbonplan-offsets-db/final/2025-01-23/curated-clips.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2025-03-06/curated-clips.parquet',
             'category': 'clips',
         },
         {
@@ -43,7 +43,7 @@ def file_urls():
             'category': 'clips',
         },
         {
-            'url': 's3://carbonplan-offsets-db/final/2025-01-23/project-types.parquet',
+            'url': 's3://carbonplan-offsets-db/final/2025-03-06/project-types.parquet',
             'category': 'projecttypes',
         },
     ]

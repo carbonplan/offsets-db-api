@@ -42,12 +42,7 @@ async def get_credits(
         description='Case insensitive search string. Currently searches in fields specified in `search_fileds` parameter',
     ),
     beneficiary_search_fields: list[str] = Query(
-        default=[
-            'retirement_beneficiary',
-            'retirement_account',
-            'retirement_note',
-            'retirement_reason',
-        ],
+        default=['retirement_beneficiary_harmonized'],
         description='Fields to search in',
     ),
     sort: list[str] = Query(

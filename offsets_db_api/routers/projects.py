@@ -77,12 +77,7 @@ async def get_projects(
         description='Case insensitive search string. Currently searches on specified beneficiary_search_fields only.',
     ),
     beneficiary_search_fields: list[str] = Query(
-        default=[
-            'retirement_beneficiary',
-            'retirement_account',
-            'retirement_note',
-            'retirement_reason',
-        ],
+        default=['retirement_beneficiary_harmonized'],
         description='Beneficiary fields to search in',
     ),
     current_page: int = Query(1, description='Page number', ge=1),
