@@ -61,9 +61,17 @@ async def get_credits(
 
     filters = [
         ('registry', project_filters.registry, 'ilike', Project),
-        ('transaction_type', transaction_type, 'ilike', Credit),
+        ('country', project_filters.country, 'ilike', Project),
+        ('protocol', project_filters.protocol, 'ANY', Project),
         ('category', project_filters.category, 'ANY', Project),
         ('is_compliance', project_filters.is_compliance, '==', Project),
+        ('listed_at', project_filters.listed_at_from, '>=', Project),
+        ('listed_at', project_filters.listed_at_to, '<=', Project),
+        ('issued', project_filters.issued_min, '>=', Project),
+        ('issued', project_filters.issued_max, '<=', Project),
+        ('retired', project_filters.retired_min, '>=', Project),
+        ('retired', project_filters.retired_max, '<=', Project),
+        ('transaction_type', transaction_type, 'ilike', Credit),
         ('vintage', vintage, '==', Credit),
         ('transaction_date', transaction_date_from, '>=', Credit),
         ('transaction_date', transaction_date_to, '<=', Credit),
