@@ -8,7 +8,13 @@ from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.database import get_session
 from offsets_db_api.log import get_logger
 from offsets_db_api.models import Credit, PaginatedCredits, Project
-from offsets_db_api.schemas import Pagination, Registries
+from offsets_db_api.schemas import (
+    BeneficiarySearchParams,
+    Pagination,
+    ProjectFilters,
+    get_beneficiary_search_params,
+    get_project_filters,
+)
 from offsets_db_api.security import check_api_key
 from offsets_db_api.sql_helpers import (
     apply_beneficiary_search,
@@ -26,9 +32,7 @@ logger = get_logger()
 async def get_credits(
     request: Request,
     project_id: list[str] | None = Query(None, description='Project ID'),
-    registry: list[Registries] | None = Query(None, description='Registry name'),
-    category: list[str] | None = Query(None, description='Category name'),
-    is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
+    project_filters: ProjectFilters = Depends(get_project_filters),
     transaction_type: list[str] | None = Query(None, description='Transaction type'),
     vintage: list[int] | None = Query(None, description='Vintage'),
     transaction_date_from: datetime.datetime | datetime.date | None = Query(
@@ -37,14 +41,7 @@ async def get_credits(
     transaction_date_to: datetime.datetime | datetime.date | None = Query(
         default=None, description='Format: YYYY-MM-DD'
     ),
-    beneficiary_search: str | None = Query(
-        None,
-        description='Case insensitive search string. Currently searches in fields specified in `search_fileds` parameter',
-    ),
-    beneficiary_search_fields: list[str] = Query(
-        default=['retirement_beneficiary_harmonized'],
-        description='Fields to search in',
-    ),
+    beneficiary_search_params: BeneficiarySearchParams = Depends(get_beneficiary_search_params),
     sort: list[str] = Query(
         default=['project_id'],
         description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
@@ -63,10 +60,10 @@ async def get_credits(
     )
 
     filters = [
-        ('registry', registry, 'ilike', Project),
+        ('registry', project_filters.registry, 'ilike', Project),
         ('transaction_type', transaction_type, 'ilike', Credit),
-        ('category', category, 'ANY', Project),
-        ('is_compliance', is_compliance, '==', Project),
+        ('category', project_filters.category, 'ANY', Project),
+        ('is_compliance', project_filters.is_compliance, '==', Project),
         ('vintage', vintage, '==', Credit),
         ('transaction_date', transaction_date_from, '>=', Credit),
         ('transaction_date', transaction_date_to, '<=', Credit),
@@ -85,11 +82,11 @@ async def get_credits(
             operation=operation,
         )
 
-    if beneficiary_search:
+    if beneficiary_search_params.beneficiary_search:
         statement = apply_beneficiary_search(
             statement=statement,
-            search_term=beneficiary_search,
-            search_fields=beneficiary_search_fields,
+            search_term=beneficiary_search_params.beneficiary_search,
+            search_fields=beneficiary_search_params.beneficiary_search_fields,
             credit_model=Credit,
             project_model=Project,
         )
