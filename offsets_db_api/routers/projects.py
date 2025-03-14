@@ -1,4 +1,3 @@
-import datetime
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -19,7 +18,14 @@ from offsets_db_api.models import (
     ProjectType,
     ProjectWithClips,
 )
-from offsets_db_api.schemas import Pagination, ProjectTypes, Registries
+from offsets_db_api.schemas import (
+    BeneficiarySearchParams,
+    Pagination,
+    ProjectFilters,
+    ProjectTypes,
+    get_beneficiary_search_params,
+    get_project_filters,
+)
 from offsets_db_api.security import check_api_key
 from offsets_db_api.sql_helpers import (
     apply_beneficiary_search,
@@ -52,34 +58,13 @@ async def get_grouped_project_types(
 @cache(namespace=CACHE_NAMESPACE)
 async def get_projects(
     request: Request,
-    registry: list[Registries] | None = Query(None, description='Registry name'),
-    country: list[str] | None = Query(None, description='Country name'),
-    protocol: list[str] | None = Query(None, description='Protocol name'),
-    category: list[str] | None = Query(None, description='Category name'),
+    project_filters: ProjectFilters = Depends(get_project_filters),
     project_type: list[str] | None = Query(None, description='Project type'),
-    is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
-    listed_at_from: datetime.datetime | datetime.date | None = Query(
-        default=None, description='Format: YYYY-MM-DD'
-    ),
-    listed_at_to: datetime.datetime | datetime.date | None = Query(
-        default=None, description='Format: YYYY-MM-DD'
-    ),
-    issued_min: int | None = Query(None, description='Minimum number of issued credits'),
-    issued_max: int | None = Query(None, description='Maximum number of issued credits'),
-    retired_min: int | None = Query(None, description='Minimum number of retired credits'),
-    retired_max: int | None = Query(None, description='Maximum number of retired credits'),
     search: str | None = Query(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
-    beneficiary_search: str | None = Query(
-        None,
-        description='Case insensitive search string. Currently searches on specified beneficiary_search_fields only.',
-    ),
-    beneficiary_search_fields: list[str] = Query(
-        default=['retirement_beneficiary_harmonized'],
-        description='Beneficiary fields to search in',
-    ),
+    beneficiary_search_params: BeneficiarySearchParams = Depends(get_beneficiary_search_params),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     sort: list[str] = Query(
@@ -98,17 +83,17 @@ async def get_projects(
     matching_projects = select(distinct(Project.project_id))
 
     filters = [
-        ('registry', registry, 'ilike', Project),
-        ('country', country, 'ilike', Project),
-        ('protocol', protocol, 'ANY', Project),
-        ('category', category, 'ANY', Project),
-        ('is_compliance', is_compliance, '==', Project),
-        ('listed_at', listed_at_from, '>=', Project),
-        ('listed_at', listed_at_to, '<=', Project),
-        ('issued', issued_min, '>=', Project),
-        ('issued', issued_max, '<=', Project),
-        ('retired', retired_min, '>=', Project),
-        ('retired', retired_max, '<=', Project),
+        ('registry', project_filters.registry, 'ilike', Project),
+        ('country', project_filters.country, 'ilike', Project),
+        ('protocol', project_filters.protocol, 'ANY', Project),
+        ('category', project_filters.category, 'ANY', Project),
+        ('is_compliance', project_filters.is_compliance, '==', Project),
+        ('listed_at', project_filters.listed_at_from, '>=', Project),
+        ('listed_at', project_filters.listed_at_to, '<=', Project),
+        ('issued', project_filters.issued_min, '>=', Project),
+        ('issued', project_filters.issued_max, '<=', Project),
+        ('retired', project_filters.retired_min, '>=', Project),
+        ('retired', project_filters.retired_max, '<=', Project),
         ('project_type', project_type, 'ilike', ProjectType),
     ]
 
@@ -121,15 +106,15 @@ async def get_projects(
             )
         )
 
-    if beneficiary_search:
+    if beneficiary_search_params.beneficiary_search:
         Credit_alias = aliased(Credit)
         matching_projects = matching_projects.outerjoin(
             Credit_alias, col(Project.project_id) == col(Credit_alias.project_id)
         )
         matching_projects = apply_beneficiary_search(
             statement=matching_projects,
-            search_term=beneficiary_search,
-            search_fields=beneficiary_search_fields,
+            search_term=beneficiary_search_params.beneficiary_search,
+            search_fields=beneficiary_search_params.beneficiary_search_fields,
             credit_model=Credit_alias,
             project_model=Project,
         )
