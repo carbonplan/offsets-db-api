@@ -126,3 +126,29 @@ def get_beneficiary_search_params(
         beneficiary_search=beneficiary_search,
         beneficiary_search_fields=beneficiary_search_fields,
     )
+
+
+class CreditFilters(pydantic.BaseModel):
+    transaction_type: list[str] | None = None
+    vintage: list[int] | None = None
+    transaction_date_from: datetime.datetime | datetime.date | None = None
+    transaction_date_to: datetime.datetime | datetime.date | None = None
+
+
+def get_credit_filters(
+    transaction_type: list[str] | None = Query(None, description='Transaction type'),
+    vintage: list[int] | None = Query(None, description='Vintage'),
+    transaction_date_from: datetime.datetime | datetime.date | None = Query(
+        default=None, description='Format: YYYY-MM-DD'
+    ),
+    transaction_date_to: datetime.datetime | datetime.date | None = Query(
+        default=None, description='Format: YYYY-MM-DD'
+    ),
+):
+    """Dependency to get credit filters from query parameters"""
+    return CreditFilters(
+        transaction_type=transaction_type,
+        vintage=vintage,
+        transaction_date_from=transaction_date_from,
+        transaction_date_to=transaction_date_to,
+    )

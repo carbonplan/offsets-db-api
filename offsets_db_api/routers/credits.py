@@ -1,5 +1,3 @@
-import datetime
-
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
 from sqlmodel import Session, col, select
@@ -10,9 +8,11 @@ from offsets_db_api.log import get_logger
 from offsets_db_api.models import Credit, PaginatedCredits, Project
 from offsets_db_api.schemas import (
     BeneficiarySearchParams,
+    CreditFilters,
     Pagination,
     ProjectFilters,
     get_beneficiary_search_params,
+    get_credit_filters,
     get_project_filters,
 )
 from offsets_db_api.security import check_api_key
@@ -33,14 +33,7 @@ async def get_credits(
     request: Request,
     project_id: list[str] | None = Query(None, description='Project ID'),
     project_filters: ProjectFilters = Depends(get_project_filters),
-    transaction_type: list[str] | None = Query(None, description='Transaction type'),
-    vintage: list[int] | None = Query(None, description='Vintage'),
-    transaction_date_from: datetime.datetime | datetime.date | None = Query(
-        default=None, description='Format: YYYY-MM-DD'
-    ),
-    transaction_date_to: datetime.datetime | datetime.date | None = Query(
-        default=None, description='Format: YYYY-MM-DD'
-    ),
+    credit_filters: CreditFilters = Depends(get_credit_filters),
     beneficiary_search_params: BeneficiarySearchParams = Depends(get_beneficiary_search_params),
     sort: list[str] = Query(
         default=['project_id'],
@@ -71,10 +64,10 @@ async def get_credits(
         ('issued', project_filters.issued_max, '<=', Project),
         ('retired', project_filters.retired_min, '>=', Project),
         ('retired', project_filters.retired_max, '<=', Project),
-        ('transaction_type', transaction_type, 'ilike', Credit),
-        ('vintage', vintage, '==', Credit),
-        ('transaction_date', transaction_date_from, '>=', Credit),
-        ('transaction_date', transaction_date_to, '<=', Credit),
+        ('transaction_type', credit_filters.transaction_type, 'ilike', Credit),
+        ('vintage', credit_filters.vintage, '==', Credit),
+        ('transaction_date', credit_filters.transaction_date_from, '>=', Credit),
+        ('transaction_date', credit_filters.transaction_date_to, '<=', Credit),
     ]
 
     # Filter for project_id
