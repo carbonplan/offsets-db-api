@@ -22,11 +22,11 @@ from offsets_db_api.models import (
     ProjectType,
 )
 from offsets_db_api.schemas import (
-    BeneficiarySearchParams,
+    BeneficiaryFilters,
     CreditFilters,
     Pagination,
     ProjectFilters,
-    get_beneficiary_search_params,
+    get_beneficiary_filters,
     get_credit_filters,
     get_project_filters,
 )
@@ -451,7 +451,7 @@ async def get_credits_by_project_id(
     request: Request,
     project_id: str,
     credit_filters: CreditFilters = Depends(get_credit_filters),
-    beneficiary_search_params: BeneficiarySearchParams = Depends(get_beneficiary_search_params),
+    beneficiary_filters: BeneficiaryFilters = Depends(get_beneficiary_filters),
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
@@ -494,11 +494,11 @@ async def get_credits_by_project_id(
             operation=operation,
         )
 
-    if beneficiary_search_params.beneficiary_search:
+    if beneficiary_filters.beneficiary_search:
         query = apply_beneficiary_search(
             statement=query,
-            search_term=beneficiary_search_params.beneficiary_search,
-            search_fields=beneficiary_search_params.beneficiary_search_fields,
+            search_term=beneficiary_filters.beneficiary_search,
+            search_fields=beneficiary_filters.beneficiary_search_fields,
             credit_model=Credit,
             project_model=Project,
         )
@@ -821,7 +821,7 @@ async def get_credits_by_category(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
-    beneficiary_search_params: BeneficiarySearchParams = Depends(get_beneficiary_search_params),
+    beneficiary_filters: BeneficiaryFilters = Depends(get_beneficiary_filters),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
@@ -862,7 +862,7 @@ async def get_credits_by_category(
         )
 
     use_dynamic_retirement = False
-    if beneficiary_search_params.beneficiary_search:
+    if beneficiary_filters.beneficiary_search:
         use_dynamic_retirement = True
         Credit_alias = aliased(Credit)
         matching_projects = matching_projects.outerjoin(
@@ -871,8 +871,8 @@ async def get_credits_by_category(
 
         matching_projects = apply_beneficiary_search(
             statement=matching_projects,
-            search_term=beneficiary_search_params.beneficiary_search,
-            search_fields=beneficiary_search_params.beneficiary_search_fields,
+            search_term=beneficiary_filters.beneficiary_search,
+            search_fields=beneficiary_filters.beneficiary_search_fields,
             credit_model=Credit_alias,
             project_model=Project,
         )
@@ -920,9 +920,9 @@ async def get_credits_by_category(
                 or_(
                     *[
                         getattr(Credits_table, field).ilike(
-                            f'%{beneficiary_search_params.beneficiary_search}%'
+                            f'%{beneficiary_filters.beneficiary_search}%'
                         )
-                        for field in beneficiary_search_params.beneficiary_search_fields
+                        for field in beneficiary_filters.beneficiary_search_fields
                         if hasattr(Credits_table, field)
                     ]
                 )

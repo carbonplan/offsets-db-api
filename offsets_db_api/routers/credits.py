@@ -7,11 +7,11 @@ from offsets_db_api.database import get_session
 from offsets_db_api.log import get_logger
 from offsets_db_api.models import Credit, PaginatedCredits, Project
 from offsets_db_api.schemas import (
-    BeneficiarySearchParams,
+    BeneficiaryFilters,
     CreditFilters,
     Pagination,
     ProjectFilters,
-    get_beneficiary_search_params,
+    get_beneficiary_filters,
     get_credit_filters,
     get_project_filters,
 )
@@ -34,7 +34,7 @@ async def get_credits(
     project_id: list[str] | None = Query(None, description='Project ID'),
     project_filters: ProjectFilters = Depends(get_project_filters),
     credit_filters: CreditFilters = Depends(get_credit_filters),
-    beneficiary_search_params: BeneficiarySearchParams = Depends(get_beneficiary_search_params),
+    beneficiary_filters: BeneficiaryFilters = Depends(get_beneficiary_filters),
     sort: list[str] = Query(
         default=['project_id'],
         description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
@@ -83,11 +83,11 @@ async def get_credits(
             operation=operation,
         )
 
-    if beneficiary_search_params.beneficiary_search:
+    if beneficiary_filters.beneficiary_search:
         statement = apply_beneficiary_search(
             statement=statement,
-            search_term=beneficiary_search_params.beneficiary_search,
-            search_fields=beneficiary_search_params.beneficiary_search_fields,
+            search_term=beneficiary_filters.beneficiary_search,
+            search_fields=beneficiary_filters.beneficiary_search_fields,
             credit_model=Credit,
             project_model=Project,
         )

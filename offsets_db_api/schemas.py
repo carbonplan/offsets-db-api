@@ -100,7 +100,7 @@ def get_project_filters(
     )
 
 
-class BeneficiarySearchParams(pydantic.BaseModel):
+class BeneficiaryFilters(pydantic.BaseModel):
     beneficiary_search: str | None = Query(
         None,
         description='Case insensitive search string. Currently searches on specified beneficiary_search_fields only.',
@@ -111,7 +111,7 @@ class BeneficiarySearchParams(pydantic.BaseModel):
     )
 
 
-def get_beneficiary_search_params(
+def get_beneficiary_filters(
     beneficiary_search: str | None = Query(
         None,
         description='Case insensitive search string. Currently searches on specified beneficiary_search_fields only.',
@@ -122,7 +122,7 @@ def get_beneficiary_search_params(
     ),
 ):
     """Dependency to get beneficiary search params from query parameters"""
-    return BeneficiarySearchParams(
+    return BeneficiaryFilters(
         beneficiary_search=beneficiary_search,
         beneficiary_search_fields=beneficiary_search_fields,
     )

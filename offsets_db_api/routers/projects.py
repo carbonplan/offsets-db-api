@@ -19,11 +19,11 @@ from offsets_db_api.models import (
     ProjectWithClips,
 )
 from offsets_db_api.schemas import (
-    BeneficiarySearchParams,
+    BeneficiaryFilters,
     Pagination,
     ProjectFilters,
     ProjectTypes,
-    get_beneficiary_search_params,
+    get_beneficiary_filters,
     get_project_filters,
 )
 from offsets_db_api.security import check_api_key
@@ -64,7 +64,7 @@ async def get_projects(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
-    beneficiary_search_params: BeneficiarySearchParams = Depends(get_beneficiary_search_params),
+    beneficiary_filters: BeneficiaryFilters = Depends(get_beneficiary_filters),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     sort: list[str] = Query(
@@ -106,15 +106,15 @@ async def get_projects(
             )
         )
 
-    if beneficiary_search_params.beneficiary_search:
+    if beneficiary_filters.beneficiary_search:
         Credit_alias = aliased(Credit)
         matching_projects = matching_projects.outerjoin(
             Credit_alias, col(Project.project_id) == col(Credit_alias.project_id)
         )
         matching_projects = apply_beneficiary_search(
             statement=matching_projects,
-            search_term=beneficiary_search_params.beneficiary_search,
-            search_fields=beneficiary_search_params.beneficiary_search_fields,
+            search_term=beneficiary_filters.beneficiary_search,
+            search_fields=beneficiary_filters.beneficiary_search_fields,
             credit_model=Credit_alias,
             project_model=Project,
         )
