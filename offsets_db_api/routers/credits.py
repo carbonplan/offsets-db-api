@@ -6,7 +6,7 @@ from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.common import build_filters
 from offsets_db_api.database import get_session
 from offsets_db_api.log import get_logger
-from offsets_db_api.models import Credit, PaginatedCredits, Project
+from offsets_db_api.models import Credit, PaginatedCredits, Project, ProjectType
 from offsets_db_api.schemas import (
     BeneficiaryFilters,
     CreditFilters,
@@ -35,6 +35,7 @@ async def get_credits(
     project_id: list[str] | None = Query(None, description='Project ID'),
     project_filters: ProjectFilters = Depends(get_project_filters),
     credit_filters: CreditFilters = Depends(get_credit_filters),
+    project_type: list[str] | None = Query(None, description='Project type'),
     beneficiary_filters: BeneficiaryFilters = Depends(get_beneficiary_filters),
     sort: list[str] = Query(
         default=['project_id'],
@@ -48,12 +49,16 @@ async def get_credits(
     """List credits"""
     logger.info(f'Getting credits: {request.url}')
 
-    # Outer join to get all credits, even if they don't have a project
-    statement = select(Credit, Project.category).join(
-        Project, col(Credit.project_id) == col(Project.project_id), isouter=True
+    # Outer join to get all credits, even if they don't have a project or project type
+    statement = (
+        select(Credit, Project, ProjectType)
+        .join(Project, col(Credit.project_id) == col(Project.project_id), isouter=True)
+        .join(ProjectType, col(Project.project_id) == col(ProjectType.project_id), isouter=True)
     )
 
-    filters = build_filters(project_filters=project_filters, credit_filters=credit_filters)
+    filters = build_filters(
+        project_filters=project_filters, credit_filters=credit_filters, project_type=project_type
+    )
 
     # Filter for project_id
     if project_id:
@@ -94,9 +99,15 @@ async def get_credits(
     credits_with_category = [
         {
             **credit.model_dump(),
-            'projects': [{'project_id': credit.project_id, 'category': category}],
+            'projects': [
+                {
+                    'project_id': credit.project_id,
+                    'category': project.category if project else None,
+                    'project_type': projecttype.project_type if projecttype else None,
+                }
+            ],
         }
-        for credit, category in results
+        for credit, project, projecttype in results
     ]
 
     return PaginatedCredits(
