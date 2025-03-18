@@ -7,6 +7,7 @@ from sqlalchemy.orm import aliased
 from sqlmodel import Session, col, distinct, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
+from offsets_db_api.common import build_filters
 from offsets_db_api.database import get_session
 from offsets_db_api.log import get_logger
 from offsets_db_api.models import (
@@ -82,20 +83,7 @@ async def get_projects(
     # Base query without Credit join
     matching_projects = select(distinct(Project.project_id))
 
-    filters = [
-        ('registry', project_filters.registry, 'ilike', Project),
-        ('country', project_filters.country, 'ilike', Project),
-        ('protocol', project_filters.protocol, 'ANY', Project),
-        ('category', project_filters.category, 'ANY', Project),
-        ('is_compliance', project_filters.is_compliance, '==', Project),
-        ('listed_at', project_filters.listed_at_from, '>=', Project),
-        ('listed_at', project_filters.listed_at_to, '<=', Project),
-        ('issued', project_filters.issued_min, '>=', Project),
-        ('issued', project_filters.issued_max, '<=', Project),
-        ('retired', project_filters.retired_min, '>=', Project),
-        ('retired', project_filters.retired_max, '<=', Project),
-        ('project_type', project_type, 'ilike', ProjectType),
-    ]
+    filters = build_filters(project_filters=project_filters, project_type=project_type)
 
     if search:
         search_pattern = f'%{search}%'

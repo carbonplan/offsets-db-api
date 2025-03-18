@@ -9,6 +9,7 @@ from sqlalchemy.orm import aliased
 from sqlmodel import Date, Session, and_, case, cast, col, distinct, func, literal, or_, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
+from offsets_db_api.common import build_filters
 from offsets_db_api.database import get_session
 from offsets_db_api.log import get_logger
 from offsets_db_api.models import (
@@ -172,19 +173,9 @@ async def get_projects_by_listing_date(
     )
 
     # Apply filters
-    filters = [
-        ('registry', project_filters.registry, 'ilike', Project),
-        ('country', project_filters.country, 'ilike', Project),
-        ('protocol', project_filters.protocol, 'ANY', Project),
-        ('is_compliance', project_filters.is_compliance, '==', Project),
-        ('listed_at', project_filters.listed_at_from, '>=', Project),
-        ('listed_at', project_filters.listed_at_to, '<=', Project),
-        ('issued', project_filters.issued_min, '>=', Project),
-        ('issued', project_filters.issued_max, '<=', Project),
-        ('retired', project_filters.retired_min, '>=', Project),
-        ('retired', project_filters.retired_max, '<=', Project),
-        ('project_type', project_type, 'ilike', ProjectType),
-    ]
+    filters = build_filters(
+        project_filters=project_filters, project_type=project_type, exclude_filters=['category']
+    )
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
@@ -316,24 +307,12 @@ async def get_credits_by_transaction_date(
         .outerjoin(ProjectType, col(Project.project_id) == col(ProjectType.project_id))
     )
 
-    # Apply filters
-    filters = [
-        ('registry', project_filters.registry, 'ilike', Project),
-        ('country', project_filters.country, 'ilike', Project),
-        ('protocol', project_filters.protocol, 'ANY', Project),
-        ('is_compliance', project_filters.is_compliance, '==', Project),
-        ('listed_at', project_filters.listed_at_from, '>=', Project),
-        ('listed_at', project_filters.listed_at_to, '<=', Project),
-        ('issued', project_filters.issued_min, '>=', Project),
-        ('issued', project_filters.issued_max, '<=', Project),
-        ('retired', project_filters.retired_min, '>=', Project),
-        ('retired', project_filters.retired_max, '<=', Project),
-        ('transaction_type', credit_filters.transaction_type, 'ilike', Credit),
-        ('vintage', credit_filters.vintage, '==', Credit),
-        ('transaction_date', credit_filters.transaction_date_from, '>=', Credit),
-        ('transaction_date', credit_filters.transaction_date_to, '<=', Credit),
-        ('project_type', project_type, 'ilike', ProjectType),
-    ]
+    filters = build_filters(
+        project_filters=project_filters,
+        credit_filters=credit_filters,
+        project_type=project_type,
+        exclude_filters=['category'],
+    )
 
     for attribute, values, operation, model in filters:
         base_query = apply_filters(
@@ -477,13 +456,7 @@ async def get_credits_by_project_id(
         .where(Project.project_id == project_id)
     )
 
-    # Apply filters
-    filters = [
-        ('transaction_type', credit_filters.transaction_type, 'ilike', Credit),
-        ('vintage', credit_filters.vintage, '==', Credit),
-        ('transaction_date', credit_filters.transaction_date_from, '>=', Credit),
-        ('transaction_date', credit_filters.transaction_date_to, '<=', Credit),
-    ]
+    filters = build_filters(credit_filters=credit_filters)
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
@@ -606,19 +579,9 @@ async def get_projects_by_credit_totals(
         ProjectType, col(Project.project_id) == col(ProjectType.project_id)
     )
 
-    filters = [
-        ('registry', project_filters.registry, 'ilike', Project),
-        ('country', project_filters.country, 'ilike', Project),
-        ('protocol', project_filters.protocol, 'ANY', Project),
-        ('is_compliance', project_filters.is_compliance, '==', Project),
-        ('listed_at', project_filters.listed_at_from, '>=', Project),
-        ('listed_at', project_filters.listed_at_to, '<=', Project),
-        ('issued', project_filters.issued_min, '>=', Project),
-        ('issued', project_filters.issued_max, '<=', Project),
-        ('retired', project_filters.retired_min, '>=', Project),
-        ('retired', project_filters.retired_max, '<=', Project),
-        ('project_type', project_type, 'ilike', ProjectType),
-    ]
+    filters = build_filters(
+        project_filters=project_filters, project_type=project_type, exclude_filters=['category']
+    )
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
@@ -748,19 +711,9 @@ async def get_projects_by_category(
         ProjectType, col(Project.project_id) == col(ProjectType.project_id)
     )
 
-    filters = [
-        ('registry', project_filters.registry, 'ilike', Project),
-        ('country', project_filters.country, 'ilike', Project),
-        ('protocol', project_filters.protocol, 'ANY', Project),
-        ('is_compliance', project_filters.is_compliance, '==', Project),
-        ('listed_at', project_filters.listed_at_from, '>=', Project),
-        ('listed_at', project_filters.listed_at_to, '<=', Project),
-        ('issued', project_filters.issued_min, '>=', Project),
-        ('issued', project_filters.issued_max, '<=', Project),
-        ('retired', project_filters.retired_min, '>=', Project),
-        ('retired', project_filters.retired_max, '<=', Project),
-        ('project_type', project_type, 'ilike', ProjectType),
-    ]
+    filters = build_filters(
+        project_filters=project_filters, project_type=project_type, exclude_filters=['category']
+    )
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
@@ -836,20 +789,9 @@ async def get_credits_by_category(
     # Base query without Credit join
     matching_projects = select(distinct(Project.project_id))
 
-    # Apply filters
-    filters = [
-        ('registry', project_filters.registry, 'ilike', Project),
-        ('country', project_filters.country, 'ilike', Project),
-        ('protocol', project_filters.protocol, 'ANY', Project),
-        ('is_compliance', project_filters.is_compliance, '==', Project),
-        ('listed_at', project_filters.listed_at_from, '>=', Project),
-        ('listed_at', project_filters.listed_at_to, '<=', Project),
-        ('issued', project_filters.issued_min, '>=', Project),
-        ('issued', project_filters.issued_max, '<=', Project),
-        ('retired', project_filters.retired_min, '>=', Project),
-        ('retired', project_filters.retired_max, '<=', Project),
-        ('project_type', project_type, 'ilike', ProjectType),
-    ]
+    filters = build_filters(
+        project_filters=project_filters, project_type=project_type, exclude_filters=['category']
+    )
 
     # Handle 'search' filter separately due to its unique logic
     if search:

@@ -3,6 +3,7 @@ from fastapi_cache.decorator import cache
 from sqlmodel import Session, col, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
+from offsets_db_api.common import build_filters
 from offsets_db_api.database import get_session
 from offsets_db_api.log import get_logger
 from offsets_db_api.models import Credit, PaginatedCredits, Project
@@ -52,23 +53,7 @@ async def get_credits(
         Project, col(Credit.project_id) == col(Project.project_id), isouter=True
     )
 
-    filters = [
-        ('registry', project_filters.registry, 'ilike', Project),
-        ('country', project_filters.country, 'ilike', Project),
-        ('protocol', project_filters.protocol, 'ANY', Project),
-        ('category', project_filters.category, 'ANY', Project),
-        ('is_compliance', project_filters.is_compliance, '==', Project),
-        ('listed_at', project_filters.listed_at_from, '>=', Project),
-        ('listed_at', project_filters.listed_at_to, '<=', Project),
-        ('issued', project_filters.issued_min, '>=', Project),
-        ('issued', project_filters.issued_max, '<=', Project),
-        ('retired', project_filters.retired_min, '>=', Project),
-        ('retired', project_filters.retired_max, '<=', Project),
-        ('transaction_type', credit_filters.transaction_type, 'ilike', Credit),
-        ('vintage', credit_filters.vintage, '==', Credit),
-        ('transaction_date', credit_filters.transaction_date_from, '>=', Credit),
-        ('transaction_date', credit_filters.transaction_date_to, '<=', Credit),
-    ]
+    filters = build_filters(project_filters=project_filters, credit_filters=credit_filters)
 
     # Filter for project_id
     if project_id:
