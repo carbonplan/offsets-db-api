@@ -1,14 +1,21 @@
-import datetime
-
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
 from sqlmodel import Session, col, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
+from offsets_db_api.common import build_filters
 from offsets_db_api.database import get_session
 from offsets_db_api.log import get_logger
-from offsets_db_api.models import Credit, PaginatedCredits, Project
-from offsets_db_api.schemas import Pagination, Registries
+from offsets_db_api.models import Credit, PaginatedCredits, Project, ProjectType
+from offsets_db_api.schemas import (
+    BeneficiaryFilters,
+    CreditFilters,
+    Pagination,
+    ProjectFilters,
+    get_beneficiary_filters,
+    get_credit_filters,
+    get_project_filters,
+)
 from offsets_db_api.security import check_api_key
 from offsets_db_api.sql_helpers import (
     apply_beneficiary_search,
@@ -26,25 +33,10 @@ logger = get_logger()
 async def get_credits(
     request: Request,
     project_id: list[str] | None = Query(None, description='Project ID'),
-    registry: list[Registries] | None = Query(None, description='Registry name'),
-    category: list[str] | None = Query(None, description='Category name'),
-    is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
-    transaction_type: list[str] | None = Query(None, description='Transaction type'),
-    vintage: list[int] | None = Query(None, description='Vintage'),
-    transaction_date_from: datetime.datetime | datetime.date | None = Query(
-        default=None, description='Format: YYYY-MM-DD'
-    ),
-    transaction_date_to: datetime.datetime | datetime.date | None = Query(
-        default=None, description='Format: YYYY-MM-DD'
-    ),
-    beneficiary_search: str | None = Query(
-        None,
-        description='Case insensitive search string. Currently searches in fields specified in `search_fileds` parameter',
-    ),
-    beneficiary_search_fields: list[str] = Query(
-        default=['retirement_beneficiary_harmonized'],
-        description='Fields to search in',
-    ),
+    project_filters: ProjectFilters = Depends(get_project_filters),
+    credit_filters: CreditFilters = Depends(get_credit_filters),
+    project_type: list[str] | None = Query(None, description='Project type'),
+    beneficiary_filters: BeneficiaryFilters = Depends(get_beneficiary_filters),
     sort: list[str] = Query(
         default=['project_id'],
         description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
@@ -57,20 +49,16 @@ async def get_credits(
     """List credits"""
     logger.info(f'Getting credits: {request.url}')
 
-    # Outer join to get all credits, even if they don't have a project
-    statement = select(Credit, Project.category).join(
-        Project, col(Credit.project_id) == col(Project.project_id), isouter=True
+    # Outer join to get all credits, even if they don't have a project or project type
+    statement = (
+        select(Credit, Project, ProjectType)
+        .join(Project, col(Credit.project_id) == col(Project.project_id), isouter=True)
+        .join(ProjectType, col(Project.project_id) == col(ProjectType.project_id), isouter=True)
     )
 
-    filters = [
-        ('registry', registry, 'ilike', Project),
-        ('transaction_type', transaction_type, 'ilike', Credit),
-        ('category', category, 'ANY', Project),
-        ('is_compliance', is_compliance, '==', Project),
-        ('vintage', vintage, '==', Credit),
-        ('transaction_date', transaction_date_from, '>=', Credit),
-        ('transaction_date', transaction_date_to, '<=', Credit),
-    ]
+    filters = build_filters(
+        project_filters=project_filters, credit_filters=credit_filters, project_type=project_type
+    )
 
     # Filter for project_id
     if project_id:
@@ -85,11 +73,11 @@ async def get_credits(
             operation=operation,
         )
 
-    if beneficiary_search:
+    if beneficiary_filters.beneficiary_search:
         statement = apply_beneficiary_search(
             statement=statement,
-            search_term=beneficiary_search,
-            search_fields=beneficiary_search_fields,
+            search_term=beneficiary_filters.beneficiary_search,
+            search_fields=beneficiary_filters.beneficiary_search_fields,
             credit_model=Credit,
             project_model=Project,
         )
@@ -111,9 +99,15 @@ async def get_credits(
     credits_with_category = [
         {
             **credit.model_dump(),
-            'projects': [{'project_id': credit.project_id, 'category': category}],
+            'projects': [
+                {
+                    'project_id': credit.project_id,
+                    'category': project.category if project else None,
+                    'project_type': projecttype.project_type if projecttype else None,
+                }
+            ],
         }
-        for credit, category in results
+        for credit, project, projecttype in results
     ]
 
     return PaginatedCredits(

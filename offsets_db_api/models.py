@@ -102,6 +102,7 @@ class Clip(ClipBase, table=True):
 class ProjectInfo(pydantic.BaseModel):
     project_id: str
     category: list[str] | None = Field(description='List of categories', default=None)
+    project_type: str | None = Field(description='Type of project', default=None)
 
 
 class ClipwithProjects(ClipBase):
