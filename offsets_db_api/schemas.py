@@ -152,3 +152,35 @@ def get_credit_filters(
         transaction_date_from=transaction_date_from,
         transaction_date_to=transaction_date_to,
     )
+
+
+class ClipFilters(pydantic.BaseModel):
+    type: list[str] | None = None
+    source: list[str] | None = None
+    tags: list[str] | None = None
+    date_from: datetime.datetime | datetime.date | None = None
+    date_to: datetime.datetime | datetime.date | None = None
+    project_id: str | None = None
+
+
+def get_clip_filters(
+    type: list[str] | None = Query(None, description='Clip type'),
+    source: list[str] | None = Query(None, description='Clip source'),
+    tags: list[str] | None = Query(None, description='Clip tags'),
+    date_from: datetime.datetime | datetime.date | None = Query(
+        default=None, description='Format: YYYY-MM-DD'
+    ),
+    date_to: datetime.datetime | datetime.date | None = Query(
+        default=None, description='Format: YYYY-MM-DD'
+    ),
+    project_id: str | None = Query(None, description='Filter by project ID'),
+):
+    """Dependency to get clip filters from query parameters"""
+    return ClipFilters(
+        type=type,
+        source=source,
+        tags=tags,
+        date_from=date_from,
+        date_to=date_to,
+        project_id=project_id,
+    )

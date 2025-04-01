@@ -1,14 +1,14 @@
-import datetime
-
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi_cache.decorator import cache
 from sqlalchemy.orm import aliased
 from sqlmodel import Session, col, func, or_, select
 
 from offsets_db_api.cache import CACHE_NAMESPACE
+from offsets_db_api.common import build_filters
 from offsets_db_api.database import get_session
 from offsets_db_api.log import get_logger
 from offsets_db_api.models import Clip, ClipProject, PaginatedClips, Pagination, Project
+from offsets_db_api.schemas import ClipFilters, get_clip_filters
 from offsets_db_api.security import check_api_key
 from offsets_db_api.sql_helpers import apply_filters, apply_sorting, handle_pagination
 
@@ -20,14 +20,7 @@ logger = get_logger()
 @cache(namespace=CACHE_NAMESPACE)
 async def get_clips(
     request: Request,
-    project_id: list[str] | None = Query(None, description='Project ID'),
-    source: list[str] | None = Query(None, description='Source'),
-    tags: list[str] | None = Query(None, description='Tags'),
-    type: list[str] | None = Query(None, description='Article type'),
-    date_from: datetime.date | datetime.datetime | None = Query(
-        None, description='Published at from'
-    ),
-    date_to: datetime.date | datetime.datetime | None = Query(None, description='Published at to'),
+    clip_filters: ClipFilters = Depends(get_clip_filters),
     search: str | None = Query(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `title` fields only.',
@@ -46,30 +39,40 @@ async def get_clips(
     """
     logger.info(f'Getting clips: {request.url}')
 
-    filters = [
-        ('type', type, 'ilike', Clip),
-        ('source', source, 'ilike', Clip),
-        ('tags', tags, 'ANY', Clip),
-        ('date', date_from, '>=', Clip),
-        ('date', date_to, '<=', Clip),
-        ('project_id', project_id, '==', ClipProject),
-    ]
-
-    # create subquery for project data
-    project_data_subquery = (
-        select(
-            col(ClipProject.clip_id).label('clip_id'),
-            func.array_agg(
-                func.json_build_object(
-                    'project_id', Project.project_id, 'category', Project.category
-                )
-            ).label('projects'),
-        )
-        .join(Project, col(ClipProject.project_id) == col(Project.project_id))
-        .group_by(col(ClipProject.clip_id))
-        .subquery()
+    filters = build_filters(
+        clip_filters=clip_filters,
     )
 
+    # extract project_id filter if present
+    project_id_filter = None
+    for attribute, values, operation, model in filters:
+        if attribute == 'project_id' and model == ClipProject:
+            project_id_filter = values
+            break
+
+    # create subquery for project data
+    project_data_subquery = select(
+        col(ClipProject.clip_id).label('clip_id'),
+        func.array_agg(
+            func.json_build_object(
+                'project_id',
+                Project.project_id,
+                'category',
+                Project.category,
+                'type',
+                Project.type,
+            )
+        ).label('projects'),
+    ).join(Project, col(ClipProject.project_id) == col(Project.project_id))
+
+    # Apply project_id filter to the subquery if present
+    if project_id_filter:
+        project_data_subquery = project_data_subquery.where(
+            col(ClipProject.project_id) == project_id_filter
+        )
+
+    # Complete the subquery
+    project_data_subquery = project_data_subquery.group_by(col(ClipProject.clip_id)).subquery()
     # create an aliased name for the subquery
     project_data_subquery_alias = aliased(project_data_subquery, name='project_data')
 

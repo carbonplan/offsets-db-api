@@ -1,10 +1,11 @@
-from offsets_db_api.models import Credit, Project
+from offsets_db_api.models import Clip, ClipProject, Credit, Project
 
 
 def build_filters(
     *,
     project_filters=None,
     credit_filters=None,
+    clip_filters=None,
     exclude_filters=None,
 ):
     """
@@ -43,15 +44,31 @@ def build_filters(
         if 'is_compliance' not in exclude_filters:
             filters.append(('is_compliance', project_filters.is_compliance, '==', Project))
         if 'listed_at' not in exclude_filters:
-            filters.append(('listed_at', project_filters.listed_at_from, '>=', Project))
-            filters.append(('listed_at', project_filters.listed_at_to, '<=', Project))
+            filters.extend(
+                (
+                    (
+                        'listed_at',
+                        project_filters.listed_at_from,
+                        '>=',
+                        Project,
+                    ),
+                    ('listed_at', project_filters.listed_at_to, '<=', Project),
+                )
+            )
         if 'issued' not in exclude_filters:
-            filters.append(('issued', project_filters.issued_min, '>=', Project))
-            filters.append(('issued', project_filters.issued_max, '<=', Project))
+            filters.extend(
+                (
+                    ('issued', project_filters.issued_min, '>=', Project),
+                    ('issued', project_filters.issued_max, '<=', Project),
+                )
+            )
         if 'retired' not in exclude_filters:
-            filters.append(('retired', project_filters.retired_min, '>=', Project))
-            filters.append(('retired', project_filters.retired_max, '<=', Project))
-
+            filters.extend(
+                (
+                    ('retired', project_filters.retired_min, '>=', Project),
+                    ('retired', project_filters.retired_max, '<=', Project),
+                )
+            )
     # Credit filters
     if credit_filters:
         if 'transaction_type' not in exclude_filters:
@@ -59,7 +76,38 @@ def build_filters(
         if 'vintage' not in exclude_filters:
             filters.append(('vintage', credit_filters.vintage, '==', Credit))
         if 'transaction_date' not in exclude_filters:
-            filters.append(('transaction_date', credit_filters.transaction_date_from, '>=', Credit))
-            filters.append(('transaction_date', credit_filters.transaction_date_to, '<=', Credit))
+            filters.extend(
+                (
+                    (
+                        'transaction_date',
+                        credit_filters.transaction_date_from,
+                        '>=',
+                        Credit,
+                    ),
+                    (
+                        'transaction_date',
+                        credit_filters.transaction_date_to,
+                        '<=',
+                        Credit,
+                    ),
+                )
+            )
+    if clip_filters:
+        if 'type' not in exclude_filters:
+            filters.append(('type', clip_filters.type, 'ilike', Clip))
+        if 'source' not in exclude_filters:
+            filters.append(('source', clip_filters.source, 'ilike', Clip))
+        if 'tags' not in exclude_filters:
+            # Use the ANY operator for array types in PostgreSQL
+            filters.append(('tags', clip_filters.tags, 'ANY', Clip))
+        if 'date' not in exclude_filters:
+            filters.extend(
+                (
+                    ('date', clip_filters.date_from, '>=', Clip),
+                    ('date', clip_filters.date_to, '<=', Clip),
+                )
+            )
+        if 'project_id' not in exclude_filters:
+            filters.append(('project_id', clip_filters.project_id, '==', ClipProject))
 
     return filters
