@@ -27,7 +27,6 @@ class FileCategory(str, enum.Enum):
     projects = 'projects'
     credits = 'credits'
     clips = 'clips'
-    projecttypes = 'projecttypes'
     unknown = 'unknown'
 
 
@@ -49,8 +48,8 @@ class Pagination(pydantic.BaseModel):
 
 
 class ProjectTypes(pydantic.BaseModel):
-    Top: list[str]
-    Other: list[str]
+    Top: list[str | None]
+    Other: list[str | None]
 
 
 class ProjectFilters(pydantic.BaseModel):
@@ -58,6 +57,7 @@ class ProjectFilters(pydantic.BaseModel):
     country: list[str] | None = None
     protocol: list[str] | None = None
     category: list[str] | None = None
+    type: list[str] | None = None
     is_compliance: bool | None = None
     listed_at_from: datetime.datetime | datetime.date | None = None
     listed_at_to: datetime.datetime | datetime.date | None = None

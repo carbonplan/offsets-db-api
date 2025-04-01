@@ -16,7 +16,6 @@ from offsets_db_api.models import (
     Credit,
     PaginatedProjects,
     Project,
-    ProjectType,
     ProjectWithClips,
 )
 from offsets_db_api.schemas import (
@@ -41,7 +40,7 @@ router = APIRouter()
 logger = get_logger()
 
 
-@router.get('/types', response_model=ProjectTypes, summary='Get project types')
+@router.get('/types', summary='Get project types', response_model=ProjectTypes)
 @cache(namespace=CACHE_NAMESPACE)
 async def get_grouped_project_types(
     request: Request,
@@ -54,13 +53,12 @@ async def get_grouped_project_types(
 
 
 @router.get(
-    '/', response_model=PaginatedProjects, summary='Get projects with pagination and filtering'
+    '/', summary='Get projects with pagination and filtering', response_model=PaginatedProjects
 )
 @cache(namespace=CACHE_NAMESPACE)
 async def get_projects(
     request: Request,
     project_filters: ProjectFilters = Depends(get_project_filters),
-    project_type: list[str] | None = Query(None, description='Project type'),
     search: str | None = Query(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
@@ -79,11 +77,11 @@ async def get_projects(
 
     logger.info(f'Getting projects: {request.url}')
 
-    project_type = expand_project_types(session, project_type)
+    project_filters.type = expand_project_types(session, project_filters.type)
     # Base query without Credit join
     matching_projects = select(distinct(Project.project_id))
 
-    filters = build_filters(project_filters=project_filters, project_type=project_type)
+    filters = build_filters(project_filters=project_filters)
 
     if search:
         search_pattern = f'%{search}%'
@@ -109,11 +107,7 @@ async def get_projects(
     matching_projects_select = select(matching_projects.subquery())
 
     # Use the subquery to filter the main query
-    statement = (
-        select(Project, ProjectType.project_type, ProjectType.source)
-        .outerjoin(ProjectType, col(Project.project_id) == col(ProjectType.project_id))
-        .where(col(Project.project_id).in_(matching_projects_select))
-    )
+    statement = select(Project).where(col(Project.project_id).in_(matching_projects_select))
 
     for attribute, values, operation, model in filters:
         statement = apply_filters(
@@ -139,7 +133,7 @@ async def get_projects(
     )
 
     # Get the list of project IDs from the results
-    project_ids = [project.project_id for project, _, _ in results]
+    project_ids = [project.project_id for project in results]
 
     # Subquery to get clips related to the project IDs
     clip_statement = (
@@ -156,10 +150,8 @@ async def get_projects(
 
     # Transform the dictionary into a list of projects with clips and project_type
     projects_with_clips = []
-    for project, project_type, project_type_source in results:
+    for project in results:
         project_data = project.model_dump()
-        project_data['project_type'] = project_type
-        project_data['project_type_source'] = project_type_source
         project_data['clips'] = [
             clip.model_dump() for clip in project_to_clips.get(project.project_id, [])
         ]
@@ -192,20 +184,14 @@ async def get_project(
     logger.info(f'Getting project: {request.url}')
 
     # main query to get the project details
-    statement = (
-        select(Project, ProjectType.project_type, ProjectType.source)
-        .outerjoin(ProjectType, Project.project_id == ProjectType.project_id)
-        .where(Project.project_id == project_id)
-    )
+    statement = select(Project).where(Project.project_id == project_id)
 
-    result = session.exec(statement).one_or_none()
+    project = session.exec(statement).one_or_none()
 
-    if not result:
+    if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f'project {project_id} not found'
         )
-
-    project, project_type, project_type_source = result
 
     # Subquery to get the related clips
     clip_statement = (
@@ -217,7 +203,6 @@ async def get_project(
 
     # Construct the response data
     project_data = project.model_dump()
-    project_data['project_type'] = project_type
-    project_data['project_type_source'] = project_type_source
+
     project_data['clips'] = [clip.model_dump() for clip in clip_projects_subquery]
     return project_data

@@ -1,11 +1,10 @@
-from offsets_db_api.models import Credit, Project, ProjectType
+from offsets_db_api.models import Credit, Project
 
 
 def build_filters(
     *,
     project_filters=None,
     credit_filters=None,
-    project_type=None,
     exclude_filters=None,
 ):
     """
@@ -17,8 +16,6 @@ def build_filters(
         Project filter parameters
     credit_filters : CreditFilters, optional
         Credit filter parameters
-    project_type : list, optional
-        Project type filters (already expanded)
     exclude_filters : list, optional
         List of filter names to exclude (e.g. ['issued', 'retired'])
 
@@ -40,7 +37,9 @@ def build_filters(
         if 'protocol' not in exclude_filters:
             filters.append(('protocol', project_filters.protocol, 'ANY', Project))
         if 'category' not in exclude_filters:
-            filters.append(('category', project_filters.category, 'ANY', Project))
+            filters.append(('category', project_filters.category, 'ilike', Project))
+        if 'type' not in exclude_filters:
+            filters.append(('type', project_filters.type, 'ilike', Project))
         if 'is_compliance' not in exclude_filters:
             filters.append(('is_compliance', project_filters.is_compliance, '==', Project))
         if 'listed_at' not in exclude_filters:
@@ -62,9 +61,5 @@ def build_filters(
         if 'transaction_date' not in exclude_filters:
             filters.append(('transaction_date', credit_filters.transaction_date_from, '>=', Credit))
             filters.append(('transaction_date', credit_filters.transaction_date_to, '<=', Credit))
-
-    # Project type filters
-    if project_type and 'project_type' not in exclude_filters:
-        filters.append(('project_type', project_type, 'ilike', ProjectType))
 
     return filters

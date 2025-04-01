@@ -5,7 +5,7 @@ fastapi==0.115.5
 fastparquet
 gunicorn
 httpx
-offsets-db-data>=2025.3.5
+offsets-db-data @ git+https://github.com/carbonplan/offsets-db-data.git@merge-types-and-categories #TODO: remove this when the latest version of offsets-db-data is published to pypi
 pandas>=1.5.3
 psycopg2-binary==2.9.10
 pydantic-settings>=2.8
