@@ -13,7 +13,7 @@ from watchdog.observers import Observer
 from offsets_db_api.app_metadata import metadata
 from offsets_db_api.cache import clear_cache, request_key_builder, watch_dog_dir, watch_dog_file
 from offsets_db_api.log import get_logger
-from offsets_db_api.routers import clips, credits, files, health, projects
+from offsets_db_api.routers import charts, clips, credits, files, health, projects
 
 logger = get_logger()
 
@@ -82,7 +82,7 @@ def create_application() -> FastAPI:
     application.include_router(health.router, prefix='/health', tags=['health'])
     application.include_router(projects.router, prefix='/projects', tags=['projects'])
     application.include_router(credits.router, prefix='/credits', tags=['credits'])
-    # application.include_router(charts.router, prefix='/charts', tags=['charts'])
+    application.include_router(charts.router, prefix='/charts', tags=['charts'])
     application.include_router(clips.router, prefix='/clips', tags=['clips'])
     application.include_router(files.router, prefix='/files', tags=['files'])
 

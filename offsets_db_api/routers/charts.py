@@ -20,7 +20,6 @@ from offsets_db_api.models import (
     PaginatedProjectCounts,
     PaginatedProjectCreditTotals,
     Project,
-    ProjectType,
 )
 from offsets_db_api.schemas import (
     BeneficiaryFilters,
@@ -151,7 +150,6 @@ async def get_projects_by_listing_date(
     request: Request,
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
     project_filters: ProjectFilters = Depends(get_project_filters),
-    project_type: list[str] | None = Query(None, description='Project type'),
     search: str | None = Query(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
@@ -165,17 +163,13 @@ async def get_projects_by_listing_date(
 
     logger.info(f'Getting project registration data: {request.url}')
 
-    project_type = expand_project_types(session, project_type)
+    project_filters.type = expand_project_types(session, project_filters.type)
 
     # Start with the base query on the Project model
-    query = select(Project, ProjectType.project_type, ProjectType.source).outerjoin(
-        ProjectType, col(Project.project_id) == col(ProjectType.project_id)
-    )
+    query = select(Project)
 
     # Apply filters
-    filters = build_filters(
-        project_filters=project_filters, project_type=project_type, exclude_filters=['category']
-    )
+    filters = build_filters(project_filters=project_filters)
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
@@ -192,15 +186,8 @@ async def get_projects_by_listing_date(
             )
         )
 
-    # Now create the subquery with unnested category
-    subquery = query.add_columns(
-        func.unnest(Project.category).label('unnested_category'),
-    ).alias('subquery')
-
-    # Apply category filter
-    if project_filters.category:
-        query = query.where(subquery.c.unnested_category.in_(project_filters.category))
-
+    # Now create the subquery
+    subquery = query.alias('subquery')
     # Get min and max listing dates
     min_max_query = select(func.min(subquery.c.listed_at), func.max(subquery.c.listed_at))
     min_date, max_date = session.exec(min_max_query.select_from(subquery)).fetchone()
@@ -236,11 +223,11 @@ async def get_projects_by_listing_date(
     binned_query = (
         select(
             bin_case,
-            subquery.c.unnested_category,
+            subquery.c.category,
             func.count(subquery.c.project_id.distinct()).label('value'),
         )
         .select_from(subquery)
-        .group_by(bin_case, subquery.c.unnested_category)
+        .group_by(bin_case, subquery.c.category)
     )
 
     # Execute the query
@@ -258,7 +245,7 @@ async def get_projects_by_listing_date(
             {
                 'start': start_date.strftime('%Y-%m-%d'),
                 'end': end_date.strftime('%Y-%m-%d'),
-                'category': row.unnested_category,
+                'category': row.category,
                 'value': int(row.value),
             }
         )
@@ -284,7 +271,6 @@ async def get_credits_by_transaction_date(
     freq: typing.Literal['D', 'W', 'M', 'Y'] = Query('Y', description='Frequency of bins'),
     project_filters: ProjectFilters = Depends(get_project_filters),
     credit_filters: CreditFilters = Depends(get_credit_filters),
-    project_type: list[str] | None = Query(None, description='Project type'),
     search: str | None = Query(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
@@ -298,20 +284,16 @@ async def get_credits_by_transaction_date(
 
     logger.info(f'Getting credit transaction data: {request.url}')
 
-    project_type = expand_project_types(session, project_type)
+    project_filters.type = expand_project_types(session, project_filters.type)
 
     # Base query
-    base_query = (
-        select(Credit, Project)
-        .join(Project, col(Credit.project_id) == col(Project.project_id))
-        .outerjoin(ProjectType, col(Project.project_id) == col(ProjectType.project_id))
+    base_query = select(Credit, Project).join(
+        Project, col(Credit.project_id) == col(Project.project_id)
     )
 
     filters = build_filters(
         project_filters=project_filters,
         credit_filters=credit_filters,
-        project_type=project_type,
-        exclude_filters=['category'],
     )
 
     for attribute, values, operation, model in filters:
@@ -337,14 +319,8 @@ async def get_credits_by_transaction_date(
     subquery = base_query.add_columns(
         Credit.transaction_date,
         Credit.quantity,
-        func.unnest(Project.category).label('unnested_category'),
+        Project.category,
     ).alias('subquery')
-
-    query = select(subquery)
-
-    # Apply category filter
-    if project_filters.category:
-        query = query.where(subquery.c.unnested_category.in_(project_filters.category))
 
     # Get min and max transaction dates
     min_max_query = select(
@@ -383,9 +359,9 @@ async def get_credits_by_transaction_date(
 
     # Add binning to the query and aggregate
     binned_query = (
-        select(bin_case, subquery.c.unnested_category, func.sum(subquery.c.quantity).label('value'))
+        select(bin_case, subquery.c.category, func.sum(subquery.c.quantity).label('value'))
         .select_from(subquery)
-        .group_by(bin_case, subquery.c.unnested_category)
+        .group_by(bin_case, subquery.c.category)
     )
 
     # Execute the query
@@ -403,7 +379,7 @@ async def get_credits_by_transaction_date(
             {
                 'start': start_date.strftime('%Y-%m-%d'),
                 'end': end_date.strftime('%Y-%m-%d'),
-                'category': row.unnested_category,
+                'category': row.category,
                 'value': int(row.value),
             }
         )
@@ -559,7 +535,6 @@ async def get_projects_by_credit_totals(
     request: Request,
     credit_type: typing.Literal['issued', 'retired'] = Query('issued', description='Credit type'),
     project_filters: ProjectFilters = Depends(get_project_filters),
-    project_type: list[str] | None = Query(None, description='Project type'),
     search: str | None = Query(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
@@ -573,15 +548,11 @@ async def get_projects_by_credit_totals(
     """Get aggregated project credit totals"""
 
     logger.info(f'📊 Generating projects by {credit_type} totals...: {request.url}')
-    project_type = expand_project_types(session, project_type)
+    project_filters.type = expand_project_types(session, project_filters.type)
 
-    query = select(Project, ProjectType.project_type, ProjectType.source).outerjoin(
-        ProjectType, col(Project.project_id) == col(ProjectType.project_id)
-    )
+    query = select(Project)
 
-    filters = build_filters(
-        project_filters=project_filters, project_type=project_type, exclude_filters=['category']
-    )
+    filters = build_filters(project_filters=project_filters)
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
@@ -602,28 +573,12 @@ async def get_projects_by_credit_totals(
             )
         )
 
-    # Explode the category column
     subquery = query.subquery()
-    exploded = (
-        select(
-            func.unnest(subquery.c.category).label('category'),
-            getattr(subquery.c, credit_type).label('credit_value'),
-            subquery.c.project_id,
-        )
-        .select_from(subquery)
-        .subquery()
-    )
-
-    # Apply category filter after unnesting
-    if project_filters.category:
-        exploded = (
-            select(exploded).where(exploded.c.category.in_(project_filters.category)).subquery()
-        )
 
     # Get min and max values for binning
     min_max_query = select(
-        func.min(exploded.c.credit_value).label('min_value'),
-        func.max(exploded.c.credit_value).label('max_value'),
+        func.min(getattr(subquery.c, credit_type)).label('min_value'),
+        func.max(getattr(subquery.c, credit_type)).label('max_value'),
     )
     min_max_result = session.exec(min_max_query).fetchone()
     min_value, max_value = min_max_result.min_value, min_max_result.max_value
@@ -644,11 +599,15 @@ async def get_projects_by_credit_totals(
     bins = generate_dynamic_numeric_bins(
         min_value=min_value, max_value=max_value, bin_width=bin_width
     ).tolist()
+
     # Create a CASE statement for binning
     bin_case = case(
         *[
             (
-                and_(exploded.c.credit_value >= bin_start, exploded.c.credit_value < bin_end),
+                and_(
+                    getattr(subquery.c, credit_type) >= bin_start,
+                    getattr(subquery.c, credit_type) < bin_end,
+                ),
                 bin_start,
             )
             for bin_start, bin_end in zip(bins[:-1], bins[1:])
@@ -658,8 +617,8 @@ async def get_projects_by_credit_totals(
 
     # Count projects by bin and category
     binned_query = select(
-        bin_case, exploded.c.category, func.count(exploded.c.project_id.distinct()).label('value')
-    ).group_by(bin_case, exploded.c.category)
+        bin_case, subquery.c.category, func.count(subquery.c.project_id.distinct()).label('value')
+    ).group_by(bin_case, subquery.c.category)
 
     # Execute the query
     results = session.exec(binned_query).fetchall()
@@ -691,7 +650,6 @@ async def get_projects_by_credit_totals(
 @cache(namespace=CACHE_NAMESPACE)
 async def get_projects_by_category(
     request: Request,
-    project_type: list[str] | None = Query(None, description='Project type'),
     project_filters: ProjectFilters = Depends(get_project_filters),
     search: str | None = Query(
         None,
@@ -705,15 +663,11 @@ async def get_projects_by_category(
     """Get project counts by category"""
 
     logger.info(f'Getting project count by category: {request.url}')
-    project_type = expand_project_types(session, project_type)
+    project_filters.type = expand_project_types(session, project_filters.type)
 
-    query = select(Project, ProjectType.project_type, ProjectType.source).outerjoin(
-        ProjectType, col(Project.project_id) == col(ProjectType.project_id)
-    )
+    query = select(Project)
 
-    filters = build_filters(
-        project_filters=project_filters, project_type=project_type, exclude_filters=['category']
-    )
+    filters = build_filters(project_filters=project_filters)
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
@@ -735,22 +689,11 @@ async def get_projects_by_category(
         )
 
     subquery = query.subquery()
-    exploded = (
-        select(func.unnest(subquery.c.category).label('category'), subquery.c.project_id)
-        .select_from(subquery)
-        .subquery()
-    )
 
-    # apply category filter after unnesting
-    if project_filters.category:
-        exploded = (
-            select(exploded).where(exploded.c.category.in_(project_filters.category)).subquery()
-        )
-
-    # count projects by category
+    # Count projects by category - no need to unnest anymore
     projects_count_query = select(
-        exploded.c.category, func.count(exploded.c.project_id.distinct()).label('value')
-    ).group_by(exploded.c.category)
+        subquery.c.category, func.count(subquery.c.project_id.distinct()).label('value')
+    ).group_by(subquery.c.category)
 
     results = session.exec(projects_count_query).fetchall()
 
@@ -768,7 +711,6 @@ async def get_projects_by_category(
 @cache(namespace=CACHE_NAMESPACE)
 async def get_credits_by_category(
     request: Request,
-    project_type: list[str] | None = Query(None, description='Project type'),
     project_filters: ProjectFilters = Depends(get_project_filters),
     search: str | None = Query(
         None,
@@ -784,14 +726,12 @@ async def get_credits_by_category(
 
     logger.info(f'Getting project count by category: {request.url}')
 
-    project_type = expand_project_types(session, project_type)
+    project_filters.type = expand_project_types(session, project_filters.type)
 
     # Base query without Credit join
     matching_projects = select(distinct(Project.project_id))
 
-    filters = build_filters(
-        project_filters=project_filters, project_type=project_type, exclude_filters=['category']
-    )
+    filters = build_filters(project_filters=project_filters)
 
     # Handle 'search' filter separately due to its unique logic
     if search:
@@ -822,18 +762,14 @@ async def get_credits_by_category(
     matching_projects_select = select(matching_projects.subquery())
 
     # Use the subquery to filter the main query
-    query = (
-        select(Project, ProjectType.project_type, ProjectType.source)
-        .outerjoin(ProjectType, col(Project.project_id) == col(ProjectType.project_id))
-        .where(col(Project.project_id).in_(matching_projects_select))
-    )
+    query = select(Project).where(col(Project.project_id).in_(matching_projects_select))
 
     for attribute, values, operation, model in filters:
         query = apply_filters(
             statement=query, model=model, attribute=attribute, values=values, operation=operation
         )
 
-    # Explode the category column
+    # Create the subquery with category
     subquery = query.subquery()
 
     if use_dynamic_retirement:
@@ -842,7 +778,7 @@ async def get_credits_by_category(
         Credits_table = aliased(Credit)
         dynamic_data = (
             select(
-                func.unnest(subquery.c.category).label('category'),
+                subquery.c.category,
                 literal(0).label(
                     'issued'
                 ),  # Return 0 for issued credits when using beneficiary search
@@ -869,15 +805,16 @@ async def get_credits_by_category(
                     ]
                 )
             )
-            .group_by('category', subquery.c.issued)
+            .group_by(subquery.c.category, subquery.c.issued)
         )
 
-        exploded = dynamic_data.subquery()
+        statement = dynamic_data.subquery()
 
     else:
-        exploded = (
+        # No need to unnest anymore, just select the columns directly
+        statement = (
             select(
-                func.unnest(subquery.c.category).label('category'),
+                subquery.c.category,
                 subquery.c.issued,
                 subquery.c.retired,
             )
@@ -885,18 +822,12 @@ async def get_credits_by_category(
             .subquery()
         )
 
-    # Apply category filter after unnesting
-    if project_filters.category:
-        exploded = (
-            select(exploded).where(exploded.c.category.in_(project_filters.category)).subquery()
-        )
-
     # Group by category and sum issued and retired credits
     credits_query = select(
-        exploded.c.category,
-        func.sum(exploded.c.issued).label('issued'),
-        func.sum(exploded.c.retired).label('retired'),
-    ).group_by(exploded.c.category)
+        statement.c.category,
+        func.sum(statement.c.issued).label('issued'),
+        func.sum(statement.c.retired).label('retired'),
+    ).group_by(statement.c.category)
 
     # Execute the query
     results = session.exec(credits_query).fetchall()
