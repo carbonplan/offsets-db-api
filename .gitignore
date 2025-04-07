@@ -137,3 +137,4 @@ offsets_db_api/_version.py
 *.csv
 *.gz
 cache-watch-dog/
+staging-files.json
