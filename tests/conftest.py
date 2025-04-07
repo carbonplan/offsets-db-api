@@ -65,10 +65,6 @@ def setup_post(test_app: TestClient):
             'url': 's3://carbonplan-offsets-db/final/2025-01-21/weekly-summary-clips.parquet',
             'category': 'clips',
         },
-        {
-            'url': 's3://carbonplan-offsets-db/final/2025-03-06/project-types.parquet',
-            'category': 'projecttypes',
-        },
     ]
 
     headers = {

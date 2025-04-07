@@ -97,7 +97,7 @@ def test_get_projects_with_filters(
         if protocol:
             assert project['protocol'] == protocol
         if category:
-            assert category in project['category']
+            assert category == project['category']
         assert retired_min <= project['retired'] <= retired_max
         assert issued_min <= project['issued'] <= issued_max
 

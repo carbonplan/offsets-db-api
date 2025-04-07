@@ -42,10 +42,6 @@ def file_urls():
             'url': 's3://carbonplan-offsets-db/final/2025-01-21/weekly-summary-clips.parquet',
             'category': 'clips',
         },
-        {
-            'url': 's3://carbonplan-offsets-db/final/2025-03-06/project-types.parquet',
-            'category': 'projecttypes',
-        },
     ]
 
 
