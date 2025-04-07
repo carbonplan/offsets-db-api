@@ -42,7 +42,7 @@ def get_latest(*, bucket: str) -> list[dict[str, str]]:
             entry_url = previous_path
         else:
             print(f"Warning: Both {latest_path} and {previous_path} don't exist, skipping")
-            continue
+            raise ValueError(f"both {latest_path} and {previous_path} file paths don't exist")
 
         data.append({'category': key, 'url': entry_url})
 
