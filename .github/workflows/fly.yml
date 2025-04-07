@@ -64,7 +64,7 @@ jobs:
       - name: Deploy to Staging
         run: |
           flyctl deploy --remote-only --config fly.staging.toml
-          python update_database.py staging https://offsets-db-staging.fly.dev/files
+          python update_database.py staging --url https://offsets-db-staging.fly.dev/files
 
       - name: Deploy to Production
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
@@ -121,4 +121,4 @@ jobs:
       - name: Update Production DB
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         run: |
-          python update_database.py production https://offsets-db.fly.dev/files
+          python update_database.py production --url https://offsets-db.fly.dev/files
