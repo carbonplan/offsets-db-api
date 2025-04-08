@@ -1,37 +1,36 @@
-# import logging
-# import time
+import logging
 
-# import pytest
-# from fastapi.testclient import TestClient
+import pytest
+from fastapi.testclient import TestClient
 
-# from offsets_db_api.database import get_session
-# from offsets_db_api.main import create_application
-# from offsets_db_api.settings import Settings, get_settings
+from offsets_db_api.database import get_session
+from offsets_db_api.main import create_application
+from offsets_db_api.settings import Settings, get_settings
 
-# # Set up logging
-# logging.basicConfig(level=logging.INFO)
-# logger = logging.getLogger(__name__)
-
-
-# def get_settings_override():
-#     return Settings(staging=True, api_key='cowsay')
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
-# @pytest.fixture(scope='function')
-# def test_db_session():
-#     session = get_session()
-#     yield session
-#     session.close()
+def get_settings_override():
+    return Settings(staging=True, api_key='cowsay')
 
 
-# @pytest.fixture(scope='session')
-# def test_app():
-#     app = create_application()
-#     app.dependency_overrides[get_settings] = get_settings_override
-#     headers = {'X-API-Key': 'cowsay'}
-#     with TestClient(app) as test_client:
-#         test_client.headers.update(headers)
-#         yield test_client
+@pytest.fixture(scope='function')
+def test_db_session():
+    session = get_session()
+    yield session
+    session.close()
+
+
+@pytest.fixture(scope='session')
+def test_app():
+    app = create_application()
+    app.dependency_overrides[get_settings] = get_settings_override
+    headers = {'X-API-Key': 'cowsay'}
+    with TestClient(app) as test_client:
+        test_client.headers.update(headers)
+        yield test_client
 
 
 # def wait_for_file_processing(test_app: TestClient, file_ids: list[str], timeout: int = 60) -> bool:
