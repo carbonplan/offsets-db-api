@@ -15,7 +15,7 @@ from offsets_db_api.models import File, Project
 logger = get_logger()
 
 
-def update_file_status(file, session, status, error=None):
+def update_file_status(file: File, session, status: str, error: str | None = None) -> None:
     logger.info(f'🔄 Updating file status: {file.url}')
     file.status = status
     file.error = error
@@ -81,7 +81,9 @@ def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
         raise
 
 
-def process_dataframe(df, table_name, engine, dtype_dict=None):
+def process_dataframe(
+    df: pd.DataFrame, table_name: str, engine, dtype_dict: dict | None = None
+) -> None:
     logger.info(f'📝 Writing DataFrame to {table_name}')
     logger.info(f'engine: {engine}')
 
@@ -104,7 +106,7 @@ def process_dataframe(df, table_name, engine, dtype_dict=None):
     logger.info(f'✅ Written 🧬 shape {df.shape} to {table_name}')
 
 
-async def process_files(*, engine, session, files: list[File]):
+async def process_files(*, engine, session, files: list[File]) -> None:
     # loop over files and make sure projects are first in the list to ensure the delete cascade works
     ordered_files: list[File] = []
     for file in files:
@@ -136,6 +138,11 @@ async def process_files(*, engine, session, files: list[File]):
                     'vintage': BigInteger,
                     'transaction_date': Date,
                     'transaction_type': String,
+                    'retirement_account': String,
+                    'retirement_reason': String,
+                    'retirement_note': String,
+                    'retirement_beneficiary': String,
+                    'retirement_beneficiary_harmonized': String,
                 }
                 process_dataframe(df, 'credit', engine, credit_dtype_dict)
                 update_file_status(file, session, 'success')
