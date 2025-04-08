@@ -43,10 +43,7 @@ def request_key_builder(
 
 async def clear_cache():
     try:
-        # List existing keys in cache
-        keys = list(FastAPICache._backend._store.keys())
-
-        if keys:
+        if keys := list(FastAPICache._backend._store.keys()):
             formatted_keys = '\n'.join(f'🔑 {key}' for key in keys)
             logger.info(f'🔍 Found {len(keys)} keys to clear:\n{formatted_keys}')
         else:

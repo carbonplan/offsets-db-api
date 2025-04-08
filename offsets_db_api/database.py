@@ -6,6 +6,8 @@ from offsets_db_api.settings import get_settings
 
 
 def get_engine(*, database_url: str):
+    if database_url is None:
+        raise ValueError('Database URL is not provided in settings.')
     settings = get_settings()
     # https://github.com/tiangolo/full-stack-fastapi-postgresql/issues/104#issuecomment-586466934
     pool_size = max(settings.database_pool_size // settings.web_concurrency, 5)
