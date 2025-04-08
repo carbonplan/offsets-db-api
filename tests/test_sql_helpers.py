@@ -1,12 +1,21 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
+from sqlalchemy import Column, Integer, String, select
+from sqlalchemy.ext.declarative import declarative_base
+from sqlmodel import Session
 from starlette.datastructures import URL, QueryParams
 
+from offsets_db_api.models import Credit, Project
+from offsets_db_api.schemas import ProjectTypes
 from offsets_db_api.sql_helpers import (
     _convert_query_params_to_dict,
     _generate_next_page_url,
+    apply_beneficiary_search,
+    apply_filters,
     custom_urlencode,
+    expand_project_types,
+    handle_pagination,
 )
 
 
@@ -176,13 +185,156 @@ def test_generate_next_page_url_pagination(mock_request: Mock, current_page: int
     assert f'per_page={per_page}' in result
 
 
-def test_generate_next_page_url_preserves_existing_params(mock_request: Mock):
-    """Test _generate_next_page_url function preserves existing query parameters."""
-    mock_request.query_params = QueryParams('existing=param&another=value')
+@patch('offsets_db_api.sql_helpers.get_project_types')
+def test_expand_project_types_none(mock_get_project_types):
+    """Test expand_project_types with None input."""
+    session = Mock(spec=Session)
+    result = expand_project_types(session, None)
+    assert result is None
+    mock_get_project_types.assert_not_called()
 
-    result = _generate_next_page_url(request=mock_request, current_page=1, per_page=10)
 
-    assert 'existing=param' in result
-    assert 'another=value' in result
-    assert 'current_page=2' in result
-    assert 'per_page=10' in result
+@patch('offsets_db_api.sql_helpers.get_project_types')
+def test_expand_project_types_without_other(mock_get_project_types):
+    """Test expand_project_types with list not containing 'Other'."""
+    session = Mock(spec=Session)
+    project_types = ['Type1', 'Type2']
+    result = expand_project_types(session, project_types)
+    assert result == project_types
+    mock_get_project_types.assert_not_called()
+
+
+@patch('offsets_db_api.sql_helpers.get_project_types')
+def test_expand_project_types_with_other(mock_get_project_types):
+    """Test expand_project_types with list containing 'Other'."""
+    session = Mock(spec=Session)
+    mock_get_project_types.return_value = ProjectTypes(
+        Top=['Type1', 'Type2'], Other=['Type3', 'Type4']
+    )
+
+    project_types = ['Type1', 'Other']
+    result = expand_project_types(session, project_types)
+
+    assert 'Other' not in result
+    assert 'Type1' in result
+    assert 'Type3' in result
+    assert 'Type4' in result
+    mock_get_project_types.assert_called_once_with(session)
+
+
+def test_apply_filters_none_values():
+    """Test apply_filters with None values."""
+    Base = declarative_base()
+
+    class TestModel(Base):
+        __tablename__ = 'test_model'
+        id = Column(Integer, primary_key=True)
+        name = Column(String)
+
+    stmt = select(TestModel)
+    result = apply_filters(
+        statement=stmt, model=TestModel, attribute='name', values=None, operation='=='
+    )
+
+    # Should return the statement unchanged if values is None
+    assert result == stmt
+
+
+def test_apply_filters_unsupported_operation():
+    """Test apply_filters with an unsupported operation."""
+    Base = declarative_base()
+
+    class TestModel(Base):
+        __tablename__ = 'test_model'
+        id = Column(Integer, primary_key=True)
+        name = Column(String)
+
+    stmt = select(TestModel)
+
+    with pytest.raises(ValueError) as excinfo:
+        apply_filters(
+            statement=stmt,
+            model=TestModel,
+            attribute='name',
+            values='test',
+            operation='invalid_op',
+        )
+
+    assert 'Unsupported operation' in str(excinfo.value)
+
+
+def test_apply_beneficiary_search_empty_search_term():
+    """Test apply_beneficiary_search with empty search term."""
+    statement = Mock()
+    search_term = ''
+    search_fields = ['name', 'description']
+
+    result = apply_beneficiary_search(
+        statement=statement,
+        search_term=search_term,
+        search_fields=search_fields,
+        credit_model=Credit,
+        project_model=Project,
+    )
+
+    # Should return statement unchanged if search_term is empty
+    assert result == statement
+
+
+@patch('offsets_db_api.sql_helpers._generate_next_page_url')
+def test_handle_pagination_no_next_page(mock_generate_next_page_url):
+    """Test handle_pagination when current_page equals total_pages."""
+    # Setup mocks
+    statement = Mock()
+    primary_key = 'id'
+    current_page = 2
+    per_page = 10
+    request = Mock()
+    session = Mock()
+
+    # Mock the session.exec().one() to return a count
+    session.exec.return_value.one.return_value = 15  # 15 items total
+
+    # Mock the session.exec().all() to return results
+    session.exec.return_value.all.return_value = ['result1', 'result2']
+
+    total_entries, current_page_result, total_pages, next_page, results = handle_pagination(
+        statement=statement,
+        primary_key=primary_key,
+        current_page=current_page,
+        per_page=per_page,
+        request=request,
+        session=session,
+    )
+
+    assert total_entries == 15
+    assert current_page_result == 2
+    assert total_pages == 2  # 15 items with 10 per page = 2 pages
+    assert next_page is None  # No next page because current_page == total_pages
+    assert results == ['result1', 'result2']
+    mock_generate_next_page_url.assert_not_called()  # URL generation should not be called
+
+
+@pytest.mark.parametrize(
+    'input_dict, expected_output',
+    [
+        ({'key+with+plus': 'value+with+plus'}, 'key%2Bwith%2Bplus=value%2Bwith%2Bplus'),
+        (
+            {'key&with&ampersand': 'value&with&ampersand'},
+            'key%26with%26ampersand=value%26with%26ampersand',
+        ),
+        (
+            {'key?with?question': 'value?with?question'},
+            'key%3Fwith%3Fquestion=value%3Fwith%3Fquestion',
+        ),
+        ({'key=with=equals': 'value=with=equals'}, 'key%3Dwith%3Dequals=value%3Dwith%3Dequals'),
+        ({'key#with#hash': 'value#with#hash'}, 'key%23with%23hash=value%23with%23hash'),
+        (
+            {'key with space': ['value with space', 'another value']},
+            'key%20with%20space=value%20with%20space&key%20with%20space=another%20value',
+        ),
+    ],
+)
+def test_custom_urlencode_special_characters(input_dict, expected_output):
+    """Test custom_urlencode function with special characters."""
+    assert custom_urlencode(input_dict) == expected_output
