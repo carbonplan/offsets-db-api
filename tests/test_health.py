@@ -1,65 +1,42 @@
 from datetime import datetime
 from unittest.mock import MagicMock
 
+import pytest
 from fastapi.testclient import TestClient
 
-# class TestHealthEndpoint:
-#     def test_health_response_structure(self, test_app: TestClient):
-#         """Test the structure and content of the health endpoint response."""
-#         response = test_app.get('/health/database')
-#         assert response.status_code == 200
-#         data = response.json()
 
-#         expected_keys = {
-#             'status',
-#             'staging',
-#             'latest-successful-db-update',
-#             'database-pool-size',
-#             'web-concurrency',
-#         }
-#         assert set(data.keys()) == expected_keys
-#         assert data['status'] == 'ok'
-#         assert data['staging'] is True
-#         assert set(data['latest-successful-db-update'].keys()) == {'projects', 'credits', 'clips'}
+class TestAuthorizationEndpoint:
+    @pytest.fixture
+    def auth_endpoint(self):
+        return '/health/authorized_user'
 
-#     def test_health_response_headers(self, test_app: TestClient):
-#         """Test the headers of the health endpoint response."""
-#         response = test_app.get('/health/database')
-#         assert 'cache-control' in response.headers
-#         assert 'etag' in response.headers
+    def test_authorized_user(self, test_app: TestClient, auth_endpoint):
+        """Test the response for an authorized user."""
+        response = test_app.get(auth_endpoint, headers={'X-API-KEY': 'cowsay'})
+        assert response.status_code == 200
+        assert response.json() == {'authorized_user': True}
 
+    def test_unauthorized_user(self, test_app: TestClient, auth_endpoint):
+        """Test the response for an unauthorized user."""
+        response = test_app.get(auth_endpoint, headers={'X-API-KEY': 'foo'})
+        assert response.status_code == 403
+        assert 'Bad API key credentials' in response.json()['detail']
 
-# class TestAuthorizationEndpoint:
-#     @pytest.fixture
-#     def auth_endpoint(self):
-#         return '/health/authorized_user'
+    def test_missing_api_key(self, test_app: TestClient, auth_endpoint):
+        """Test the response when the API key is missing."""
 
-#     def test_authorized_user(self, test_app: TestClient, auth_endpoint):
-#         """Test the response for an authorized user."""
-#         response = test_app.get(auth_endpoint, headers={'X-API-KEY': 'cowsay'})
-#         assert response.status_code == 200
-#         assert response.json() == {'authorized_user': True}
+        original_headers = test_app.headers.copy()
+        del test_app.headers['X-API-Key']
+        response = test_app.get(auth_endpoint, headers={})
+        # Restore the original headers
+        test_app.headers = original_headers
 
-#     def test_unauthorized_user(self, test_app: TestClient, auth_endpoint):
-#         """Test the response for an unauthorized user."""
-#         response = test_app.get(auth_endpoint, headers={'X-API-KEY': 'foo'})
-#         assert response.status_code == 403
-#         assert 'Bad API key credentials' in response.json()['detail']
-
-#     def test_missing_api_key(self, test_app: TestClient, auth_endpoint):
-#         """Test the response when the API key is missing."""
-
-#         original_headers = test_app.headers.copy()
-#         del test_app.headers['X-API-Key']
-#         response = test_app.get(auth_endpoint, headers={})
-#         # Restore the original headers
-#         test_app.headers = original_headers
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Missing API key. Please provide one in the X-API-KEY header.'
+        }
 
 
-#         assert response.status_code == 403
-#         assert response.json() == {
-#             'detail': 'Missing API key. Please provide one in the X-API-KEY header.'
-#         }
 class TestHealthEndpoint:
     def test_health_endpoint(self, test_app: TestClient, monkeypatch):
         """Test the root health endpoint."""
@@ -80,6 +57,12 @@ class TestHealthEndpoint:
 
         response = test_app.get('/health/')
         assert response.status_code == 200
+
+    def test_health_response_headers(self, test_app: TestClient):
+        """Test the headers of the health endpoint response."""
+        response = test_app.get('/health/database')
+        assert 'cache-control' in response.headers
+        assert 'etag' in response.headers
 
 
 class TestDBStatusEndpoint:
