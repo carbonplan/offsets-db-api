@@ -1,60 +1,58 @@
 app = "offsets-db"
 
-kill_signal = "SIGINT"
-kill_timeout = 5
+kill_signal    = "SIGINT"
+kill_timeout   = 5
 primary_region = "dfw"
 
 [build]
-builder = "heroku/builder:24"
-buildpacks = ["heroku/buildpack-python:0.19.1"]
+    builder    = "heroku/builder:24"
+    buildpacks = ["heroku/buildpack-python:0.25.0"]
 
 [[vm]]
-size = "shared-cpu-4x"
-memory = "8gb"
-
+    memory = "8gb"
+    size   = "shared-cpu-4x"
 
 [env]
-OFFSETS_DB_STAGING = "false"
-OFFSETS_DB_WEB_CONCURRENCY = "4"
-OFFSETS_DB_DATABASE_POOL_SIZE = "200"
-PORT = "8000"
+    OFFSETS_DB_DATABASE_POOL_SIZE = "200"
+    OFFSETS_DB_STAGING            = "false"
+    OFFSETS_DB_WEB_CONCURRENCY    = "4"
+    PORT                          = "8000"
 
 [deploy]
-release_command = "bash -l release.sh"
+    release_command = "bash -l release.sh"
 
 [processes]
-app = "gunicorn -w $OFFSETS_DB_WEB_CONCURRENCY -t 300 -k uvicorn.workers.UvicornWorker offsets_db_api.main:app --config gunicorn_config.py --access-logfile '-' --error-logfile '-'"
-
+    app = "gunicorn -w $OFFSETS_DB_WEB_CONCURRENCY -t 300 -k uvicorn.workers.UvicornWorker offsets_db_api.main:app --config gunicorn_config.py --access-logfile '-' --error-logfile '-'"
 
 [[services]]
-processes = ["app"]
-protocol = "tcp"
-internal_port = 8000
-force_https = true
-auto_stop_machines = true
-auto_start_machines = true
-min_machines_running = 1
+    auto_start_machines  = true
+    auto_stop_machines   = true
+    force_https          = true
+    internal_port        = 8000
+    min_machines_running = 1
+    processes            = ["app"]
+    protocol             = "tcp"
 
 [[services.ports]]
-port = 80
-handlers = ["http"]
+    handlers = ["http"]
+    port     = 80
 
 [[services.ports]]
-port = 443
-handlers = ["tls", "http"]
+    handlers = ["http", "tls"]
+    port     = 443
 [services.concurrency]
-type = "connections"
-hard_limit = 5000
-soft_limit = 4900
+    hard_limit = 5000
+    soft_limit = 4900
+    type       = "connections"
 
 [[services.tcp_checks]]
-interval = "15s"
-timeout = "3s"
-grace_period = "5s"
-restart_limit = 0
+    grace_period  = "5s"
+    interval      = "15s"
+    restart_limit = 0
+    timeout       = "3s"
 
 [[services.http_checks]]
-path = "/health/"
-grace_period = "30s"
-interval = "1m"
-timeout = "15s"
+    grace_period = "30s"
+    interval     = "1m"
+    path         = "/health/"
+    timeout      = "15s"

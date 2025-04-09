@@ -2,7 +2,7 @@ import datetime
 import traceback
 
 import pandas as pd
-from offsets_db_data.models import clip_schema, credit_schema, project_schema, project_types_schema
+from offsets_db_data.models import clip_schema, credit_schema, project_schema
 from offsets_db_data.registry import get_registry_from_project_id
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, Session, String, col, select, text
@@ -15,7 +15,7 @@ from offsets_db_api.models import File, Project
 logger = get_logger()
 
 
-def update_file_status(file, session, status, error=None):
+def update_file_status(file: File, session, status: str, error: str | None = None) -> None:
     logger.info(f'🔄 Updating file status: {file.url}')
     file.status = status
     file.error = error
@@ -64,9 +64,11 @@ def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
         placeholder_project = Project(
             project_id=project_id,
             registry=registry,
-            category=['unknown'],
+            category='unknown',
             protocol=['unknown'],
             project_url=url,
+            type='unknown',
+            type_source='carbonplan',
         )
         session.add(placeholder_project)
 
@@ -79,7 +81,9 @@ def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
         raise
 
 
-def process_dataframe(df, table_name, engine, dtype_dict=None):
+def process_dataframe(
+    df: pd.DataFrame, table_name: str, engine, dtype_dict: dict | None = None
+) -> None:
     logger.info(f'📝 Writing DataFrame to {table_name}')
     logger.info(f'engine: {engine}')
 
@@ -102,7 +106,7 @@ def process_dataframe(df, table_name, engine, dtype_dict=None):
     logger.info(f'✅ Written 🧬 shape {df.shape} to {table_name}')
 
 
-async def process_files(*, engine, session, files: list[File]):
+async def process_files(*, engine, session, files: list[File]) -> None:
     # loop over files and make sure projects are first in the list to ensure the delete cascade works
     ordered_files: list[File] = []
     for file in files:
@@ -134,6 +138,11 @@ async def process_files(*, engine, session, files: list[File]):
                     'vintage': BigInteger,
                     'transaction_date': Date,
                     'transaction_type': String,
+                    'retirement_account': String,
+                    'retirement_reason': String,
+                    'retirement_note': String,
+                    'retirement_beneficiary': String,
+                    'retirement_beneficiary_harmonized': String,
                 }
                 process_dataframe(df, 'credit', engine, credit_dtype_dict)
                 update_file_status(file, session, 'success')
@@ -148,7 +157,9 @@ async def process_files(*, engine, session, files: list[File]):
                     'registry': String,
                     'proponent': String,
                     'protocol': ARRAY(String),
-                    'category': ARRAY(String),
+                    'category': String,
+                    'type': String,
+                    'type_source': String,
                     'status': String,
                     'country': String,
                     'listed_at': Date,
@@ -159,17 +170,6 @@ async def process_files(*, engine, session, files: list[File]):
                 }
 
                 process_dataframe(df, 'project', engine, project_dtype_dict)
-                update_file_status(file, session, 'success')
-            elif file.category == 'projecttypes':
-                logger.info(f'📚 Loading project type file: {file.url}')
-                data = pd.read_parquet(file.url, engine='fastparquet')
-                df = project_types_schema.validate(data)
-                project_type_dtype_dict = {
-                    'project_id': String,
-                    'project_type': String,
-                    'source': String,
-                }
-                process_dataframe(df, 'projecttype', engine, project_type_dtype_dict)
                 update_file_status(file, session, 'success')
 
             else:

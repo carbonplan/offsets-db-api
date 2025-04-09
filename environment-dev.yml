@@ -27,5 +27,6 @@ dependencies:
   - universal_pathlib
   - uvicorn
   - watchdog
+  - pytest-asyncio
   - pip:
       - .

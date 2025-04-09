@@ -32,9 +32,7 @@ class ProjectBase(SQLModel):
     protocol: list[str] | None = Field(
         description='List of protocols', default=None, sa_column=Column(postgresql.ARRAY(String()))
     )
-    category: list[str] | None = Field(
-        description='List of categories', default=None, sa_column=Column(postgresql.ARRAY(String()))
-    )
+    category: str | None = Field(description='Category of the project')
     status: str | None
     country: str | None
     listed_at: datetime.date | None = Field(
@@ -54,6 +52,8 @@ class ProjectBase(SQLModel):
         description='Date of first retirement of credits',
     )
     project_url: str | None = Field(description='URL to project details')
+    type: str | None = Field(description='Type of project (e.g. ARB, VCS, etc.)')
+    type_source: str | None = Field(description='Source of project type information')
 
 
 class Project(ProjectBase, table=True):
@@ -74,7 +74,6 @@ class Project(ProjectBase, table=True):
     clip_relationships: list['ClipProject'] = Relationship(
         back_populates='project', sa_relationship_kwargs={'cascade': 'all,delete,delete-orphan'}
     )
-    project_type: 'ProjectType' = Relationship(back_populates='project')
 
 
 class ClipBase(SQLModel):
@@ -101,8 +100,8 @@ class Clip(ClipBase, table=True):
 
 class ProjectInfo(pydantic.BaseModel):
     project_id: str
-    category: list[str] | None = Field(description='List of categories', default=None)
-    project_type: str | None = Field(description='Type of project', default=None)
+    category: str | None = Field(description='category')
+    type: str | None = Field(description='Type of project ')
 
 
 class ClipwithProjects(ClipBase):
@@ -123,10 +122,6 @@ class ClipProject(SQLModel, table=True):
 class ProjectWithClips(ProjectBase):
     clips: list[Clip] | None = Field(
         default=None, description='List of clips associated with project'
-    )
-    project_type: str | None = Field(description='Type of project', default=None)
-    project_type_source: str | None = Field(
-        description='Source of project type information', default=None
     )
 
 
@@ -268,15 +263,3 @@ class PaginatedClips(pydantic.BaseModel):
 class PaginatedFiles(pydantic.BaseModel):
     pagination: Pagination
     data: list[File] | list[dict[str, typing.Any]]
-
-
-class ProjectType(SQLModel, table=True):
-    project_id: str = Field(
-        description='Project id used by registry system',
-        foreign_key='project.project_id',
-        primary_key=True,
-        index=True,
-    )
-    project_type: str | None = Field(description='Type of project', default=None)
-    source: str | None = Field(description='Source of project type', default=None)
-    project: Project | None = Relationship(back_populates='project_type')

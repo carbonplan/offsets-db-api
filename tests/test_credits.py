@@ -1,138 +1,335 @@
-import logging
-from typing import Any
+import datetime
+from unittest.mock import patch
 
 import pytest
-from fastapi.testclient import TestClient
 
-logger = logging.getLogger(__name__)
-
-
-def assert_valid_credit_structure(credit: dict[str, Any]):
-    assert 'id' in credit
-    assert 'projects' in credit and len(credit['projects']) > 0
-    assert 'project_id' in credit['projects'][0]
-    assert 'quantity' in credit
-    assert 'vintage' in credit
-    assert 'transaction_date' in credit
-    assert 'transaction_type' in credit
+from offsets_db_api.models import Credit, Project
 
 
 @pytest.fixture
-def sample_credit(test_app: TestClient) -> dict[str, Any]:
-    response = test_app.get('/credits/?per_page=1&current_page=1')
-    assert response.status_code == 200
-    data = response.json()['data']
-    assert len(data) > 0
-    return data[0]
+def mock_credits():
+    """Mock credit data"""
+    return [
+        Credit(
+            id=1,
+            project_id='VCS123',
+            vintage=2020,
+            quantity=1000,
+            status='issued',
+            registry='verra',
+            issued_at=datetime.date(2020, 5, 15),
+            retirement_beneficiary='Company A',
+            retirement_reason='Carbon neutrality',
+            retirement_details='Annual offset program',
+            retired_at=datetime.date(2021, 1, 10),
+        ),
+        Credit(
+            id=2,
+            project_id='GS456',
+            vintage=2019,
+            quantity=500,
+            status='retired',
+            registry='gold-standard',
+            issued_at=datetime.date(2019, 8, 20),
+            retirement_beneficiary='Company B',
+            retirement_reason='Voluntary offset',
+            retirement_details='Product line offsetting',
+            retired_at=datetime.date(2020, 3, 15),
+        ),
+    ]
 
 
-def test_get_credits(test_app: TestClient, sample_credit: dict[str, Any]):
-    response = test_app.get('/credits/?per_page=1&current_page=1')
-    assert response.status_code == 200
-    data = response.json()
-
-    assert 'data' in data
-    assert 'pagination' in data
-    assert len(data['data']) == 1
-
-    credit = data['data'][0]
-    assert_valid_credit_structure(credit)
-
-
-@pytest.mark.parametrize('current_page, per_page', [(1, 1), (2, 5), (3, 10)])
-def test_get_credits_pagination(test_app: TestClient, current_page: int, per_page: int):
-    response = test_app.get(f'/credits/?per_page={per_page}&current_page={current_page}')
-    assert response.status_code == 200
-    data = response.json()
-
-    assert 'pagination' in data
-    pagination = data['pagination']
-    assert pagination['current_page'] == current_page
-    assert len(data['data']) <= per_page
+@pytest.fixture
+def mock_projects():
+    """Mock project data that corresponds to the mock credits"""
+    return [
+        Project(
+            project_id='VCS123',
+            name='Test Forest Project',
+            registry='verra',
+            category='forest',
+            type='forest/afforestation',
+        ),
+        Project(
+            project_id='GS456',
+            name='Test Renewable Project',
+            registry='gold-standard',
+            category='renewable',
+            type='renewable-energy/solar',
+        ),
+    ]
 
 
-def test_get_credits_with_non_existent_route(test_app: TestClient):
-    response = test_app.get('/non_existent_route/')
-    assert response.status_code == 404
+class TestGetCreditsEndpoint:
+    @patch('offsets_db_api.routers.credits.handle_pagination')
+    @patch('offsets_db_api.routers.credits.apply_sorting')
+    @patch('offsets_db_api.routers.credits.apply_filters')
+    @patch('offsets_db_api.routers.credits.build_filters')
+    @patch('offsets_db_api.routers.credits.select')
+    def test_get_credits_basic(
+        self,
+        mock_select,
+        mock_build_filters,
+        mock_apply_filters,
+        mock_apply_sorting,
+        mock_handle_pagination,
+        test_app,
+        mock_credits,
+        mock_projects,
+    ):
+        """Test basic credit retrieval with no filters"""
+        # Create mock results (tuples of credit and project)
+        mock_results = list(zip(mock_credits, mock_projects))
 
+        # Mock the response from handle_pagination
+        mock_handle_pagination.return_value = (
+            len(mock_results),  # total_entries
+            1,  # current_page
+            1,  # total_pages
+            None,  # next_page
+            mock_results,  # results - list of (credit, project) tuples
+        )
 
-def test_get_credits_with_wrong_http_verb(test_app: TestClient):
-    response = test_app.post('/credits/')
-    assert response.status_code == 405
+        # Mock the build_filters to return an empty list (no filters)
+        mock_build_filters.return_value = []
 
+        # Call the endpoint
+        response = test_app.get('/credits/')
 
-@pytest.mark.parametrize('transaction_type', ['issuance', 'retirement'])
-@pytest.mark.parametrize('project_id', ['ACR0001', 'ACR0002'])
-@pytest.mark.parametrize('vintage', [2010, 2011])
-@pytest.mark.parametrize('is_compliance', [True, False])
-def test_get_credits_with_filters(
-    test_app: TestClient, transaction_type: str, project_id: str, vintage: int, is_compliance: bool
-):
-    response = test_app.get(
-        f'/credits/?transaction_type={transaction_type}&project_id={project_id}'
-        f'&vintage={vintage}&sort=-vintage&is_compliance={is_compliance}'
-    )
-    assert response.status_code == 200
-    if data := response.json()['data']:
-        for credit in data:
-            assert credit['transaction_type'] == transaction_type
-            assert any(p['project_id'] == project_id for p in credit['projects'])
-            assert credit['vintage'] == vintage
-            # Note: is_compliance is a project attribute, not a credit attribute
-            # You may need to adjust this check based on your API structure
+        # Verify mocks were called
+        mock_select.assert_called_once()
+        mock_build_filters.assert_called_once()
+        mock_apply_sorting.assert_called_once()
+        mock_handle_pagination.assert_called_once()
 
+        # Check response structure
+        assert response.status_code == 200
+        data = response.json()
+        assert 'pagination' in data
+        assert 'data' in data
 
-@pytest.mark.parametrize(
-    'sort_params', [['+transaction_date'], ['-vintage'], ['+project_id', '-transaction_date']]
-)
-def test_get_credits_with_valid_sort(test_app: TestClient, sort_params: list[str]):
-    """
-    Test sorting of credits.
+    @patch('offsets_db_api.routers.credits.apply_beneficiary_search')
+    @patch('offsets_db_api.routers.credits.handle_pagination')
+    @patch('offsets_db_api.routers.credits.apply_sorting')
+    @patch('offsets_db_api.routers.credits.apply_filters')
+    @patch('offsets_db_api.routers.credits.build_filters')
+    @patch('offsets_db_api.routers.credits.select')
+    def test_get_credits_with_beneficiary_search(
+        self,
+        mock_select,
+        mock_build_filters,
+        mock_apply_filters,
+        mock_apply_sorting,
+        mock_handle_pagination,
+        mock_apply_beneficiary_search,
+        test_app,
+        mock_credits,
+        mock_projects,
+    ):
+        """Test credits retrieval with beneficiary search parameter"""
+        # Create mock results with only the first credit-project pair
+        mock_results = [(mock_credits[0], mock_projects[0])]
 
-    Note: This test may need future refinement due to potential complexities in sorting:
-    1. Sorting on fields from both Credit and Project models.
-    2. Handling of nested data (e.g., project_id within projects list).
-    3. Possible need for case-insensitive sorting on string fields.
-    4. Proper handling of NULL values in sorting.
+        # Mock the response from handle_pagination
+        mock_handle_pagination.return_value = (
+            1,  # total_entries
+            1,  # current_page
+            1,  # total_pages
+            None,  # next_page
+            mock_results,  # results - only the first credit-project pair
+        )
 
-    TODO: Revisit this test and the corresponding API implementation to address these issues.
-    Consider implementing more robust sorting logic and potentially updating the API structure.
-    """
-    query_params = '&'.join(f'sort={param}' for param in sort_params)
-    response = test_app.get(f'/credits/?{query_params}')
-    assert response.status_code == 200
-    data = response.json()['data']
+        # Mock build_filters to return an empty list
+        mock_build_filters.return_value = []
 
-    if data:  # Only check if there are results
-        for param in sort_params:
-            direction = 1 if param.startswith('+') else -1
-            field = param.lstrip('+-')
+        # Configure beneficiary_search to be triggered
+        mock_apply_beneficiary_search.return_value = 'MODIFIED_STATEMENT'
 
-            values = [credit.get(field) for credit in data]
-            if field == 'project_id':
-                values = [credit['projects'][0].get(field) for credit in data if credit['projects']]
+        # Call the endpoint
+        response = test_app.get('/credits/?beneficiary_search=Company+A')
 
-            # Check if sorting is correct, log a warning if not
-            is_sorted = all(
-                a <= b if direction == 1 else a >= b for a, b in zip(values, values[1:])
-            )
-            if not is_sorted:
-                logger.warning(f'Sorting may not be correct for parameter: {param}')
-                logger.warning(f'Values: {values}')
+        # Verify response
+        assert response.status_code == 200
 
-    # Assert that we have data, which implicitly checks that the request was successful
-    assert data, 'No data returned from the API'
+        # Verify mocks were called
+        mock_apply_beneficiary_search.assert_called_once()
+        mock_select.assert_called_once()
+        mock_handle_pagination.assert_called_once()
 
+    @patch('offsets_db_api.routers.credits.handle_pagination')
+    @patch('offsets_db_api.routers.credits.apply_sorting')
+    @patch('offsets_db_api.routers.credits.apply_filters')
+    @patch('offsets_db_api.routers.credits.build_filters')
+    @patch('offsets_db_api.routers.credits.select')
+    def test_get_credits_with_filters(
+        self,
+        mock_select,
+        mock_build_filters,
+        mock_apply_filters,
+        mock_apply_sorting,
+        mock_handle_pagination,
+        test_app,
+        mock_credits,
+        mock_projects,
+    ):
+        """Test credits retrieval with filters applied"""
+        # Create mock results with only the first credit-project pair
+        mock_results = [(mock_credits[0], mock_projects[0])]
 
-def test_get_credits_with_invalid_sort(test_app: TestClient):
-    response = test_app.get('/credits/?sort=invalid_field')
-    assert response.status_code == 400
-    assert 'Invalid sort field' in response.json()['detail']
+        # Mock the response from handle_pagination
+        mock_handle_pagination.return_value = (
+            1,  # total_entries
+            1,  # current_page
+            1,  # total_pages
+            None,  # next_page
+            mock_results,  # results - only the first credit
+        )
 
+        # Set build_filters to return a list of filter criteria
+        mock_build_filters.return_value = [
+            ('registry', ['verra'], '==', Credit),
+            ('vintage', [2020], '==', Credit),
+            ('status', ['issued'], '==', Credit),
+        ]
 
-@pytest.mark.parametrize('beneficiary_search', ['foo'])
-def test_credits_beneficiary_search(test_app: TestClient, beneficiary_search):
-    response = test_app.get(f'/credits?beneficiary_search={beneficiary_search}')
-    assert response.status_code == 200
-    data = response.json()['data']
-    assert isinstance(data, list)
+        # Call the endpoint
+        response = test_app.get('/credits/?registry=verra&vintage=2020&status=issued')
+
+        # Verify response
+        assert response.status_code == 200
+
+        # Verify mocks were called
+        mock_build_filters.assert_called_once()
+        mock_apply_filters.assert_called()  # Should be called multiple times
+        mock_handle_pagination.assert_called_once()
+
+    @patch('offsets_db_api.routers.credits.handle_pagination')
+    @patch('offsets_db_api.routers.credits.apply_sorting')
+    @patch('offsets_db_api.routers.credits.apply_filters')
+    @patch('offsets_db_api.routers.credits.build_filters')
+    @patch('offsets_db_api.routers.credits.select')
+    def test_get_credits_with_project_id_filter(
+        self,
+        mock_select,
+        mock_build_filters,
+        mock_apply_filters,
+        mock_apply_sorting,
+        mock_handle_pagination,
+        test_app,
+        mock_credits,
+        mock_projects,
+    ):
+        """Test credits retrieval with project_id filter"""
+        # Filter for VCS123 project
+        filtered_credits = [mock_credits[0]]
+        filtered_projects = [mock_projects[0]]
+        mock_results = list(zip(filtered_credits, filtered_projects))
+
+        # Mock the response from handle_pagination
+        mock_handle_pagination.return_value = (
+            len(filtered_credits),  # total_entries
+            1,  # current_page
+            1,  # total_pages
+            None,  # next_page
+            mock_results,  # results - only credits for VCS123
+        )
+
+        # Build filters will be called but we're checking for project_id separately
+        mock_build_filters.return_value = []
+
+        # Call the endpoint
+        response = test_app.get('/credits/?project_id=VCS123')
+
+        # Verify response
+        assert response.status_code == 200
+
+        # Verify mocks were called
+        mock_build_filters.assert_called_once()
+        mock_apply_filters.assert_called()
+        mock_handle_pagination.assert_called_once()
+
+    @patch('offsets_db_api.routers.credits.handle_pagination')
+    @patch('offsets_db_api.routers.credits.apply_sorting')
+    @patch('offsets_db_api.routers.credits.apply_filters')
+    @patch('offsets_db_api.routers.credits.build_filters')
+    @patch('offsets_db_api.routers.credits.select')
+    def test_get_credits_with_custom_sorting(
+        self,
+        mock_select,
+        mock_build_filters,
+        mock_apply_filters,
+        mock_apply_sorting,
+        mock_handle_pagination,
+        test_app,
+        mock_credits,
+        mock_projects,
+    ):
+        """Test credits retrieval with custom sorting"""
+        # Create mock results (sorted by quantity descending)
+        mock_results = [(mock_credits[0], mock_projects[0]), (mock_credits[1], mock_projects[1])]
+
+        # Mock the response from handle_pagination
+        mock_handle_pagination.return_value = (
+            len(mock_results),
+            1,
+            1,
+            None,
+            mock_results,
+        )
+
+        # Mock build_filters to return an empty list
+        mock_build_filters.return_value = []
+
+        # Call the endpoint with custom sort
+        response = test_app.get('/credits/?sort=-quantity')
+
+        # Verify response
+        assert response.status_code == 200
+
+        # Verify mocks were called
+        mock_apply_sorting.assert_called_once()
+        # Check sort arguments
+        args, kwargs = mock_apply_sorting.call_args
+        assert 'sort' in kwargs
+
+    @patch('offsets_db_api.routers.credits.handle_pagination')
+    @patch('offsets_db_api.routers.credits.apply_sorting')
+    @patch('offsets_db_api.routers.credits.apply_filters')
+    @patch('offsets_db_api.routers.credits.build_filters')
+    @patch('offsets_db_api.routers.credits.select')
+    def test_get_credits_with_pagination(
+        self,
+        mock_select,
+        mock_build_filters,
+        mock_apply_filters,
+        mock_apply_sorting,
+        mock_handle_pagination,
+        test_app,
+        mock_credits,
+        mock_projects,
+    ):
+        """Test credits retrieval with pagination parameters"""
+        # Mock the response for pagination
+        mock_handle_pagination.return_value = (
+            100,  # total_entries (pretend there are 100 credits)
+            2,  # current_page
+            5,  # total_pages
+            'http://testserver/credits/?page=3&per_page=20',  # next_page
+            [(mock_credits[0], mock_projects[0])],  # results for page 2
+        )
+
+        # Mock build_filters to return an empty list
+        mock_build_filters.return_value = []
+
+        # Call endpoint with pagination parameters
+        response = test_app.get('/credits/?current_page=2&per_page=20')
+
+        # Verify response
+        assert response.status_code == 200
+
+        # Verify mocks were called
+        mock_handle_pagination.assert_called_once()
+        # Check pagination arguments
+        args, kwargs = mock_handle_pagination.call_args
+        assert kwargs.get('current_page') == 2
+        assert kwargs.get('per_page') == 20

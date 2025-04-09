@@ -10,7 +10,6 @@ from sqlmodel import (
     Text,
     and_,
     asc,
-    col,
     desc,
     distinct,
     func,
@@ -20,7 +19,7 @@ from sqlmodel import (
 )
 from sqlmodel.sql.expression import Select as _Select, SelectOfScalar
 
-from offsets_db_api.models import Clip, ClipProject, Credit, Project, ProjectType
+from offsets_db_api.models import Clip, ClipProject, Credit, Project
 from offsets_db_api.schemas import ProjectTypes
 
 
@@ -306,9 +305,8 @@ def apply_beneficiary_search(
 def get_project_types(session: Session) -> ProjectTypes:
     top_n = 5
     statement = (
-        select(ProjectType.project_type, func.sum(Project.issued).label('total_issued'))
-        .join(Project, col(Project.project_id) == col(ProjectType.project_id))
-        .group_by(ProjectType.project_type)
+        select(Project.type, func.sum(Project.issued).label('total_issued'))
+        .group_by(Project.type)
         .order_by(func.sum(Project.issued).desc())
     )
 

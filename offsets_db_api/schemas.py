@@ -27,7 +27,6 @@ class FileCategory(str, enum.Enum):
     projects = 'projects'
     credits = 'credits'
     clips = 'clips'
-    projecttypes = 'projecttypes'
     unknown = 'unknown'
 
 
@@ -49,8 +48,8 @@ class Pagination(pydantic.BaseModel):
 
 
 class ProjectTypes(pydantic.BaseModel):
-    Top: list[str]
-    Other: list[str]
+    Top: list[str | None]
+    Other: list[str | None]
 
 
 class ProjectFilters(pydantic.BaseModel):
@@ -58,6 +57,7 @@ class ProjectFilters(pydantic.BaseModel):
     country: list[str] | None = None
     protocol: list[str] | None = None
     category: list[str] | None = None
+    type: list[str] | None = None
     is_compliance: bool | None = None
     listed_at_from: datetime.datetime | datetime.date | None = None
     listed_at_to: datetime.datetime | datetime.date | None = None
@@ -151,4 +151,36 @@ def get_credit_filters(
         vintage=vintage,
         transaction_date_from=transaction_date_from,
         transaction_date_to=transaction_date_to,
+    )
+
+
+class ClipFilters(pydantic.BaseModel):
+    type: list[str] | None = None
+    source: list[str] | None = None
+    tags: list[str] | None = None
+    date_from: datetime.datetime | datetime.date | None = None
+    date_to: datetime.datetime | datetime.date | None = None
+    project_id: str | None = None
+
+
+def get_clip_filters(
+    type: list[str] | None = Query(None, description='Clip type'),
+    source: list[str] | None = Query(None, description='Clip source'),
+    tags: list[str] | None = Query(None, description='Clip tags'),
+    date_from: datetime.datetime | datetime.date | None = Query(
+        default=None, description='Format: YYYY-MM-DD'
+    ),
+    date_to: datetime.datetime | datetime.date | None = Query(
+        default=None, description='Format: YYYY-MM-DD'
+    ),
+    project_id: str | None = Query(None, description='Filter by project ID'),
+):
+    """Dependency to get clip filters from query parameters"""
+    return ClipFilters(
+        type=type,
+        source=source,
+        tags=tags,
+        date_from=date_from,
+        date_to=date_to,
+        project_id=project_id,
     )
