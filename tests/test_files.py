@@ -24,7 +24,7 @@ def test_submit_bad_file(test_app: TestClient, url: str, category: str):
     assert file_response.json()['url'] == url
 
 
-def test_submit_file(test_app: TestClient, mocker):
+def test_submit_file(test_app: TestClient):
     """Test submitting a single file."""
     # Create simple test data instead of using fixture
     file_data = [{'url': 's3://example.com/test.parquet', 'category': 'projects'}]
@@ -52,7 +52,7 @@ def test_submit_file(test_app: TestClient, mocker):
         (999, 404),  # Non-existent file
     ],
 )
-def test_get_file_by_id(test_app: TestClient, mocker, file_id, expected_status):
+def test_get_file_by_id(test_app: TestClient, file_id, expected_status):
     """Test retrieving a file by ID, both existing and non-existent."""
     if expected_status == 200:
         response = test_app.get(f'/files/{file_id}')
@@ -85,7 +85,7 @@ def test_submit_multiple_files(test_app: TestClient):
 
 
 @pytest.mark.xfail(reason='Needs to be fixed. Figure out how to mock API key check')
-def test_get_file_unauthorized(test_app: TestClient, mocker):
+def test_get_file_unauthorized(test_app: TestClient):
     """Test retrieving a file without proper authorization."""
     # Fix the path to patch the function as used in the router
     with patch('offsets_db_api.routers.files.check_api_key', return_value=False):
