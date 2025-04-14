@@ -88,10 +88,33 @@ def process_dataframe(
     table_name: str,
     engine,
     dtype_dict: dict | None = None,
-    chunk_size: int = 5000,
+    chunk_size: int = 8000,
 ) -> None:
     logger.info(f'📝 Writing DataFrame to {table_name}')
     logger.info(f'engine: {engine}')
+
+    # Define PostgreSQL COPY method for faster inserts
+    def psql_insert_copy(table, conn, keys, data_iter):
+        """Execute SQL statement inserting data using PostgreSQL COPY"""
+        import csv
+        from io import StringIO
+
+        # Get a DBAPI connection that can provide a cursor
+        dbapi_conn = conn.connection
+        with dbapi_conn.cursor() as cur:
+            s_buf = StringIO()
+            writer = csv.writer(s_buf)
+            writer.writerows(data_iter)
+            s_buf.seek(0)
+
+            columns = ', '.join([f'"{k}"' for k in keys])
+            if table.schema:
+                table_name = f'{table.schema}.{table.name}'
+            else:
+                table_name = table.name
+
+            sql = f'COPY {table_name} ({columns}) FROM STDIN WITH CSV'
+            cur.copy_expert(sql=sql, file=s_buf)
 
     with engine.begin() as conn:
         if engine.dialect.has_table(conn, table_name):
@@ -106,10 +129,20 @@ def process_dataframe(
             except IntegrityError:
                 logger.error('❌ Failed to ensure projects exist. Continuing with data insertion.')
 
+        # Check if we're using PostgreSQL to enable COPY method
+        is_postgresql = 'postgresql' in engine.dialect.name.lower()
+        insert_method = psql_insert_copy if is_postgresql else 'multi'
+
+        # Still process in chunks to avoid memory issues
         for i in range(0, len(df), chunk_size):
             chunk = df.iloc[i : i + chunk_size]
             chunk.to_sql(
-                table_name, conn, if_exists='append', index=False, dtype=dtype_dict, method='multi'
+                table_name,
+                conn,
+                if_exists='append',
+                index=False,
+                dtype=dtype_dict,
+                method=insert_method,
             )
             logger.info(
                 f'Processed chunk {i // chunk_size + 1}/{(len(df) - 1) // chunk_size + 1} of {table_name}'
@@ -118,7 +151,7 @@ def process_dataframe(
     logger.info(f'✅ Written 🧬 shape {df.shape} to {table_name}')
 
 
-async def process_files(*, engine, session, files: list[File], chunk_size: int = 5000) -> None:
+async def process_files(*, engine, session, files: list[File], chunk_size: int = 10000) -> None:
     metrics = {
         'total_start_time': time.time(),
         'file_metrics': defaultdict(dict),
