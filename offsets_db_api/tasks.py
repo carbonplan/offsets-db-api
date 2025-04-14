@@ -84,7 +84,11 @@ def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
 
 
 def process_dataframe(
-    df: pd.DataFrame, table_name: str, engine, dtype_dict: dict | None = None
+    df: pd.DataFrame,
+    table_name: str,
+    engine,
+    dtype_dict: dict | None = None,
+    chunk_size: int = 5000,
 ) -> None:
     logger.info(f'📝 Writing DataFrame to {table_name}')
     logger.info(f'engine: {engine}')
@@ -102,15 +106,19 @@ def process_dataframe(
             except IntegrityError:
                 logger.error('❌ Failed to ensure projects exist. Continuing with data insertion.')
 
-        # write the data
-        df.to_sql(
-            table_name, conn, if_exists='append', index=False, dtype=dtype_dict, method='multi'
-        )
+        for i in range(0, len(df), chunk_size):
+            chunk = df.iloc[i : i + chunk_size]
+            chunk.to_sql(
+                table_name, conn, if_exists='append', index=False, dtype=dtype_dict, method='multi'
+            )
+            logger.info(
+                f'Processed chunk {i // chunk_size + 1}/{(len(df) - 1) // chunk_size + 1} of {table_name}'
+            )
 
     logger.info(f'✅ Written 🧬 shape {df.shape} to {table_name}')
 
 
-async def process_files(*, engine, session, files: list[File]) -> None:
+async def process_files(*, engine, session, files: list[File], chunk_size: int = 5000) -> None:
     metrics = {
         'total_start_time': time.time(),
         'file_metrics': defaultdict(dict),
@@ -157,7 +165,7 @@ async def process_files(*, engine, session, files: list[File]) -> None:
                     'retirement_beneficiary': String,
                     'retirement_beneficiary_harmonized': String,
                 }
-                process_dataframe(df, 'credit', engine, credit_dtype_dict)
+                process_dataframe(df, 'credit', engine, credit_dtype_dict, chunk_size=chunk_size)
                 update_file_status(file, session, 'success')
 
             elif file.category == 'projects':
@@ -182,7 +190,7 @@ async def process_files(*, engine, session, files: list[File]) -> None:
                     'project_url': String,
                 }
 
-                process_dataframe(df, 'project', engine, project_dtype_dict)
+                process_dataframe(df, 'project', engine, project_dtype_dict, chunk_size=chunk_size)
                 update_file_status(file, session, 'success')
 
             else:
@@ -243,7 +251,7 @@ async def process_files(*, engine, session, files: list[File]) -> None:
 
     clips_df = df.drop(columns=['project_ids'])
     clip_dtype_dict = {'tags': ARRAY(String)}
-    process_dataframe(clips_df, 'clip', engine, clip_dtype_dict)
+    process_dataframe(clips_df, 'clip', engine, clip_dtype_dict, chunk_size=chunk_size)
 
     # Prepare ClipProject data
     clip_projects_data = []
@@ -258,7 +266,7 @@ async def process_files(*, engine, session, files: list[File]) -> None:
     # Convert to DataFrame
     clip_projects_df = pd.DataFrame(clip_projects_data)
 
-    process_dataframe(clip_projects_df, 'clipproject', engine)
+    process_dataframe(clip_projects_df, 'clipproject', engine, chunk_size=chunk_size)
 
     # modify the watch_dog_file
     with open(watch_dog_file, 'w') as f:
