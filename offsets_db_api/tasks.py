@@ -1,5 +1,7 @@
 import datetime
+import time
 import traceback
+from collections import defaultdict
 
 import pandas as pd
 from offsets_db_data.models import clip_schema, credit_schema, project_schema
@@ -107,6 +109,11 @@ def process_dataframe(
 
 
 async def process_files(*, engine, session, files: list[File]) -> None:
+    metrics = {
+        'total_start_time': time.time(),
+        'file_metrics': defaultdict(dict),
+        'category_metrics': defaultdict(list),
+    }
     # loop over files and make sure projects are first in the list to ensure the delete cascade works
     ordered_files: list[File] = []
     for file in files:
@@ -121,6 +128,10 @@ async def process_files(*, engine, session, files: list[File]) -> None:
     logger.info(f'📚 Loading files: {ordered_files}')
 
     for file in other_files:
+        file_start_time = time.time()
+        metrics['file_metrics'][file.id]['start_time'] = file_start_time
+        metrics['file_metrics'][file.id]['url'] = file.url
+        metrics['file_metrics'][file.id]['category'] = file.category
         try:
             if file.category == 'credits':
                 logger.info(f'📚 Loading credit file: {file.url}')
@@ -175,11 +186,21 @@ async def process_files(*, engine, session, files: list[File]) -> None:
             else:
                 logger.info(f'❓ Unknown file category: {file.category}. Skipping file {file.url}')
 
+            metrics['file_metrics'][file.id]['status'] = 'success'
+
         except Exception as e:
             trace = traceback.format_exc()
             logger.error(f'❌ Failed to process file: {file.url}')
             logger.error(trace)
             update_file_status(file, session, 'failure', error=str(e))
+            metrics['file_metrics'][file.id]['status'] = 'failure'
+            metrics['file_metrics'][file.id]['error'] = str(e)
+
+        file_end_time = time.time()
+        processing_time = file_end_time - file_start_time
+        metrics['file_metrics'][file.id]['processing_time'] = processing_time
+        metrics['category_metrics'][file.category].append(processing_time)
+        logger.info(f'⏱️ File {file.url} processed in {processing_time:.2f} seconds')
 
     if not clips_files:
         logger.info('No clip files to process')
@@ -187,17 +208,30 @@ async def process_files(*, engine, session, files: list[File]) -> None:
 
     clips_dfs = []
     for file in clips_files:
+        file_start_time = time.time()
+        metrics['file_metrics'][file.id]['start_time'] = file_start_time
+        metrics['file_metrics'][file.id]['url'] = file.url
+        metrics['file_metrics'][file.id]['category'] = file.category
         try:
             logger.info(f'📚 Loading clip file: {file.url}')
             data = pd.read_parquet(file.url, engine='fastparquet')
             clips_dfs.append(data)
             update_file_status(file, session, 'success')
+            metrics['file_metrics'][file.id]['status'] = 'success'
 
         except Exception as e:
             trace = traceback.format_exc()
             logger.error(f'❌ Failed to process file: {file.url}')
             logger.error(trace)
             update_file_status(file, session, 'failure', error=str(e))
+            metrics['file_metrics'][file.id]['status'] = 'failure'
+            metrics['file_metrics'][file.id]['error'] = str(e)
+
+        file_end_time = time.time()
+        processing_time = file_end_time - file_start_time
+        metrics['file_metrics'][file.id]['processing_time'] = processing_time
+        metrics['category_metrics']['clips'].append(processing_time)
+        logger.info(f'⏱️ Clip file {file.url} processed in {processing_time:.2f} seconds')
 
     with engine.begin() as conn:
         conn.execute(text('TRUNCATE TABLE clipproject, clip RESTART IDENTITY CASCADE;'))
@@ -229,3 +263,33 @@ async def process_files(*, engine, session, files: list[File]) -> None:
         now = datetime.datetime.now(datetime.timezone.utc)
         logger.info(f'✅ Updated watch_dog_file: {watch_dog_file} to {now}')
         f.write(now.strftime('%Y-%m-%d %H:%M:%S'))
+
+        # Calculate total processing time
+    total_time = time.time() - metrics['total_start_time']
+    metrics['total_time'] = total_time
+
+    # Log performance metrics summary
+    logger.info('=' * 80)
+    logger.info('📊 PERFORMANCE METRICS SUMMARY')
+    logger.info(f'⏱️ Total processing time: {total_time:.2f} seconds')
+    logger.info(f'📁 Total files processed: {len(files)}')
+
+    # Summary by category
+    logger.info('-' * 80)
+    logger.info('📊 CATEGORY SUMMARY:')
+    for category, times in metrics['category_metrics'].items():
+        if times:
+            avg_time = sum(times) / len(times)
+            min_time = min(times)
+            max_time = max(times)
+            logger.info(
+                f'  - {category}: {len(times)} files, avg: {avg_time:.2f}s, min: {min_time:.2f}s, max: {max_time:.2f}s'
+            )
+
+    # Summary of successful vs failed files
+    success_count = sum(1 for f in metrics['file_metrics'].values() if f.get('status') == 'success')
+    failure_count = sum(1 for f in metrics['file_metrics'].values() if f.get('status') == 'failure')
+    logger.info('-' * 80)
+    logger.info(f'✅ Successful files: {success_count}')
+    logger.info(f'❌ Failed files: {failure_count}')
+    logger.info('=' * 80)
