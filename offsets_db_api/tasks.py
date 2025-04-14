@@ -103,7 +103,9 @@ def process_dataframe(
                 logger.error('❌ Failed to ensure projects exist. Continuing with data insertion.')
 
         # write the data
-        df.to_sql(table_name, conn, if_exists='append', index=False, dtype=dtype_dict)
+        df.to_sql(
+            table_name, conn, if_exists='append', index=False, dtype=dtype_dict, method='multi'
+        )
 
     logger.info(f'✅ Written 🧬 shape {df.shape} to {table_name}')
 
