@@ -88,12 +88,22 @@ def process_dataframe(
     table_name: str,
     engine,
     dtype_dict: dict | None = None,
-    chunk_size: int = 8000,
+    chunk_size: int = 20000,
 ) -> None:
     logger.info(f'📝 Writing DataFrame to {table_name}')
     logger.info(f'engine: {engine}')
 
-    # Define PostgreSQL COPY method for faster inserts
+    # convert Python lists to PostgreSQL arrays
+    if dtype_dict:
+        for col_name, dtype in dtype_dict.items():
+            if 'ARRAY' in str(dtype) and col_name in df.columns:
+                logger.info(f'Converting column {col_name} to PostgreSQL array format')
+                # convert Python lists to PostgreSQL array format: [a,b] -> {a,b}
+                df[col_name] = df[col_name].apply(
+                    lambda x: '{' + ','.join(str(i) for i in x) + '}' if isinstance(x, list) else x
+                )
+
+    # define PostgreSQL COPY method for faster inserts
     def psql_insert_copy(table, conn, keys, data_iter):
         """Execute SQL statement inserting data using PostgreSQL COPY"""
         import csv
@@ -108,11 +118,7 @@ def process_dataframe(
             s_buf.seek(0)
 
             columns = ', '.join([f'"{k}"' for k in keys])
-            if table.schema:
-                table_name = f'{table.schema}.{table.name}'
-            else:
-                table_name = table.name
-
+            table_name = f'{table.schema}.{table.name}' if table.schema else table.name
             sql = f'COPY {table_name} ({columns}) FROM STDIN WITH CSV'
             cur.copy_expert(sql=sql, file=s_buf)
 
@@ -151,7 +157,7 @@ def process_dataframe(
     logger.info(f'✅ Written 🧬 shape {df.shape} to {table_name}')
 
 
-async def process_files(*, engine, session, files: list[File], chunk_size: int = 10000) -> None:
+async def process_files(*, engine, session, files: list[File], chunk_size: int = 20000) -> None:
     metrics = {
         'total_start_time': time.time(),
         'file_metrics': defaultdict(dict),
