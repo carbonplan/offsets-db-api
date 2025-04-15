@@ -26,7 +26,7 @@ logger = get_logger()
 async def submit_file(
     payload: list[FileURLPayload],
     background_tasks: BackgroundTasks,
-    chunk_size: int = Query(20000, description='Chunk size for processing'),
+    chunk_size: int = Query(50000, description='Chunk size for processing'),
     session: Session = Depends(get_session),
     authorized_user: bool = Depends(check_api_key),
 ):

@@ -88,7 +88,7 @@ def process_dataframe(
     table_name: str,
     engine,
     dtype_dict: dict | None = None,
-    chunk_size: int = 20000,
+    chunk_size: int = 50000,
 ) -> None:
     logger.info(f'📝 Writing DataFrame to {table_name}')
     logger.info(f'engine: {engine}')
@@ -157,7 +157,7 @@ def process_dataframe(
     logger.info(f'✅ Written 🧬 shape {df.shape} to {table_name}')
 
 
-async def process_files(*, engine, session, files: list[File], chunk_size: int = 20000) -> None:
+async def process_files(*, engine, session, files: list[File], chunk_size: int = 50000) -> None:
     metrics = {
         'total_start_time': time.time(),
         'file_metrics': defaultdict(dict),
