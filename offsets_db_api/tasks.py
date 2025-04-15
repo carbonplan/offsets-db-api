@@ -103,25 +103,6 @@ def process_dataframe(
                     lambda x: '{' + ','.join(str(i) for i in x) + '}' if isinstance(x, list) else x
                 )
 
-    # define PostgreSQL COPY method for faster inserts
-    def psql_insert_copy(table, conn, keys, data_iter):
-        """Execute SQL statement inserting data using PostgreSQL COPY"""
-        import csv
-        from io import StringIO
-
-        # Get a DBAPI connection that can provide a cursor
-        dbapi_conn = conn.connection
-        with dbapi_conn.cursor() as cur:
-            s_buf = StringIO()
-            writer = csv.writer(s_buf)
-            writer.writerows(data_iter)
-            s_buf.seek(0)
-
-            columns = ', '.join([f'"{k}"' for k in keys])
-            table_name = f'{table.schema}.{table.name}' if table.schema else table.name
-            sql = f'COPY {table_name} ({columns}) FROM STDIN WITH CSV'
-            cur.copy_expert(sql=sql, file=s_buf)
-
     with engine.begin() as conn:
         if engine.dialect.has_table(conn, table_name):
             # Instead of dropping table (which results in data type, schema overrides), delete all rows.
@@ -137,22 +118,46 @@ def process_dataframe(
 
         # Check if we're using PostgreSQL to enable COPY method
         is_postgresql = 'postgresql' in engine.dialect.name.lower()
-        insert_method = psql_insert_copy if is_postgresql else 'multi'
 
-        # Still process in chunks to avoid memory issues
-        for i in range(0, len(df), chunk_size):
-            chunk = df.iloc[i : i + chunk_size]
-            chunk.to_sql(
-                table_name,
-                conn,
-                if_exists='append',
-                index=False,
-                dtype=dtype_dict,
-                method=insert_method,
-            )
-            logger.info(
-                f'Processed chunk {i // chunk_size + 1}/{(len(df) - 1) // chunk_size + 1} of {table_name}'
-            )
+        if is_postgresql:
+            # Create table if it doesn't exist (with correct schema)
+            if not engine.dialect.has_table(conn, table_name):
+                # Create an empty DataFrame with same structure for table creation only
+                empty_df = df.head(0)
+                empty_df.to_sql(table_name, conn, if_exists='append', index=False, dtype=dtype_dict)
+
+            # Write DataFrame to CSV (in memory or temporary file)
+            import csv
+            import io
+
+            csv_buffer = io.StringIO()
+            df.to_csv(csv_buffer, index=False, quoting=csv.QUOTE_MINIMAL, header=False)
+            csv_buffer.seek(0)
+
+            # Get DBAPI connection
+            dbapi_conn = conn.connection
+            with dbapi_conn.cursor() as cur:
+                columns = ', '.join([f'"{k}"' for k in df.columns])
+                qualified_table_name = f'{table_name}'
+                sql = f'COPY {qualified_table_name} ({columns}) FROM STDIN WITH CSV'
+                cur.copy_expert(sql=sql, file=csv_buffer)
+
+            logger.info(f'Loaded entire dataset to {table_name} using COPY')
+        else:
+            # Fallback to pandas for non-PostgreSQL databases
+            for i in range(0, len(df), chunk_size):
+                chunk = df.iloc[i : i + chunk_size]
+                chunk.to_sql(
+                    table_name,
+                    conn,
+                    if_exists='append',
+                    index=False,
+                    dtype=dtype_dict,
+                    method='multi',
+                )
+                logger.info(
+                    f'Processed chunk {i // chunk_size + 1}/{(len(df) - 1) // chunk_size + 1} of {table_name}'
+                )
 
     logger.info(f'✅ Written 🧬 shape {df.shape} to {table_name}')
 
