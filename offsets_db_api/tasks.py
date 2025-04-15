@@ -1,5 +1,7 @@
 import datetime
+import time
 import traceback
+from collections import defaultdict
 
 import pandas as pd
 from offsets_db_data.models import clip_schema, credit_schema, project_schema
@@ -82,10 +84,24 @@ def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
 
 
 def process_dataframe(
-    df: pd.DataFrame, table_name: str, engine, dtype_dict: dict | None = None
+    df: pd.DataFrame,
+    table_name: str,
+    engine,
+    dtype_dict: dict | None = None,
+    chunk_size: int = 50000,
 ) -> None:
     logger.info(f'📝 Writing DataFrame to {table_name}')
     logger.info(f'engine: {engine}')
+
+    # convert Python lists to PostgreSQL arrays
+    if dtype_dict:
+        for col_name, dtype in dtype_dict.items():
+            if 'ARRAY' in str(dtype) and col_name in df.columns:
+                logger.info(f'Converting column {col_name} to PostgreSQL array format')
+                # convert Python lists to PostgreSQL array format: [a,b] -> {a,b}
+                df[col_name] = df[col_name].apply(
+                    lambda x: '{' + ','.join(str(i) for i in x) + '}' if isinstance(x, list) else x
+                )
 
     with engine.begin() as conn:
         if engine.dialect.has_table(conn, table_name):
@@ -100,13 +116,58 @@ def process_dataframe(
             except IntegrityError:
                 logger.error('❌ Failed to ensure projects exist. Continuing with data insertion.')
 
-        # write the data
-        df.to_sql(table_name, conn, if_exists='append', index=False, dtype=dtype_dict)
+        # Check if we're using PostgreSQL to enable COPY method
+        is_postgresql = 'postgresql' in engine.dialect.name.lower()
+
+        if is_postgresql:
+            # Create table if it doesn't exist (with correct schema)
+            if not engine.dialect.has_table(conn, table_name):
+                # Create an empty DataFrame with same structure for table creation only
+                empty_df = df.head(0)
+                empty_df.to_sql(table_name, conn, if_exists='append', index=False, dtype=dtype_dict)
+
+            # Write DataFrame to CSV (in memory or temporary file)
+            import csv
+            import io
+
+            csv_buffer = io.StringIO()
+            df.to_csv(csv_buffer, index=False, quoting=csv.QUOTE_MINIMAL, header=False)
+            csv_buffer.seek(0)
+
+            # Get DBAPI connection
+            dbapi_conn = conn.connection
+            with dbapi_conn.cursor() as cur:
+                columns = ', '.join([f'"{k}"' for k in df.columns])
+                qualified_table_name = f'{table_name}'
+                sql = f'COPY {qualified_table_name} ({columns}) FROM STDIN WITH CSV'
+                cur.copy_expert(sql=sql, file=csv_buffer)
+
+            logger.info(f'Loaded entire dataset to {table_name} using COPY')
+        else:
+            # Fallback to pandas for non-PostgreSQL databases
+            for i in range(0, len(df), chunk_size):
+                chunk = df.iloc[i : i + chunk_size]
+                chunk.to_sql(
+                    table_name,
+                    conn,
+                    if_exists='append',
+                    index=False,
+                    dtype=dtype_dict,
+                    method='multi',
+                )
+                logger.info(
+                    f'Processed chunk {i // chunk_size + 1}/{(len(df) - 1) // chunk_size + 1} of {table_name}'
+                )
 
     logger.info(f'✅ Written 🧬 shape {df.shape} to {table_name}')
 
 
-async def process_files(*, engine, session, files: list[File]) -> None:
+async def process_files(*, engine, session, files: list[File], chunk_size: int = 50000) -> None:
+    metrics = {
+        'total_start_time': time.time(),
+        'file_metrics': defaultdict(dict),
+        'category_metrics': defaultdict(list),
+    }
     # loop over files and make sure projects are first in the list to ensure the delete cascade works
     ordered_files: list[File] = []
     for file in files:
@@ -121,6 +182,10 @@ async def process_files(*, engine, session, files: list[File]) -> None:
     logger.info(f'📚 Loading files: {ordered_files}')
 
     for file in other_files:
+        file_start_time = time.time()
+        metrics['file_metrics'][file.id]['start_time'] = file_start_time
+        metrics['file_metrics'][file.id]['url'] = file.url
+        metrics['file_metrics'][file.id]['category'] = file.category
         try:
             if file.category == 'credits':
                 logger.info(f'📚 Loading credit file: {file.url}')
@@ -144,7 +209,7 @@ async def process_files(*, engine, session, files: list[File]) -> None:
                     'retirement_beneficiary': String,
                     'retirement_beneficiary_harmonized': String,
                 }
-                process_dataframe(df, 'credit', engine, credit_dtype_dict)
+                process_dataframe(df, 'credit', engine, credit_dtype_dict, chunk_size=chunk_size)
                 update_file_status(file, session, 'success')
 
             elif file.category == 'projects':
@@ -169,17 +234,27 @@ async def process_files(*, engine, session, files: list[File]) -> None:
                     'project_url': String,
                 }
 
-                process_dataframe(df, 'project', engine, project_dtype_dict)
+                process_dataframe(df, 'project', engine, project_dtype_dict, chunk_size=chunk_size)
                 update_file_status(file, session, 'success')
 
             else:
                 logger.info(f'❓ Unknown file category: {file.category}. Skipping file {file.url}')
+
+            metrics['file_metrics'][file.id]['status'] = 'success'
 
         except Exception as e:
             trace = traceback.format_exc()
             logger.error(f'❌ Failed to process file: {file.url}')
             logger.error(trace)
             update_file_status(file, session, 'failure', error=str(e))
+            metrics['file_metrics'][file.id]['status'] = 'failure'
+            metrics['file_metrics'][file.id]['error'] = str(e)
+
+        file_end_time = time.time()
+        processing_time = file_end_time - file_start_time
+        metrics['file_metrics'][file.id]['processing_time'] = processing_time
+        metrics['category_metrics'][file.category].append(processing_time)
+        logger.info(f'⏱️ File {file.url} processed in {processing_time:.2f} seconds')
 
     if not clips_files:
         logger.info('No clip files to process')
@@ -187,17 +262,30 @@ async def process_files(*, engine, session, files: list[File]) -> None:
 
     clips_dfs = []
     for file in clips_files:
+        file_start_time = time.time()
+        metrics['file_metrics'][file.id]['start_time'] = file_start_time
+        metrics['file_metrics'][file.id]['url'] = file.url
+        metrics['file_metrics'][file.id]['category'] = file.category
         try:
             logger.info(f'📚 Loading clip file: {file.url}')
             data = pd.read_parquet(file.url, engine='fastparquet')
             clips_dfs.append(data)
             update_file_status(file, session, 'success')
+            metrics['file_metrics'][file.id]['status'] = 'success'
 
         except Exception as e:
             trace = traceback.format_exc()
             logger.error(f'❌ Failed to process file: {file.url}')
             logger.error(trace)
             update_file_status(file, session, 'failure', error=str(e))
+            metrics['file_metrics'][file.id]['status'] = 'failure'
+            metrics['file_metrics'][file.id]['error'] = str(e)
+
+        file_end_time = time.time()
+        processing_time = file_end_time - file_start_time
+        metrics['file_metrics'][file.id]['processing_time'] = processing_time
+        metrics['category_metrics']['clips'].append(processing_time)
+        logger.info(f'⏱️ Clip file {file.url} processed in {processing_time:.2f} seconds')
 
     with engine.begin() as conn:
         conn.execute(text('TRUNCATE TABLE clipproject, clip RESTART IDENTITY CASCADE;'))
@@ -207,7 +295,7 @@ async def process_files(*, engine, session, files: list[File]) -> None:
 
     clips_df = df.drop(columns=['project_ids'])
     clip_dtype_dict = {'tags': ARRAY(String)}
-    process_dataframe(clips_df, 'clip', engine, clip_dtype_dict)
+    process_dataframe(clips_df, 'clip', engine, clip_dtype_dict, chunk_size=chunk_size)
 
     # Prepare ClipProject data
     clip_projects_data = []
@@ -222,10 +310,40 @@ async def process_files(*, engine, session, files: list[File]) -> None:
     # Convert to DataFrame
     clip_projects_df = pd.DataFrame(clip_projects_data)
 
-    process_dataframe(clip_projects_df, 'clipproject', engine)
+    process_dataframe(clip_projects_df, 'clipproject', engine, chunk_size=chunk_size)
 
     # modify the watch_dog_file
     with open(watch_dog_file, 'w') as f:
         now = datetime.datetime.now(datetime.timezone.utc)
         logger.info(f'✅ Updated watch_dog_file: {watch_dog_file} to {now}')
         f.write(now.strftime('%Y-%m-%d %H:%M:%S'))
+
+        # Calculate total processing time
+    total_time = time.time() - metrics['total_start_time']
+    metrics['total_time'] = total_time
+
+    # Log performance metrics summary
+    logger.info('=' * 80)
+    logger.info('📊 PERFORMANCE METRICS SUMMARY')
+    logger.info(f'⏱️ Total processing time: {total_time:.2f} seconds')
+    logger.info(f'📁 Total files processed: {len(files)}')
+
+    # Summary by category
+    logger.info('-' * 80)
+    logger.info('📊 CATEGORY SUMMARY:')
+    for category, times in metrics['category_metrics'].items():
+        if times:
+            avg_time = sum(times) / len(times)
+            min_time = min(times)
+            max_time = max(times)
+            logger.info(
+                f'  - {category}: {len(times)} files, avg: {avg_time:.2f}s, min: {min_time:.2f}s, max: {max_time:.2f}s'
+            )
+
+    # Summary of successful vs failed files
+    success_count = sum(1 for f in metrics['file_metrics'].values() if f.get('status') == 'success')
+    failure_count = sum(1 for f in metrics['file_metrics'].values() if f.get('status') == 'failure')
+    logger.info('-' * 80)
+    logger.info(f'✅ Successful files: {success_count}')
+    logger.info(f'❌ Failed files: {failure_count}')
+    logger.info('=' * 80)

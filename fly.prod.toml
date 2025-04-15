@@ -9,8 +9,8 @@ primary_region = "dfw"
     buildpacks = ["heroku/buildpack-python:0.25.0"]
 
 [[vm]]
-    memory = "4gb"
-    size   = "performance-2x"
+    memory = "8gb"
+    size   = "shared-cpu-4x"
 
 [env]
     OFFSETS_DB_DATABASE_POOL_SIZE = "200"

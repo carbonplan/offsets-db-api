@@ -26,6 +26,7 @@ logger = get_logger()
 async def submit_file(
     payload: list[FileURLPayload],
     background_tasks: BackgroundTasks,
+    chunk_size: int = Query(50000, description='Chunk size for processing'),
     session: Session = Depends(get_session),
     authorized_user: bool = Depends(check_api_key),
 ):
@@ -34,10 +35,7 @@ async def submit_file(
 
     file_objs = []
     for p in payload:
-        file_obj = File(
-            url=p.url,
-            category=p.category,
-        )
+        file_obj = File(url=p.url, category=p.category)
         file_objs.append(file_obj)
         session.add(file_obj)
 
@@ -50,7 +48,9 @@ async def submit_file(
 
     logger.info(f'Processing files: {file_objs}')
 
-    background_tasks.add_task(process_files, engine=engine, session=session, files=file_objs)
+    background_tasks.add_task(
+        process_files, engine=engine, session=session, files=file_objs, chunk_size=chunk_size
+    )
     return file_objs
 
 
