@@ -72,8 +72,8 @@ def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
             category='unknown',
             protocol=['unknown'],
             project_url=url,
-            type='unknown',
-            type_source='carbonplan',
+            project_type='Unknown',
+            project_type_source='carbonplan',
         )
         values.append(placeholder_project)
     if values:
@@ -261,7 +261,7 @@ def process_dataframe(
                 # Instead of dropping table (which results in data type, schema overrides), delete all rows.
                 conn.execute(text(f'TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE;'))
 
-            if table_name in {'credit', 'clipproject', 'projecttype'}:
+            if table_name in {'credit', 'clipproject'}:
                 session = next(get_session())
                 try:
                     logger.info(f'Processing data destined for {table_name} table...')
@@ -359,8 +359,8 @@ async def process_files(*, engine, session, files: list[File], chunk_size: int =
                     'proponent': String,
                     'protocol': ARRAY(String),
                     'category': String,
-                    'type': String,
-                    'type_source': String,
+                    'project_type': String,
+                    'project_type_source': String,
                     'status': String,
                     'country': String,
                     'listed_at': Date,
