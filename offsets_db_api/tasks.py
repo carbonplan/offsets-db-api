@@ -169,9 +169,14 @@ def process_dataframe(
                 index_name = idx[0]
                 conn.execute(text(f'DROP INDEX IF EXISTS {index_name}'))
 
-            # Step 4: Temporarily increase maintenance_work_mem for better performance
-            conn.execute(text('SHOW maintenance_work_mem')).fetchone()
-            conn.execute(text("SET maintenance_work_mem = '1GB'"))
+            # Step 4: Temporarily increase memory settings for better performance
+            logger.info('Increasing PostgreSQL memory settings for better performance')
+
+            current_maint_work_mem = conn.execute(text('SHOW maintenance_work_mem')).fetchone()[0]
+            current_work_mem = conn.execute(text('SHOW work_mem')).fetchone()[0]
+
+            conn.execute(text("SET maintenance_work_mem = '4GB'"))
+            conn.execute(text("SET work_mem = '1GB'"))
 
             # Step 5: Drop and recreate table (avoids TRUNCATE which keeps indexes)
             logger.info(f'Dropping and recreating {table_name} table')
@@ -215,18 +220,38 @@ def process_dataframe(
                 """
                 conn.execute(text(sql))
 
-            # Step 8: Recreate indexes one by one
-            logger.info(f'Recreating indexes for {table_name}')
+            # Step 8: Recreate indexes one by one in separate transactions
+            logger.info(f'Recreating indexes for {table_name} in separate transactions')
+
+            # Close current transaction first to split index creation
+            conn.commit()
+
             for idx in indexes:
+                index_name = idx[0]
                 index_def = idx[1]
-                conn.execute(text(index_def))
 
-            # Step 9: Run ANALYZE for query optimization
-            logger.info(f'Running ANALYZE on {table_name}')
-            conn.execute(text(f'ANALYZE {table_name}'))
+                logger.info(f'Creating index {index_name}')
+                try:
+                    # Open new connection/transaction for each index
+                    with engine.begin() as index_conn:
+                        index_conn.execute(text("SET maintenance_work_mem = '4GB'"))
+                        index_conn.execute(text("SET work_mem = '1GB'"))
+                        index_conn.execute(text(index_def))
+                        logger.info(f'Successfully created index {index_name}')
+                except Exception as e:
+                    logger.warning(f'Failed to create index {index_name}: {str(e)}')
+                    logger.warning('Continuing with remaining indexes...')
 
-            # Reset maintenance_work_mem to default
-            conn.execute(text('SET maintenance_work_mem TO DEFAULT'))
+            # Step 9: Run ANALYZE for query optimization in a new transaction
+            with engine.begin() as analyze_conn:
+                logger.info(f'Running ANALYZE on {table_name}')
+                analyze_conn.execute(text(f'ANALYZE {table_name}'))
+
+            # Step 10: Reset memory settings to defaults in a final transaction
+            with engine.begin() as reset_conn:
+                logger.info('Resetting PostgreSQL memory settings to defaults')
+                reset_conn.execute(text(f"SET maintenance_work_mem = '{current_maint_work_mem}'"))
+                reset_conn.execute(text(f"SET work_mem = '{current_work_mem}'"))
 
             logger.info(f'✅ Optimized data loading completed for {table_name}')
     else:
