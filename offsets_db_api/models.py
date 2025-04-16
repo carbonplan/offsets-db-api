@@ -52,8 +52,8 @@ class ProjectBase(SQLModel):
         description='Date of first retirement of credits',
     )
     project_url: str | None = Field(description='URL to project details')
-    type: str | None = Field(description='Type of project (e.g. ARB, VCS, etc.)')
-    type_source: str | None = Field(description='Source of project type information')
+    project_type: str | None = Field(description='Type of project (e.g. ARB, VCS, etc.)')
+    project_type_source: str | None = Field(description='Source of project type information')
 
 
 class Project(ProjectBase, table=True):
@@ -101,7 +101,7 @@ class Clip(ClipBase, table=True):
 class ProjectInfo(pydantic.BaseModel):
     project_id: str
     category: str | None = Field(description='category')
-    type: str | None = Field(description='Type of project ')
+    project_type: str | None = Field(description='Type of project ')
 
 
 class ClipwithProjects(ClipBase):
