@@ -41,8 +41,8 @@ def build_filters(
             filters.append(('protocol', project_filters.protocol, 'ANY', Project))
         if 'category' not in exclude_filters and project_filters.category is not None:
             filters.append(('category', project_filters.category, 'ilike', Project))
-        if 'type' not in exclude_filters and project_filters.type is not None:
-            filters.append(('type', project_filters.type, 'ilike', Project))
+        if 'project_type' not in exclude_filters and project_filters.project_type is not None:
+            filters.append(('project_type', project_filters.project_type, 'ilike', Project))
         if 'is_compliance' not in exclude_filters and project_filters.is_compliance is not None:
             filters.append(('is_compliance', project_filters.is_compliance, '==', Project))
         if 'listed_at' not in exclude_filters:

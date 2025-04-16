@@ -163,7 +163,7 @@ async def get_projects_by_listing_date(
 
     logger.info(f'Getting project registration data: {request.url}')
 
-    project_filters.type = expand_project_types(session, project_filters.type)
+    project_filters.project_type = expand_project_types(session, project_filters.project_type)
 
     # Start with the base query on the Project model
     query = select(Project)
@@ -284,7 +284,7 @@ async def get_credits_by_transaction_date(
 
     logger.info(f'Getting credit transaction data: {request.url}')
 
-    project_filters.type = expand_project_types(session, project_filters.type)
+    project_filters.project_type = expand_project_types(session, project_filters.project_type)
 
     # Base query
     base_query = select(Credit, Project).join(
@@ -548,7 +548,7 @@ async def get_projects_by_credit_totals(
     """Get aggregated project credit totals"""
 
     logger.info(f'📊 Generating projects by {credit_type} totals...: {request.url}')
-    project_filters.type = expand_project_types(session, project_filters.type)
+    project_filters.project_type = expand_project_types(session, project_filters.project_type)
 
     query = select(Project)
 
@@ -663,7 +663,7 @@ async def get_projects_by_category(
     """Get project counts by category"""
 
     logger.info(f'Getting project count by category: {request.url}')
-    project_filters.type = expand_project_types(session, project_filters.type)
+    project_filters.project_type = expand_project_types(session, project_filters.project_type)
 
     query = select(Project)
 
@@ -726,7 +726,7 @@ async def get_credits_by_category(
 
     logger.info(f'Getting project count by category: {request.url}')
 
-    project_filters.type = expand_project_types(session, project_filters.type)
+    project_filters.project_type = expand_project_types(session, project_filters.project_type)
 
     # Base query without Credit join
     matching_projects = select(distinct(Project.project_id))

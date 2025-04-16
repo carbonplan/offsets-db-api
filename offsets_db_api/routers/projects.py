@@ -77,7 +77,7 @@ async def get_projects(
 
     logger.info(f'Getting projects: {request.url}')
 
-    project_filters.type = expand_project_types(session, project_filters.type)
+    project_filters.project_type = expand_project_types(session, project_filters.project_type)
     # Base query without Credit join
     matching_projects = select(distinct(Project.project_id))
 
