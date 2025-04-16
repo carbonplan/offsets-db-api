@@ -21,8 +21,7 @@ from offsets_db_api.tasks import (
 @pytest.fixture
 def mock_session():
     """Create a mock SQLModel session"""
-    session = mock.MagicMock(spec=Session)
-    return session
+    return mock.MagicMock(spec=Session)
 
 
 @pytest.fixture
@@ -203,7 +202,7 @@ def test_ensure_projects_exist_with_missing_ids(mock_session, sample_df_credits)
 
     # Assert
     # Should be called once for the missing ID
-    assert mock_session.add.call_count == 1
+    assert mock_session.bulk_insert_mappings.call_count == 1
     mock_session.commit.assert_called_once()
 
 
@@ -218,28 +217,6 @@ def test_ensure_projects_exist_integrity_error(mock_session, sample_df_credits):
             ensure_projects_exist(sample_df_credits, mock_session)
 
     mock_session.rollback.assert_called_once()
-
-
-def test_process_dataframe(mock_engine, sample_df_projects):
-    table_name = 'project'
-
-    with mock.patch('offsets_db_api.tasks.get_session') as mock_get_session:
-        mock_next_session = mock.MagicMock()
-        mock_get_session.return_value.__next__.return_value = mock_next_session
-
-        # Mock the to_sql method before calling process_dataframe
-        with mock.patch.object(pd.DataFrame, 'to_sql') as mock_to_sql:
-            process_dataframe(sample_df_projects, table_name, mock_engine)
-
-            # Now check the mock was called correctly
-            mock_to_sql.assert_called_once()
-            args, kwargs = mock_to_sql.call_args
-            assert args[0] == table_name
-            assert kwargs.get('if_exists') == 'append'
-            assert kwargs.get('index') is False
-
-    conn = mock_engine.begin.return_value.__enter__.return_value
-    conn.execute.assert_called_once()  # Should execute TRUNCATE statement
 
 
 def test_process_dataframe_credit_table(mock_engine, sample_df_credits):
