@@ -102,3 +102,17 @@ repmgr=# CREATE DATABASE postgres;
 CREATE DATABASE
 repmgr=#
 ```
+
+## Recreating the postgres database on fly
+
+To recreate the postgres database on fly, you can use the following commands:
+
+```bash
+fly pg create --name offsets-db-postgres --region dfw --vm-size shared-cpu-4x
+```
+
+once the database is created, you can then set the database url
+
+```bash
+fly secrets set OFFSETS_DATABASE_URL=postgres://<username>:<password>@<host>:<port>/<database> --config fly.prod.toml
+```

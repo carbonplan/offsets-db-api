@@ -59,6 +59,7 @@ def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
         'climate-action-reserve': 'https://thereserve2.apx.com/mymodule/reg/prjView.asp?id1=',
         'art-trees': 'https://art.apx.com/mymodule/reg/prjView.asp?id1=',
     }
+    values = []
     for project_id in missing_project_ids:
         registry = get_registry_from_project_id(project_id)
         if url := urls.get(registry):
@@ -72,7 +73,9 @@ def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
             type='unknown',
             type_source='carbonplan',
         )
-        session.add(placeholder_project)
+        values.append(placeholder_project)
+    if values:
+        session.bulk_insert_mappings(Project, [p.model_dump() for p in values])
 
     try:
         session.commit()
