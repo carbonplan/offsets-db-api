@@ -124,12 +124,13 @@ def process_dataframe(
             # Step 2: Get existing indexes and constraints to recreate later
             logger.info(f'Getting existing indexes and constraints for {table_name}')
 
-            # Get indexes
+            # Get indexes - exclude primary key indexes
             index_query = text("""
                 SELECT indexname, indexdef
                 FROM pg_indexes
                 WHERE tablename = :table_name
                 AND indexname NOT LIKE 'pk_%'
+                AND indexname NOT LIKE '%_pkey'
             """)
             indexes = conn.execute(index_query, {'table_name': table_name}).fetchall()
 
