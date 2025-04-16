@@ -1,4 +1,6 @@
+import csv
 import datetime
+import io
 import time
 import traceback
 from collections import defaultdict
@@ -96,42 +98,158 @@ def process_dataframe(
     logger.info(f'📝 Writing DataFrame to {table_name}')
     logger.info(f'engine: {engine}')
 
-    # convert Python lists to PostgreSQL arrays
+    # Convert Python lists to PostgreSQL arrays
     if dtype_dict:
         for col_name, dtype in dtype_dict.items():
             if 'ARRAY' in str(dtype) and col_name in df.columns:
                 logger.info(f'Converting column {col_name} to PostgreSQL array format')
-                # convert Python lists to PostgreSQL array format: [a,b] -> {a,b}
                 df[col_name] = df[col_name].apply(
                     lambda x: '{' + ','.join(str(i) for i in x) + '}' if isinstance(x, list) else x
                 )
 
-    with engine.begin() as conn:
-        if engine.dialect.has_table(conn, table_name):
-            # Instead of dropping table (which results in data type, schema overrides), delete all rows.
-            conn.execute(text(f'TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE;'))
+    # Special high-performance path for large credit table in PostgreSQL
+    if table_name == 'credit':
+        with engine.begin() as conn:
+            # Step 1: Ensure projects exist (needed for referential integrity)
+            if table_name in {'credit', 'clipproject', 'projecttype'}:
+                session = next(get_session())
+                try:
+                    logger.info(f'Processing data destined for {table_name} table...')
+                    ensure_projects_exist(df, session)
+                except IntegrityError:
+                    logger.error(
+                        '❌ Failed to ensure projects exist. Continuing with data insertion.'
+                    )
 
-        if table_name in {'credit', 'clipproject', 'projecttype'}:
-            session = next(get_session())
-            try:
-                logger.info(f'Processing data destined for {table_name} table...')
-                ensure_projects_exist(df, session)
-            except IntegrityError:
-                logger.error('❌ Failed to ensure projects exist. Continuing with data insertion.')
+            # Step 2: Get existing indexes and constraints to recreate later
+            logger.info(f'Getting existing indexes and constraints for {table_name}')
 
-        # Check if we're using PostgreSQL to enable COPY method
-        is_postgresql = 'postgresql' in engine.dialect.name.lower()
+            # Get indexes
+            index_query = text("""
+                SELECT indexname, indexdef
+                FROM pg_indexes
+                WHERE tablename = :table_name
+                AND indexname NOT LIKE 'pk_%'
+            """)
+            indexes = conn.execute(index_query, {'table_name': table_name}).fetchall()
 
-        if is_postgresql:
+            # Get foreign key constraints
+            fk_query = text("""
+                SELECT
+                    tc.constraint_name,
+                    tc.table_name,
+                    kcu.column_name,
+                    ccu.table_name AS foreign_table_name,
+                    ccu.column_name AS foreign_column_name,
+                    rc.update_rule,
+                    rc.delete_rule
+                FROM
+                    information_schema.table_constraints AS tc
+                    JOIN information_schema.key_column_usage AS kcu
+                      ON tc.constraint_name = kcu.constraint_name
+                    JOIN information_schema.constraint_column_usage AS ccu
+                      ON ccu.constraint_name = tc.constraint_name
+                    JOIN information_schema.referential_constraints AS rc
+                      ON rc.constraint_name = tc.constraint_name
+                WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name = :table_name
+            """)
+            fk_constraints = conn.execute(fk_query, {'table_name': table_name}).fetchall()
+
+            # Step 3: Drop constraints and indexes for better performance
+            logger.info(f'Dropping foreign key constraints for {table_name}')
+            for fk in fk_constraints:
+                constraint_name = fk[0]
+                conn.execute(
+                    text(f'ALTER TABLE {table_name} DROP CONSTRAINT IF EXISTS {constraint_name}')
+                )
+
+            logger.info(f'Dropping indexes for {table_name}')
+            for idx in indexes:
+                index_name = idx[0]
+                conn.execute(text(f'DROP INDEX IF EXISTS {index_name}'))
+
+            # Step 4: Temporarily increase maintenance_work_mem for better performance
+            conn.execute(text('SHOW maintenance_work_mem')).fetchone()
+            conn.execute(text("SET maintenance_work_mem = '1GB'"))
+
+            # Step 5: Drop and recreate table (avoids TRUNCATE which keeps indexes)
+            logger.info(f'Dropping and recreating {table_name} table')
+            if engine.dialect.has_table(conn, table_name):
+                conn.execute(text(f'DROP TABLE IF EXISTS {table_name} CASCADE'))
+
+            # Create empty table with correct schema
+            empty_df = df.head(0)
+            empty_df.to_sql(table_name, conn, if_exists='append', index=False, dtype=dtype_dict)
+
+            # Step 6: Bulk load data with COPY
+            logger.info(f'Bulk loading {len(df)} rows to {table_name} with COPY')
+
+            csv_buffer = io.StringIO()
+            df.to_csv(csv_buffer, index=False, quoting=csv.QUOTE_MINIMAL, header=False)
+            csv_buffer.seek(0)
+
+            dbapi_conn = conn.connection
+            with dbapi_conn.cursor() as cur:
+                columns = ', '.join([f'"{k}"' for k in df.columns])
+                sql = f'COPY {table_name} ({columns}) FROM STDIN WITH CSV'
+                cur.copy_expert(sql=sql, file=csv_buffer)
+
+            # Step 7: Recreate foreign key constraints
+            logger.info(f'Recreating foreign key constraints for {table_name}')
+            for fk in fk_constraints:
+                constraint_name = fk[0]
+                table_name = fk[1]
+                column_name = fk[2]
+                foreign_table = fk[3]
+                foreign_column = fk[4]
+                update_rule = fk[5]
+                delete_rule = fk[6]
+
+                sql = f"""
+                ALTER TABLE {table_name}
+                ADD CONSTRAINT {constraint_name}
+                FOREIGN KEY ({column_name})
+                REFERENCES {foreign_table}({foreign_column})
+                ON UPDATE {update_rule} ON DELETE {delete_rule}
+                """
+                conn.execute(text(sql))
+
+            # Step 8: Recreate indexes one by one
+            logger.info(f'Recreating indexes for {table_name}')
+            for idx in indexes:
+                index_def = idx[1]
+                conn.execute(text(index_def))
+
+            # Step 9: Run ANALYZE for query optimization
+            logger.info(f'Running ANALYZE on {table_name}')
+            conn.execute(text(f'ANALYZE {table_name}'))
+
+            # Reset maintenance_work_mem to default
+            conn.execute(text('SET maintenance_work_mem TO DEFAULT'))
+
+            logger.info(f'✅ Optimized data loading completed for {table_name}')
+    else:
+        # Standard approach for other tables or non-PostgreSQL databases
+        with engine.begin() as conn:
+            if engine.dialect.has_table(conn, table_name):
+                # Instead of dropping table (which results in data type, schema overrides), delete all rows.
+                conn.execute(text(f'TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE;'))
+
+            if table_name in {'credit', 'clipproject', 'projecttype'}:
+                session = next(get_session())
+                try:
+                    logger.info(f'Processing data destined for {table_name} table...')
+                    ensure_projects_exist(df, session)
+                except IntegrityError:
+                    logger.error(
+                        '❌ Failed to ensure projects exist. Continuing with data insertion.'
+                    )
+
             # Create table if it doesn't exist (with correct schema)
             if not engine.dialect.has_table(conn, table_name):
                 # Create an empty DataFrame with same structure for table creation only
                 empty_df = df.head(0)
                 empty_df.to_sql(table_name, conn, if_exists='append', index=False, dtype=dtype_dict)
-
-            # Write DataFrame to CSV (in memory or temporary file)
-            import csv
-            import io
 
             csv_buffer = io.StringIO()
             df.to_csv(csv_buffer, index=False, quoting=csv.QUOTE_MINIMAL, header=False)
@@ -146,21 +264,10 @@ def process_dataframe(
                 cur.copy_expert(sql=sql, file=csv_buffer)
 
             logger.info(f'Loaded entire dataset to {table_name} using COPY')
-        else:
-            # Fallback to pandas for non-PostgreSQL databases
-            for i in range(0, len(df), chunk_size):
-                chunk = df.iloc[i : i + chunk_size]
-                chunk.to_sql(
-                    table_name,
-                    conn,
-                    if_exists='append',
-                    index=False,
-                    dtype=dtype_dict,
-                    method='multi',
-                )
-                logger.info(
-                    f'Processed chunk {i // chunk_size + 1}/{(len(df) - 1) // chunk_size + 1} of {table_name}'
-                )
+            # Run ANALYZE for query optimization
+            conn.execute(text(f'ANALYZE {table_name}'))
+            # Commit the transaction
+            conn.commit()
 
     logger.info(f'✅ Written 🧬 shape {df.shape} to {table_name}')
 
@@ -343,10 +450,11 @@ async def process_files(*, engine, session, files: list[File], chunk_size: int =
                 f'  - {category}: {len(times)} files, avg: {avg_time:.2f}s, min: {min_time:.2f}s, max: {max_time:.2f}s'
             )
 
-    # Summary of successful vs failed files
-    success_count = sum(1 for f in metrics['file_metrics'].values() if f.get('status') == 'success')
-    failure_count = sum(1 for f in metrics['file_metrics'].values() if f.get('status') == 'failure')
+    success_files = [f for f in metrics['file_metrics'].values() if f.get('status') == 'success']
+    failure_files = [f for f in metrics['file_metrics'].values() if f.get('status') == 'failure']
+    success_count = sum(1 for _ in success_files)
+    failure_count = sum(1 for _ in failure_files)
     logger.info('-' * 80)
     logger.info(f'✅ Successful files: {success_count}')
-    logger.info(f'❌ Failed files: {failure_count}')
+    logger.info(f'❌ Failed files: {failure_count}: {[f["url"] for f in failure_files]}')
     logger.info('=' * 80)
