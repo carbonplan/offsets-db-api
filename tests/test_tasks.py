@@ -21,8 +21,7 @@ from offsets_db_api.tasks import (
 @pytest.fixture
 def mock_session():
     """Create a mock SQLModel session"""
-    session = mock.MagicMock(spec=Session)
-    return session
+    return mock.MagicMock(spec=Session)
 
 
 @pytest.fixture
@@ -203,7 +202,7 @@ def test_ensure_projects_exist_with_missing_ids(mock_session, sample_df_credits)
 
     # Assert
     # Should be called once for the missing ID
-    assert mock_session.add.call_count == 1
+    assert mock_session.bulk_insert_mappings.call_count == 1
     mock_session.commit.assert_called_once()
 
 
