@@ -1,8 +1,8 @@
-"""reset database: refactor category and remove project type table
+"""reset schemas: rename type to project type
 
-Revision ID: e86c17ae210b
+Revision ID: e84bf98a5507
 Revises:
-Create Date: 2025-03-31 18:43:29.007199
+Create Date: 2025-04-16 15:37:12.620499
 
 """
 
@@ -12,7 +12,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'e86c17ae210b'
+revision = 'e84bf98a5507'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -70,8 +70,8 @@ def upgrade() -> None:
         sa.Column('first_issuance_at', sa.Date(), nullable=True),
         sa.Column('first_retirement_at', sa.Date(), nullable=True),
         sa.Column('project_url', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-        sa.Column('type', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-        sa.Column('type_source', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column('project_type', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column('project_type_source', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.PrimaryKeyConstraint('project_id'),
     )
     op.create_index(
