@@ -11,7 +11,7 @@ class MockProjectFilters:
     country: str | None = None
     protocol: list[str] | None = None
     category: str | None = None
-    type: str | None = None
+    project_type: str | None = None
     is_compliance: bool | None = None
     listed_at_from: datetime | None = None
     listed_at_to: datetime | None = None
@@ -52,7 +52,7 @@ def test_build_filters_project():
         country='US',
         protocol=['AFOLU', 'REDD+'],
         category='forestry',
-        type='conservation',
+        project_type='conservation',
         is_compliance=False,
         listed_at_from=datetime(2020, 1, 1),
         listed_at_to=datetime(2022, 1, 1),
@@ -72,7 +72,7 @@ def test_build_filters_project():
     assert ('country', 'US', 'ilike', Project) in filters
     assert ('protocol', ['AFOLU', 'REDD+'], 'ANY', Project) in filters
     assert ('category', 'forestry', 'ilike', Project) in filters
-    assert ('type', 'conservation', 'ilike', Project) in filters
+    assert ('project_type', 'conservation', 'ilike', Project) in filters
     assert ('is_compliance', False, '==', Project) in filters
 
     # Check range filters
