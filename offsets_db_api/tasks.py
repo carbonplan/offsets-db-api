@@ -107,9 +107,8 @@ def process_dataframe(
                     lambda x: '{' + ','.join(str(i) for i in x) + '}' if isinstance(x, list) else x
                 )
 
-    # Special high-performance path for large credit table in PostgreSQL
-    if table_name == 'credit':
-        with engine.begin() as conn:
+    with engine.begin() as conn:
+        if table_name == 'credit':
             # Step 1: Ensure projects exist (needed for referential integrity)
             if table_name in {'credit', 'clipproject', 'projecttype'}:
                 session = next(get_session())
@@ -254,9 +253,7 @@ def process_dataframe(
                 reset_conn.execute(text(f"SET work_mem = '{current_work_mem}'"))
 
             logger.info(f'✅ Optimized data loading completed for {table_name}')
-    else:
-        # Standard approach for other tables or non-PostgreSQL databases
-        with engine.begin() as conn:
+        else:
             if engine.dialect.has_table(conn, table_name):
                 # Instead of dropping table (which results in data type, schema overrides), delete all rows.
                 conn.execute(text(f'TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE;'))
@@ -478,8 +475,8 @@ async def process_files(*, engine, session, files: list[File], chunk_size: int =
 
     success_files = [f for f in metrics['file_metrics'].values() if f.get('status') == 'success']
     failure_files = [f for f in metrics['file_metrics'].values() if f.get('status') == 'failure']
-    success_count = sum(1 for _ in success_files)
-    failure_count = sum(1 for _ in failure_files)
+    success_count = len(success_files)
+    failure_count = len(failure_files)
     logger.info('-' * 80)
     logger.info(f'✅ Successful files: {success_count}')
     logger.info(f'❌ Failed files: {failure_count}: {[f["url"] for f in failure_files]}')
