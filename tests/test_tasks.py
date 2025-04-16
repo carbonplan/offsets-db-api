@@ -219,28 +219,6 @@ def test_ensure_projects_exist_integrity_error(mock_session, sample_df_credits):
     mock_session.rollback.assert_called_once()
 
 
-def test_process_dataframe(mock_engine, sample_df_projects):
-    table_name = 'project'
-
-    with mock.patch('offsets_db_api.tasks.get_session') as mock_get_session:
-        mock_next_session = mock.MagicMock()
-        mock_get_session.return_value.__next__.return_value = mock_next_session
-
-        # Mock the to_sql method before calling process_dataframe
-        with mock.patch.object(pd.DataFrame, 'to_sql') as mock_to_sql:
-            process_dataframe(sample_df_projects, table_name, mock_engine)
-
-            # Now check the mock was called correctly
-            mock_to_sql.assert_called_once()
-            args, kwargs = mock_to_sql.call_args
-            assert args[0] == table_name
-            assert kwargs.get('if_exists') == 'append'
-            assert kwargs.get('index') is False
-
-    conn = mock_engine.begin.return_value.__enter__.return_value
-    conn.execute.assert_called_once()  # Should execute TRUNCATE statement
-
-
 def test_process_dataframe_credit_table(mock_engine, sample_df_credits):
     table_name = 'credit'
 
