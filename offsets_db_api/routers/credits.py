@@ -98,7 +98,7 @@ async def get_credits(
                 {
                     'project_id': credit.project_id,
                     'category': project.category if project else None,
-                    'type': project.type if project else None,
+                    'project_type': project.project_type if project else None,
                 }
             ],
         }

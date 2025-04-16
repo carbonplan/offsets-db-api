@@ -32,8 +32,8 @@ def mock_projects():
             first_issuance_at=datetime.date(2020, 3, 10),
             first_retirement_at=datetime.date(2020, 6, 5),
             project_url='https://registry.verra.org/VCS123',
-            type='forest/afforestation',
-            type_source='registry',
+            project_type='forest/afforestation',
+            project_type_source='registry',
         ),
         Project(
             project_id='GS456',
@@ -51,8 +51,8 @@ def mock_projects():
             first_issuance_at=datetime.date(2019, 10, 5),
             first_retirement_at=datetime.date(2019, 12, 15),
             project_url='https://registry.goldstandard.org/GS456',
-            type='renewable-energy/solar',
-            type_source='registry',
+            project_type='renewable-energy/solar',
+            project_type_source='registry',
         ),
     ]
 
@@ -169,7 +169,7 @@ class TestGetProjectsEndpoint:
         assert first_project['project_id'] == 'VCS123'
         assert first_project['registry'] == 'verra'
         assert first_project['category'] == 'forest'
-        assert first_project['type'] == 'forest/afforestation'
+        assert first_project['project_type'] == 'forest/afforestation'
         assert first_project['protocol'] == ['VM0001', 'VM0002']
         assert first_project['clips'] == []
 
@@ -241,7 +241,7 @@ class TestGetProjectsEndpoint:
         mock_session.exec.return_value.all.return_value = []
 
         with patch('offsets_db_api.routers.projects.get_session', return_value=mock_session):
-            response = test_app.get('/projects/?registry=verra&type=forest&country=USA')
+            response = test_app.get('/projects/?registry=verra&project_type=forest&country=USA')
 
         assert response.status_code == 200
         data = response.json()

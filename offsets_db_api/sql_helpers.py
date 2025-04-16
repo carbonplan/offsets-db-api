@@ -305,8 +305,8 @@ def apply_beneficiary_search(
 def get_project_types(session: Session) -> ProjectTypes:
     top_n = 5
     statement = (
-        select(Project.type, func.sum(Project.issued).label('total_issued'))
-        .group_by(Project.type)
+        select(Project.project_type, func.sum(Project.issued).label('total_issued'))
+        .group_by(Project.project_type)
         .order_by(func.sum(Project.issued).desc())
     )
 

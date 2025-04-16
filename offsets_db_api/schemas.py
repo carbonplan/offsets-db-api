@@ -57,7 +57,7 @@ class ProjectFilters(pydantic.BaseModel):
     country: list[str] | None = None
     protocol: list[str] | None = None
     category: list[str] | None = None
-    type: list[str] | None = None
+    project_type: list[str] | None = None
     is_compliance: bool | None = None
     listed_at_from: datetime.datetime | datetime.date | None = None
     listed_at_to: datetime.datetime | datetime.date | None = None
@@ -83,6 +83,7 @@ def get_project_filters(
     issued_max: int | None = Query(None, description='Maximum number of issued credits'),
     retired_min: int | None = Query(None, description='Minimum number of retired credits'),
     retired_max: int | None = Query(None, description='Maximum number of retired credits'),
+    project_type: list[str] | None = Query(None, description='Project type '),
 ):
     """Dependency to get project filters from query parameters"""
     return ProjectFilters(
@@ -97,6 +98,7 @@ def get_project_filters(
         issued_max=issued_max,
         retired_min=retired_min,
         retired_max=retired_max,
+        project_type=project_type,
     )
 
 

@@ -59,8 +59,8 @@ async def get_clips(
                 Project.project_id,
                 'category',
                 Project.category,
-                'type',
-                Project.type,
+                'project_type',
+                Project.project_type,
             )
         ).label('projects'),
     ).join(Project, col(ClipProject.project_id) == col(Project.project_id))
