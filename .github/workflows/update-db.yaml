@@ -64,7 +64,7 @@ jobs:
 
       - name: Notify Slack on Failure
         if: failure() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
-        uses: slackapi/slack-github-action@v2.0.0
+        uses: slackapi/slack-github-action@v2.1.1
         with:
           method: chat.postMessage
           token: ${{ secrets.SLACK_BOT_TOKEN }}
