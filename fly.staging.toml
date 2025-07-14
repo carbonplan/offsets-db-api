@@ -6,7 +6,7 @@ primary_region = "dfw"
 
 [build]
     builder    = "heroku/builder:24"
-    buildpacks = ["heroku/buildpack-python:0.25.0"]
+    buildpacks = ["heroku/buildpack-python:2.2.3"]
 
 [[vm]]
     memory = "4gb"
