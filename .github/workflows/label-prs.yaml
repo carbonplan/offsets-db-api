@@ -6,7 +6,7 @@ jobs:
   label:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/labeler@v5 #TODO: v5 introduces breaking changes: https://github.com/actions/labeler/tree/main?tab=readme-ov-file#breaking-changes-in-v5
+      - uses: actions/labeler@v6 #TODO: v5 introduces breaking changes: https://github.com/actions/labeler/tree/main?tab=readme-ov-file#breaking-changes-in-v5
         with:
           repo-token: '${{ secrets.GITHUB_TOKEN }}'
           sync-labels: false
