@@ -20,12 +20,11 @@
     readme = "README.md"
     requires-python = ">=3.10"
 
+    dependencies = [
+        "fastapi-cache2 @ git+https://github.com/andersy005/fastapi-cache@pydantic-v2-compat",
+        "offsets-db-data>=2025.12.2,<2026",
+    ]
     dynamic = ["dependencies", "version"]
-
-[tool.setuptools.dynamic]
-
-    dependencies          = { file = ["requirements.txt"] }
-    optional-dependencies = { dev = { file = ["requirements-dev.txt"] } }
 
 [project.urls]
     repository = "https://github.com/carbonplan/offsets-db-api"
@@ -108,3 +107,37 @@
 [tool.pytest.ini_options]
     addopts              = "--cov=./ --cov-report=xml  --cov-report=term-missing --verbose"
     console_output_style = "count"
+
+[tool.pixi.workspace]
+    channels  = ["conda-forge"]
+    platforms = ["linux-64", "osx-arm64"]
+
+[tool.pixi.pypi-dependencies]
+    offsets-db-api = { path = ".", editable = true }
+
+[tool.pixi.tasks]
+
+[tool.pixi.dependencies]
+    aiofiles          = ">=25.1.0,<26"
+    alembic           = "==1.14"
+    apscheduler       = ">=3.11.0,<4"
+    fastapi           = "==0.115.5"
+    fastparquet       = ">=2024.11.0,<2025"
+    gunicorn          = ">=23.0.0,<24"
+    httpx             = ">=0.28.1,<0.29"
+    pandas            = ">=2.3.3,<3"
+    psycopg2-binary   = "==2.9.10"
+    pydantic-settings = ">=2.12.0,<3"
+    sqlmodel          = "==0.0.22"
+    ujson             = ">=5.11.0,<6"
+    universal-pathlib = ">=0.3.6,<0.4"
+    uvicorn           = ">=0.38.0,<0.39"
+    watchdog          = ">=6.0.0,<7"
+    # Dev/test dependencies
+    locust         = ">=2.20,<3"
+    postgresql     = ">=17,<18"
+    pytest         = ">=8,<9"
+    pytest-asyncio = ">=0.25,<1"
+    pytest-cov     = ">=6,<7"
+    python         = ">=3.10,<3.13"
+    s3fs           = ">=2025,<2026"
