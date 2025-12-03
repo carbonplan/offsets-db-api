@@ -20,12 +20,11 @@
     readme = "README.md"
     requires-python = ">=3.10"
 
-    dynamic = ["dependencies", "version"]
-
-[tool.setuptools.dynamic]
-
-    dependencies          = { file = ["requirements.txt"] }
-    optional-dependencies = { dev = { file = ["requirements-dev.txt"] } }
+    dependencies = [
+        "fastapi-cache2 @ git+https://github.com/andersy005/fastapi-cache@pydantic-v2-compat",
+        "offsets-db-data>=2025.12.2,<2026",
+    ]
+    dynamic = ["version"]
 
 [project.urls]
     repository = "https://github.com/carbonplan/offsets-db-api"
@@ -108,3 +107,51 @@
 [tool.pytest.ini_options]
     addopts              = "--cov=./ --cov-report=xml  --cov-report=term-missing --verbose"
     console_output_style = "count"
+
+[tool.pixi.workspace]
+    channels  = ["conda-forge"]
+    platforms = ["linux-64", "osx-arm64"]
+
+[tool.pixi.pypi-dependencies]
+    offsets-db-api = { path = ".", editable = true }
+
+[tool.pixi.tasks]
+    # Testing
+    test = "python -m pytest"
+    # Database migrations
+    migrate = "python -m alembic upgrade head"
+    # Development server
+    serve = "uvicorn offsets_db_api.main:app --reload"
+    # Production server
+    serve-prod = "gunicorn -w 2 -t 600 -k uvicorn.workers.UvicornWorker offsets_db_api.main:app --config gunicorn_config.py --access-logfile - --error-logfile -"
+    # Database updates
+    update-db-production = "python update_database.py production --url https://offsets-db.fly.dev/files/"
+    update-db-staging    = "python update_database.py staging --url https://offsets-db-staging.fly.dev/files/"
+    # Load testing
+    loadtest = "locust -f load-testing/locustfile.py"
+
+[tool.pixi.dependencies]
+    aiofiles          = ">=25.1.0,<26"
+    alembic           = "==1.14"
+    apscheduler       = ">=3.11.0,<4"
+    fastapi           = "==0.115.5"
+    fastparquet       = ">=2024.11.0,<2025"
+    gunicorn          = ">=23.0.0,<24"
+    httpx             = ">=0.28.1,<0.29"
+    pandas            = ">=2.3.3,<3"
+    psycopg2-binary   = "==2.9.10"
+    pydantic-settings = ">=2.12.0,<3"
+    sqlmodel          = "==0.0.27"
+    ujson             = ">=5.11.0,<6"
+    universal-pathlib = ">=0.3.6,<0.4"
+    uvicorn           = ">=0.38.0,<0.39"
+    watchdog          = ">=6.0.0,<7"
+    # Dev/test dependencies
+    locust         = ">=2.20,<3"
+    postgresql     = ">=17,<18"
+    pydantic       = ">=2.10,<3"
+    pytest         = ">=8,<9"
+    pytest-asyncio = ">=0.25,<1"
+    pytest-cov     = ">=6,<7"
+    requests       = ">=2.32,<3"
+    s3fs           = ">=2025,<2026"

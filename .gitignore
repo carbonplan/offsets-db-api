@@ -135,3 +135,6 @@ offsets_db_api/_version.py
 *.gz
 cache-watch-dog/
 staging-files.json
+# pixi environments
+.pixi/*
+!.pixi/config.toml
