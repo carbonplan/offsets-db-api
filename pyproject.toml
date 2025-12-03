@@ -24,7 +24,7 @@
         "fastapi-cache2 @ git+https://github.com/andersy005/fastapi-cache@pydantic-v2-compat",
         "offsets-db-data>=2025.12.2,<2026",
     ]
-    dynamic = ["dependencies", "version"]
+    dynamic = ["version"]
 
 [project.urls]
     repository = "https://github.com/carbonplan/offsets-db-api"
@@ -139,5 +139,4 @@
     pytest         = ">=8,<9"
     pytest-asyncio = ">=0.25,<1"
     pytest-cov     = ">=6,<7"
-    python         = ">=3.10,<3.13"
     s3fs           = ">=2025,<2026"
