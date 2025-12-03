@@ -5,6 +5,11 @@ FROM ghcr.io/prefix-dev/pixi:0.59.0 AS build
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
+# Install git (needed for git+https:// dependencies in pyproject.toml)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy source code, pixi.toml and pixi.lock to the container
 WORKDIR /app
 COPY . .
