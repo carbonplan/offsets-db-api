@@ -27,7 +27,7 @@ ENV PYTHONUNBUFFERED=1
 
 # Install runtime dependencies (libpq for PostgreSQL)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libpq5 && \
+    apt-get install -y --no-install-recommends git libpq5 && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the pixi environment from the build stage
