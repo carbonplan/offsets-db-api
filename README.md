@@ -30,26 +30,21 @@ OffsetsDB-API, is a fastAPI application, designed to integrate and harmonize dat
 
 ## installation
 
-To install the package, you can use pip:
-
-```console
-python -m pip install git+https://github.com/carbonplan/offsets-db-api
-```
-
-You can also install the package locally by cloning the repository and running:
+This project uses [pixi](https://pixi.sh) for dependency management. To get started:
 
 ```console
 git clone https://github.com/carbonplan/offsets-db-api
 cd offsets-db-api
-python -m pip install -e .
+pixi install
 ```
 
-## run locally
-
-To run the API locally, you can use the following command:
+## usage
 
 ```console
-uvicorn offsets_db_api.main:app --reload
+pixi run serve        # Start development server with hot reload
+pixi run test         # Run tests
+pixi run migrate      # Run database migrations
+pixi run serve-prod   # Start production server
 ```
 
 ## license

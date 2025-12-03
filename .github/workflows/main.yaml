@@ -71,11 +71,11 @@ jobs:
 
       - name: Database migration
         run: |
-          pixi run python -m alembic upgrade head
+          pixi run migrate
 
       - name: Run tests
         run: |
-          pixi run python -m pytest
+          pixi run test
 
       - name: Upload code coverage to Codecov
         uses: codecov/codecov-action@v5.5.1

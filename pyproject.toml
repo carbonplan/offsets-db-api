@@ -116,6 +116,19 @@
     offsets-db-api = { path = ".", editable = true }
 
 [tool.pixi.tasks]
+    # Testing
+    test = "python -m pytest"
+    # Database migrations
+    migrate = "python -m alembic upgrade head"
+    # Development server
+    serve = "uvicorn offsets_db_api.main:app --reload"
+    # Production server
+    serve-prod = "gunicorn -w 2 -t 600 -k uvicorn.workers.UvicornWorker offsets_db_api.main:app --config gunicorn_config.py --access-logfile - --error-logfile -"
+    # Database updates
+    update-db-production = "python update_database.py production --url https://offsets-db.fly.dev/files/"
+    update-db-staging    = "python update_database.py staging --url https://offsets-db-staging.fly.dev/files/"
+    # Load testing
+    loadtest = "locust -f load-testing/locustfile.py"
 
 [tool.pixi.dependencies]
     aiofiles          = ">=25.1.0,<26"
@@ -136,7 +149,9 @@
     # Dev/test dependencies
     locust         = ">=2.20,<3"
     postgresql     = ">=17,<18"
+    pydantic       = ">=2.10,<3"
     pytest         = ">=8,<9"
     pytest-asyncio = ">=0.25,<1"
     pytest-cov     = ">=6,<7"
+    requests       = ">=2.32,<3"
     s3fs           = ">=2025,<2026"
