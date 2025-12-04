@@ -9,6 +9,7 @@ from sqlmodel import Session, col, distinct, select
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.common import build_filters
 from offsets_db_api.database import get_session
+from offsets_db_api.geo import get_bbox_for_project, get_bboxes_for_projects
 from offsets_db_api.log import get_logger
 from offsets_db_api.models import (
     Clip,
@@ -148,6 +149,9 @@ async def get_projects(
     for project_id, clip in clip_results:
         project_to_clips[project_id].append(clip)
 
+    # Get bboxes for all project IDs
+    project_bboxes = get_bboxes_for_projects(project_ids)
+
     # Transform the dictionary into a list of projects with clips and project_type
     projects_with_clips = []
     for project in results:
@@ -155,6 +159,7 @@ async def get_projects(
         project_data['clips'] = [
             clip.model_dump() for clip in project_to_clips.get(project.project_id, [])
         ]
+        project_data['bbox'] = project_bboxes.get(project.project_id)
         projects_with_clips.append(project_data)
 
     return PaginatedProjects(
@@ -205,4 +210,5 @@ async def get_project(
     project_data = project.model_dump()
 
     project_data['clips'] = [clip.model_dump() for clip in clip_projects_subquery]
+    project_data['bbox'] = get_bbox_for_project(project_id)
     return project_data
