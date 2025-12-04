@@ -152,7 +152,7 @@ async def get_projects(
     # Get bboxes for all project IDs
     project_bboxes = get_bboxes_for_projects(project_ids)
 
-    # Transform the dictionary into a list of projects with clips and project_type
+    # Transform the dictionary into a list of projects with clips, project_type, and bbox
     projects_with_clips = []
     for project in results:
         project_data = project.model_dump()
