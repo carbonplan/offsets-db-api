@@ -8,6 +8,15 @@ from sqlmodel import BigInteger, Column, Enum, Field, Index, Relationship, SQLMo
 from offsets_db_api.schemas import FileCategory, FileStatus, Pagination
 
 
+class BBox(pydantic.BaseModel):
+    """Bounding box for a project's geographic extent."""
+
+    xmin: float
+    ymin: float
+    xmax: float
+    ymax: float
+
+
 class File(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True, index=True)
     url: str
@@ -122,6 +131,9 @@ class ClipProject(SQLModel, table=True):
 class ProjectWithClips(ProjectBase):
     clips: list[Clip] | None = Field(
         default=None, description='List of clips associated with project'
+    )
+    bbox: BBox | None = Field(
+        default=None, description='Bounding box for the project geographic extent'
     )
 
 
