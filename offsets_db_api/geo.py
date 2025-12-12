@@ -89,6 +89,19 @@ def get_bboxes_for_projects(project_ids: list[str]) -> dict[str, dict[str, float
     return {pid: bbox_lookup[pid] for pid in project_ids if pid in bbox_lookup}
 
 
+def get_projects_with_geometry() -> set[str]:
+    """
+    Get the set of project IDs that have geographic boundaries.
+
+    Returns
+    -------
+    set
+        Set of project IDs that have boundaries
+    """
+    bbox_lookup = load_project_bboxes()
+    return set(bbox_lookup.keys())
+
+
 def clear_bbox_cache():
     """Clear the cached bbox data to force a reload."""
     load_project_bboxes.cache_clear()

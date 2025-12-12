@@ -9,7 +9,11 @@ from sqlmodel import Session, col, distinct, select
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.common import build_filters
 from offsets_db_api.database import get_session
-from offsets_db_api.geo import get_bbox_for_project, get_bboxes_for_projects
+from offsets_db_api.geo import (
+    get_bbox_for_project,
+    get_bboxes_for_projects,
+    get_projects_with_geometry,
+)
 from offsets_db_api.log import get_logger
 from offsets_db_api.models import (
     Clip,
@@ -65,6 +69,10 @@ async def get_projects(
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
     beneficiary_filters: BeneficiaryFilters = Depends(get_beneficiary_filters),
+    geography: bool | None = Query(
+        None,
+        description='Filter by geographic boundaries. True = only projects with boundaries, False = only projects without boundaries, None = no filter.',
+    ),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     sort: list[str] = Query(
@@ -83,6 +91,20 @@ async def get_projects(
     matching_projects = select(distinct(Project.project_id))
 
     filters = build_filters(project_filters=project_filters)
+
+    # Filter by geographic boundaries
+    if geography is not None:
+        projects_with_geo = get_projects_with_geometry()
+        if geography:
+            # Only projects WITH boundaries
+            matching_projects = matching_projects.where(
+                col(Project.project_id).in_(projects_with_geo)
+            )
+        else:
+            # Only projects WITHOUT boundaries
+            matching_projects = matching_projects.where(
+                ~col(Project.project_id).in_(projects_with_geo)
+            )
 
     if search:
         search_pattern = f'%{search}%'

@@ -5,6 +5,7 @@ from sqlmodel import Session, col, select
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.common import build_filters
 from offsets_db_api.database import get_session
+from offsets_db_api.geo import get_projects_with_geometry
 from offsets_db_api.log import get_logger
 from offsets_db_api.models import Credit, PaginatedCredits, Project
 from offsets_db_api.schemas import (
@@ -36,6 +37,10 @@ async def get_credits(
     project_filters: ProjectFilters = Depends(get_project_filters),
     credit_filters: CreditFilters = Depends(get_credit_filters),
     beneficiary_filters: BeneficiaryFilters = Depends(get_beneficiary_filters),
+    geography: bool | None = Query(
+        None,
+        description='Filter by geographic boundaries. True = only credits from projects with boundaries, False = only credits from projects without boundaries, None = no filter.',
+    ),
     sort: list[str] = Query(
         default=['project_id'],
         description='List of sorting parameters in the format `field_name` or `+field_name` for ascending order or `-field_name` for descending order.',
@@ -58,6 +63,16 @@ async def get_credits(
     # Filter for project_id
     if project_id:
         filters.insert(0, ('project_id', project_id, '==', Project))
+
+    # Filter by geographic boundaries
+    if geography is not None:
+        projects_with_geo = get_projects_with_geometry()
+        if geography:
+            # Only credits from projects WITH boundaries
+            statement = statement.where(col(Project.project_id).in_(projects_with_geo))
+        else:
+            # Only credits from projects WITHOUT boundaries
+            statement = statement.where(~col(Project.project_id).in_(projects_with_geo))
 
     for attribute, values, operation, model in filters:
         statement = apply_filters(
