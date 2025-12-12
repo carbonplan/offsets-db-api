@@ -37,9 +37,9 @@ async def get_credits(
     project_filters: ProjectFilters = Depends(get_project_filters),
     credit_filters: CreditFilters = Depends(get_credit_filters),
     beneficiary_filters: BeneficiaryFilters = Depends(get_beneficiary_filters),
-    geography: bool = Query(
-        False,
-        description='Filter to only include credits from projects that have geographic boundaries.',
+    geography: bool | None = Query(
+        None,
+        description='Filter by geographic boundaries. True = only credits from projects with boundaries, False = only credits from projects without boundaries, None = no filter.',
     ),
     sort: list[str] = Query(
         default=['project_id'],
@@ -64,10 +64,15 @@ async def get_credits(
     if project_id:
         filters.insert(0, ('project_id', project_id, '==', Project))
 
-    # Filter to only credits from projects with geographic boundaries
-    if geography:
+    # Filter by geographic boundaries
+    if geography is not None:
         projects_with_geo = get_projects_with_geometry()
-        statement = statement.where(col(Project.project_id).in_(projects_with_geo))
+        if geography:
+            # Only credits from projects WITH boundaries
+            statement = statement.where(col(Project.project_id).in_(projects_with_geo))
+        else:
+            # Only credits from projects WITHOUT boundaries
+            statement = statement.where(~col(Project.project_id).in_(projects_with_geo))
 
     for attribute, values, operation, model in filters:
         statement = apply_filters(

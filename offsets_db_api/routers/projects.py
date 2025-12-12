@@ -69,9 +69,9 @@ async def get_projects(
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
     beneficiary_filters: BeneficiaryFilters = Depends(get_beneficiary_filters),
-    geography: bool = Query(
-        False,
-        description='Filter to only include projects that have geographic boundaries.',
+    geography: bool | None = Query(
+        None,
+        description='Filter by geographic boundaries. True = only projects with boundaries, False = only projects without boundaries, None = no filter.',
     ),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
@@ -92,10 +92,19 @@ async def get_projects(
 
     filters = build_filters(project_filters=project_filters)
 
-    # Filter to only projects with geographic boundaries
-    if geography:
+    # Filter by geographic boundaries
+    if geography is not None:
         projects_with_geo = get_projects_with_geometry()
-        matching_projects = matching_projects.where(col(Project.project_id).in_(projects_with_geo))
+        if geography:
+            # Only projects WITH boundaries
+            matching_projects = matching_projects.where(
+                col(Project.project_id).in_(projects_with_geo)
+            )
+        else:
+            # Only projects WITHOUT boundaries
+            matching_projects = matching_projects.where(
+                ~col(Project.project_id).in_(projects_with_geo)
+            )
 
     if search:
         search_pattern = f'%{search}%'
