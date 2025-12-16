@@ -11,6 +11,7 @@ from sqlmodel import Date, Session, and_, case, cast, col, distinct, func, liter
 from offsets_db_api.cache import CACHE_NAMESPACE
 from offsets_db_api.common import build_filters
 from offsets_db_api.database import get_session
+from offsets_db_api.geo import get_projects_with_geometry
 from offsets_db_api.log import get_logger
 from offsets_db_api.models import (
     Credit,
@@ -154,6 +155,10 @@ async def get_projects_by_listing_date(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
+    geography: bool | None = Query(
+        None,
+        description='Filter by geographic boundaries. True = only projects with boundaries, False = only projects without boundaries, None = no filter.',
+    ),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
@@ -175,6 +180,14 @@ async def get_projects_by_listing_date(
         query = apply_filters(
             statement=query, model=model, attribute=attribute, values=values, operation=operation
         )
+
+    # Filter by geographic boundaries
+    if geography is not None:
+        projects_with_geo = get_projects_with_geometry()
+        if geography:
+            query = query.where(col(Project.project_id).in_(projects_with_geo))
+        else:
+            query = query.where(~col(Project.project_id).in_(projects_with_geo))
 
     # Handle 'search' filter separately due to its unique logic
     if search:
@@ -275,6 +288,10 @@ async def get_credits_by_transaction_date(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
+    geography: bool | None = Query(
+        None,
+        description='Filter by geographic boundaries. True = only credits from projects with boundaries, False = only credits from projects without boundaries, None = no filter.',
+    ),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
@@ -304,6 +321,14 @@ async def get_credits_by_transaction_date(
             values=values,
             operation=operation,
         )
+
+    # Filter by geographic boundaries
+    if geography is not None:
+        projects_with_geo = get_projects_with_geometry()
+        if geography:
+            base_query = base_query.where(col(Project.project_id).in_(projects_with_geo))
+        else:
+            base_query = base_query.where(~col(Project.project_id).in_(projects_with_geo))
 
     # Handle 'search' filter separately due to its unique logic
     if search:
@@ -539,6 +564,10 @@ async def get_projects_by_credit_totals(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
+    geography: bool | None = Query(
+        None,
+        description='Filter by geographic boundaries. True = only projects with boundaries, False = only projects without boundaries, None = no filter.',
+    ),
     bin_width: int | None = Query(None, description='Bin width'),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
@@ -562,6 +591,14 @@ async def get_projects_by_credit_totals(
             values=values,
             operation=operation,
         )
+
+    # Filter by geographic boundaries
+    if geography is not None:
+        projects_with_geo = get_projects_with_geometry()
+        if geography:
+            query = query.where(col(Project.project_id).in_(projects_with_geo))
+        else:
+            query = query.where(~col(Project.project_id).in_(projects_with_geo))
 
     # Handle 'search' filter separately due to its unique logic
     if search:
@@ -655,6 +692,10 @@ async def get_projects_by_category(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
+    geography: bool | None = Query(
+        None,
+        description='Filter by geographic boundaries. True = only projects with boundaries, False = only projects without boundaries, None = no filter.',
+    ),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
     session: Session = Depends(get_session),
@@ -677,6 +718,14 @@ async def get_projects_by_category(
             values=values,
             operation=operation,
         )
+
+    # Filter by geographic boundaries
+    if geography is not None:
+        projects_with_geo = get_projects_with_geometry()
+        if geography:
+            query = query.where(col(Project.project_id).in_(projects_with_geo))
+        else:
+            query = query.where(~col(Project.project_id).in_(projects_with_geo))
 
     # Handle 'search' filter separately due to its unique logic
     if search:
@@ -716,6 +765,10 @@ async def get_credits_by_category(
         None,
         description='Case insensitive search string. Currently searches on `project_id` and `name` fields only.',
     ),
+    geography: bool | None = Query(
+        None,
+        description='Filter by geographic boundaries. True = only credits from projects with boundaries, False = only credits from projects without boundaries, None = no filter.',
+    ),
     beneficiary_filters: BeneficiaryFilters = Depends(get_beneficiary_filters),
     current_page: int = Query(1, description='Page number', ge=1),
     per_page: int = Query(100, description='Items per page', le=200, ge=1),
@@ -732,6 +785,18 @@ async def get_credits_by_category(
     matching_projects = select(distinct(Project.project_id))
 
     filters = build_filters(project_filters=project_filters)
+
+    # Filter by geographic boundaries
+    if geography is not None:
+        projects_with_geo = get_projects_with_geometry()
+        if geography:
+            matching_projects = matching_projects.where(
+                col(Project.project_id).in_(projects_with_geo)
+            )
+        else:
+            matching_projects = matching_projects.where(
+                ~col(Project.project_id).in_(projects_with_geo)
+            )
 
     # Handle 'search' filter separately due to its unique logic
     if search:
