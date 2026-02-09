@@ -49,4 +49,4 @@ EXPOSE 8000
 ENTRYPOINT ["/bin/bash", "/shell-hook.sh"]
 
 # Run the application using gunicorn (supports OFFSETS_DB_WEB_CONCURRENCY and PORT env vars)
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8000} -w ${OFFSETS_DB_WEB_CONCURRENCY:-2} -t 600 -k uvicorn.workers.UvicornWorker offsets_db_api.main:app --config gunicorn_config.py --access-logfile - --error-logfile -"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8000} -w ${OFFSETS_DB_WEB_CONCURRENCY:-2} -t 600 -k uvicorn.workers.UvicornWorker offsets_db_api.main:app --config gunicorn_config.py --proxy-headers --forwarded-allow-ips='*' --access-logfile - --error-logfile -"]

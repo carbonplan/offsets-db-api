@@ -53,3 +53,7 @@ def post_fork(server, worker):
     Put the worker_id into an env variable for further use within the app.
     """
     os.environ['APP_WORKER_ID'] = str(worker._worker_id)
+
+
+# Custom access log format to include client IP, response time, and request details
+access_log_format = '%(h)s "%(r)s" %(s)s %(b)s %(M)sms [%(t)s]'
