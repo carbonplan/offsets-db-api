@@ -1,14 +1,17 @@
 import csv
 import datetime
 import io
+import random
 import time
 import traceback
 from collections import defaultdict
+from collections.abc import Callable
+from typing import TypeVar
 
 import pandas as pd
 from offsets_db_data.models import clip_schema, credit_schema, project_schema
 from offsets_db_data.registry import get_registry_from_project_id
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError, OperationalError
 from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, Session, String, col, select, text
 
 from offsets_db_api.cache import watch_dog_file
@@ -17,6 +20,79 @@ from offsets_db_api.log import get_logger
 from offsets_db_api.models import File, Project
 
 logger = get_logger()
+
+T = TypeVar('T')
+
+
+def retry_on_deadlock(
+    func: Callable[[], T],
+    max_retries: int = 5,
+    initial_delay: float = 0.5,
+    max_delay: float = 30.0,
+    exponential_base: float = 2.0,
+) -> T:
+    """
+    Retry a database operation with exponential backoff when encountering deadlocks.
+
+    Parameters
+    ----------
+    func : Callable
+        Callable to retry
+    max_retries : int, optional
+        Maximum number of retry attempts, by default 5
+    initial_delay : float, optional
+        Initial delay in seconds, by default 0.5
+    max_delay : float, optional
+        Maximum delay between retries, by default 30.0
+    exponential_base : float, optional
+        Multiplier for exponential backoff, by default 2.0
+
+    Returns
+    -------
+    Any
+        Result of the function call
+
+    Raises
+    ------
+    Exception
+        The last exception encountered if all retries are exhausted
+    """
+    last_exception = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            return func()
+        except (OperationalError, DBAPIError) as e:
+            # Check if this is a deadlock error
+            error_msg = str(e).lower()
+            is_deadlock = (
+                'deadlock detected' in error_msg
+                or 'deadlock' in error_msg
+                or '40P01' in str(e)  # PostgreSQL deadlock error code
+            )
+
+            if not is_deadlock or attempt == max_retries:
+                # Not a deadlock or out of retries - raise the error
+                raise
+
+            last_exception = e
+
+            # Calculate delay with exponential backoff and jitter
+            delay = min(initial_delay * (exponential_base**attempt), max_delay)
+            # Add jitter (±25% randomization) to prevent thundering herd
+            jitter = delay * 0.25 * (2 * random.random() - 1)
+            sleep_time = delay + jitter
+
+            logger.warning(
+                f'⚠️  Deadlock detected (attempt {attempt + 1}/{max_retries}). '
+                f'Retrying in {sleep_time:.2f}s... Error: {str(e)[:200]}'
+            )
+            time.sleep(sleep_time)
+
+    # This should never be reached, but just in case
+    if last_exception:
+        raise last_exception
+    raise RuntimeError('Unexpected retry logic error')
 
 
 def update_file_status(file: File, session, status: str, error: str | None = None) -> None:
@@ -256,7 +332,12 @@ def process_dataframe(
         else:
             if engine.dialect.has_table(conn, table_name):
                 # Instead of dropping table (which results in data type, schema overrides), delete all rows.
-                conn.execute(text(f'TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE;'))
+                # Use retry logic to handle potential deadlocks
+                retry_on_deadlock(
+                    lambda: conn.execute(
+                        text(f'TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE;')
+                    )
+                )
 
             if table_name in {'credit', 'clipproject'}:
                 session = next(get_session())
@@ -420,8 +501,12 @@ async def process_files(*, engine, session, files: list[File], chunk_size: int =
         metrics['category_metrics']['clips'].append(processing_time)
         logger.info(f'⏱️ Clip file {file.url} processed in {processing_time:.2f} seconds')
 
-    with engine.begin() as conn:
-        conn.execute(text('TRUNCATE TABLE clipproject, clip RESTART IDENTITY CASCADE;'))
+    # Truncate clip tables with retry logic to handle deadlocks
+    def truncate_clip_tables():
+        with engine.begin() as conn:
+            conn.execute(text('TRUNCATE TABLE clipproject, clip RESTART IDENTITY CASCADE;'))
+
+    retry_on_deadlock(truncate_clip_tables)
 
     df = pd.concat(clips_dfs).reset_index(drop=True).reset_index().rename(columns={'index': 'id'})
     df = clip_schema.validate(df)
