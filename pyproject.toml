@@ -22,7 +22,7 @@
 
     dependencies = [
         "fastapi-cache2 @ git+https://github.com/andersy005/fastapi-cache@pydantic-v2-compat",
-        "offsets-db-data>=2025.12.2,<2026",
+        "offsets-db-data @ git+https://github.com/carbonplan/offsets-db-data.git@70bb898",
     ]
     dynamic = ["version"]
 
