@@ -1,4 +1,5 @@
 import logging
+import os
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,9 +12,16 @@ from offsets_db_api.settings import Settings, get_settings
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Default matches docker-compose.yml; overridden in CI via OFFSETS_DB_DATABASE_URL env var.
+_DEFAULT_TEST_DB_URL = 'postgresql://offsets_db:offsets_db@localhost:5432/offsets_db'
+
 
 def get_settings_override():
-    return Settings(staging=True, api_key='cowsay')
+    return Settings(
+        staging=True,
+        api_key='cowsay',
+        database_url=os.getenv('OFFSETS_DB_DATABASE_URL', _DEFAULT_TEST_DB_URL),
+    )
 
 
 @pytest.fixture(scope='function')
