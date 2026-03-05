@@ -3,7 +3,7 @@ import typing
 
 import pydantic
 from sqlalchemy.dialects import postgresql
-from sqlmodel import BigInteger, Column, Enum, Field, Index, Relationship, SQLModel, String, text
+from sqlmodel import Column, Double, Enum, Field, Index, Relationship, SQLModel, String, text
 
 from offsets_db_api.schemas import FileCategory, FileStatus, Pagination
 
@@ -48,11 +48,11 @@ class ProjectBase(SQLModel):
         description='Date project was listed',
     )
     is_compliance: bool | None = Field(description='Whether project is compliance project')
-    retired: int | None = Field(
-        description='Total of retired credits', default=0, sa_column=Column(BigInteger())
+    retired: float | None = Field(
+        description='Total of retired credits', default=0, sa_column=Column(Double())
     )
-    issued: int | None = Field(
-        description='Total of issued credits', default=0, sa_column=Column(BigInteger())
+    issued: float | None = Field(
+        description='Total of issued credits', default=0, sa_column=Column(Double())
     )
     first_issuance_at: datetime.date | None = Field(
         description='Date of first issuance of credits',
@@ -138,7 +138,7 @@ class ProjectWithClips(ProjectBase):
 
 
 class CreditBase(SQLModel):
-    quantity: int = Field(description='Number of credits', sa_column=Column(BigInteger()))
+    quantity: float = Field(description='Number of credits', sa_column=Column(Double()))
     vintage: int | None = Field(description='Vintage year of credits')
     transaction_date: datetime.date | None = Field(description='Date of transaction', index=True)
     transaction_type: str | None = Field(description='Type of transaction')
