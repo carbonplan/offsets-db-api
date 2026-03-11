@@ -25,7 +25,8 @@ The raw data are retrieved from the following registries:
 - [climate action reserve](https://thereserve2.apx.com)
 - [american carbon registry](https://acr2.apx.com/)
 - [verra](https://registry.verra.org/)
-- [gold-standard](https://www.goldstandard.org)
+- [gold-standard](https://goldstandard.org)
+- [isometric](https://isometric.co/)
 - [cercarbono](https://cercarbono.com/)
 
 This API is deployed from the [carbonplan/offsets-db-api](https://github.com/carbonplan/offsets-db-api) repository.
