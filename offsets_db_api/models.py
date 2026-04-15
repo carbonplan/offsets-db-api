@@ -179,6 +179,7 @@ class CreditBase(SQLModel):
     retirement_beneficiary_harmonized: str | None = Field(
         description='Harmonized beneficiary of credits'
     )
+    transaction_url: str | None = Field(description='URL to the transaction record', default=None)
 
 
 class Credit(CreditBase, table=True):

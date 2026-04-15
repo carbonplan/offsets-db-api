@@ -205,7 +205,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/51/c0/00c9809d8b9346eb238a6bbd5f83e846a4ce4503da94a4c08cb7284c325b/multipledispatch-1.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/79/7b/2c79738432f5c924bef5071f933bcc9efd0473bac3b4aa584a6f7c1c8df8/mypy_extensions-1.1.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ef/82/7a9d0550484a62c6da82858ee9419f3dd1ccc9aa1c26a1e43da3ecd20b0d/natsort-8.4.0-py3-none-any.whl
-      - pypi: git+https://github.com/carbonplan/offsets-db-data.git?rev=767444e#767444e6a6606b5a7f64fdbe9afed43eb5718afc
+      - pypi: git+https://github.com/carbonplan/offsets-db-data.git?rev=377f59d#377f59db8e15db342f52b91ec1149611d4db5cb7
       - pypi: https://files.pythonhosted.org/packages/30/04/b57109ac39c90054ca8239daa61f619042b73406309c33df06d3b73a48a7/pandas_flavor-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d5/26/8e4a28ffbf3406c60d58eaa7f0529fb6197f5ae49f77b173dc84c057e1a2/pandera-0.27.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/71/e7/40fb618334dcdf7c5a316c0e7343c5cd82d3d866edc100d98e29bc945ecd/partd-1.4.2-py3-none-any.whl
@@ -408,7 +408,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/51/c0/00c9809d8b9346eb238a6bbd5f83e846a4ce4503da94a4c08cb7284c325b/multipledispatch-1.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/79/7b/2c79738432f5c924bef5071f933bcc9efd0473bac3b4aa584a6f7c1c8df8/mypy_extensions-1.1.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ef/82/7a9d0550484a62c6da82858ee9419f3dd1ccc9aa1c26a1e43da3ecd20b0d/natsort-8.4.0-py3-none-any.whl
-      - pypi: git+https://github.com/carbonplan/offsets-db-data.git?rev=767444e#767444e6a6606b5a7f64fdbe9afed43eb5718afc
+      - pypi: git+https://github.com/carbonplan/offsets-db-data.git?rev=377f59d#377f59db8e15db342f52b91ec1149611d4db5cb7
       - pypi: https://files.pythonhosted.org/packages/30/04/b57109ac39c90054ca8239daa61f619042b73406309c33df06d3b73a48a7/pandas_flavor-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d5/26/8e4a28ffbf3406c60d58eaa7f0529fb6197f5ae49f77b173dc84c057e1a2/pandera-0.27.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/71/e7/40fb618334dcdf7c5a316c0e7343c5cd82d3d866edc100d98e29bc945ecd/partd-1.4.2-py3-none-any.whl
@@ -2559,15 +2559,15 @@ packages:
   timestamp: 1763350930747
 - pypi: ./
   name: offsets-db-api
-  version: 999.post185+g953153042.d20260415
-  sha256: a575f45f9e18682ebf639410fd981dc5036e0eb5483375dbb3ee6e485bd4f381
+  version: 999.post194+g4f64f6f50.d20260415
+  sha256: d4d30d2fe062fd543f21ef31e018abe38160440e5adecf47c5189dfe8a267e35
   requires_dist:
   - fastapi-cache2 @ git+https://github.com/andersy005/fastapi-cache@pydantic-v2-compat
-  - offsets-db-data @ git+https://github.com/carbonplan/offsets-db-data.git@767444e
+  - offsets-db-data @ git+https://github.com/carbonplan/offsets-db-data.git@377f59d
   requires_python: '>=3.10'
-- pypi: git+https://github.com/carbonplan/offsets-db-data.git?rev=767444e#767444e6a6606b5a7f64fdbe9afed43eb5718afc
+- pypi: git+https://github.com/carbonplan/offsets-db-data.git?rev=377f59d#377f59db8e15db342f52b91ec1149611d4db5cb7
   name: offsets-db-data
-  version: 2025.12.2.post57+g767444e6a
+  version: 2025.12.2.post77+g377f59db8
   requires_dist:
   - country-converter==1.0.0
   - dask>=2025.2.0
@@ -2575,15 +2575,32 @@ packages:
   - fsspec>=2025.2.0
   - intake-parquet>=0.3.0
   - intake<2
-  - pandas>=2.2.2
+  - numpy>=2
+  - pandas>=2.2.2,<3.0
   - pandera>=0.23
   - pydantic>=2.10
   - pyjanitor==0.23.*
   - requests>=2.31.0
   - s3fs>=2025.2.0
-  - universal-pathlib>=0.1.3
-  - numpy>=2
   - typer>=0.15.4
+  - universal-pathlib>=0.1.3
+  - offsets-db-data[dev,docs] ; extra == 'all'
+  - hypothesis>=6.111 ; extra == 'dev'
+  - openpyxl ; extra == 'dev'
+  - pytest-cov>=6.0 ; extra == 'dev'
+  - pytest-mock>=3.14 ; extra == 'dev'
+  - pytest-xdist>=3.6 ; extra == 'dev'
+  - pytest>=9.0 ; extra == 'dev'
+  - requests-mock>=1.11 ; extra == 'dev'
+  - ruff ; extra == 'dev'
+  - jupyterlab ; extra == 'docs'
+  - myst-nb ; extra == 'docs'
+  - sphinx ; extra == 'docs'
+  - sphinx-book-theme>=1.1.2 ; extra == 'docs'
+  - sphinx-copybutton ; extra == 'docs'
+  - sphinx-design ; extra == 'docs'
+  - sphinx-togglebutton ; extra == 'docs'
+  - sphinxext-opengraph ; extra == 'docs'
   requires_python: '>=3.10'
 - conda: https://conda.anaconda.org/conda-forge/linux-64/openldap-2.6.10-he970967_0.conda
   sha256: cb0b07db15e303e6f0a19646807715d28f1264c6350309a559702f4f34f37892

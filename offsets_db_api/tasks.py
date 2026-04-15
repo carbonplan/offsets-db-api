@@ -434,6 +434,7 @@ async def process_files(*, engine, session, files: list[File], chunk_size: int =
                     'retirement_note': String,
                     'retirement_beneficiary': String,
                     'retirement_beneficiary_harmonized': String,
+                    'transaction_url': String,
                 }
                 process_dataframe(df, 'credit', engine, credit_dtype_dict, chunk_size=chunk_size)
                 update_file_status(file, session, 'success')
