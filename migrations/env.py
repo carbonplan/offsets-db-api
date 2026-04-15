@@ -1,6 +1,5 @@
 # flake8: noqa
 
-import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -26,18 +25,13 @@ from offsets_db_api.settings import get_settings
 config = context.config
 
 # https://stackoverflow.com/questions/37890284/ini-file-load-environment-variable
-settings = get_settings()
-database_url = settings.database_url
+database_url = get_settings().database_url
 if database_url is None:
     raise RuntimeError(
         'OFFSETS_DB_DATABASE_URL is not set. '
         'Copy .env.example to .env and set the database URL, '
         'or export the variable in your shell before running migrations.'
     )
-if database_url.startswith('postgres://'):
-    # Fix Heroku's incompatible postgres database uri
-    # https://stackoverflow.com/a/67754795/3266235
-    database_url = database_url.replace('postgres://', 'postgresql://', 1)
 
 config.set_main_option('sqlalchemy.url', database_url)
 # Interpret the config file for Python logging.
@@ -47,14 +41,24 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
 target_metadata = SQLModel.metadata
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
+
+def include_object(object, name, type_, reflected, compare_to):
+    """
+    Filter out objects that Alembic should not manage.
+
+    Specifically, skip GIN/functional indexes that come back from
+    PostgreSQL reflection with mangled names or expressions — Alembic
+    cannot round-trip those accurately and would otherwise emit
+    spurious drop/create pairs on every autogenerate run.
+    """
+    if type_ == 'index' and reflected and compare_to is None:
+        # Index exists in DB but not in metadata — skip if it looks like
+        # one of our functional (GIN) indexes so we don't drop it.
+        if name and name.endswith('_gin'):
+            return False
+    return True
 
 
 def run_migrations_offline() -> None:
@@ -75,6 +79,9 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={'paramstyle': 'named'},
+        compare_type=True,
+        compare_server_default=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -95,7 +102,13 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            compare_server_default=True,
+            include_object=include_object,
+        )
 
         with context.begin_transaction():
             context.run_migrations()

@@ -67,12 +67,34 @@ class ProjectBase(SQLModel):
 
 class Project(ProjectBase, table=True):
     __table_args__ = (
+        # ── Text search (GIN trgm) ─────────────────────────────────────────
         Index(
             'ix_project_project_id_gin',
             text('lower(project_id) gin_trgm_ops'),
             postgresql_using='gin',
         ),
         Index('ix_project_name_gin', text('lower(name) gin_trgm_ops'), postgresql_using='gin'),
+        Index(
+            'ix_project_registry_gin', text('lower(registry) gin_trgm_ops'), postgresql_using='gin'
+        ),
+        Index(
+            'ix_project_country_gin', text('lower(country) gin_trgm_ops'), postgresql_using='gin'
+        ),
+        Index(
+            'ix_project_category_gin', text('lower(category) gin_trgm_ops'), postgresql_using='gin'
+        ),
+        Index(
+            'ix_project_project_type_gin',
+            text('lower(project_type) gin_trgm_ops'),
+            postgresql_using='gin',
+        ),
+        # ── ARRAY containment (GIN) ────────────────────────────────────────
+        Index('ix_project_protocol_gin', 'protocol', postgresql_using='gin'),
+        # ── Range / equality filters (B-tree) ─────────────────────────────
+        Index('ix_project_listed_at', 'listed_at'),
+        Index('ix_project_is_compliance', 'is_compliance'),
+        Index('ix_project_issued', 'issued'),
+        Index('ix_project_retired', 'retired'),
     )
     credits: list['Credit'] = Relationship(
         back_populates='project',
@@ -101,6 +123,14 @@ class ClipBase(SQLModel):
 
 
 class Clip(ClipBase, table=True):
+    __table_args__ = (
+        # ── Text search (GIN trgm) ─────────────────────────────────────────
+        Index('ix_clip_title_gin', text('lower(title) gin_trgm_ops'), postgresql_using='gin'),
+        Index('ix_clip_type_gin', text('lower(type) gin_trgm_ops'), postgresql_using='gin'),
+        Index('ix_clip_source_gin', text('lower(source) gin_trgm_ops'), postgresql_using='gin'),
+        # ── Range filter (B-tree) ──────────────────────────────────────────
+        Index('ix_clip_date', 'date'),
+    )
     id: int = Field(default=None, primary_key=True, index=True)
     project_relationships: list['ClipProject'] = Relationship(
         back_populates='clip', sa_relationship_kwargs={'cascade': 'all,delete,delete-orphan'}
@@ -153,6 +183,7 @@ class CreditBase(SQLModel):
 
 class Credit(CreditBase, table=True):
     __table_args__ = (
+        # ── Text search (GIN trgm) ─────────────────────────────────────────
         Index(
             'ix_credit_transaction_type_gin',
             text('lower(transaction_type) gin_trgm_ops'),
@@ -183,6 +214,8 @@ class Credit(CreditBase, table=True):
             text('lower(retirement_beneficiary_harmonized) gin_trgm_ops'),
             postgresql_using='gin',
         ),
+        # ── Equality / range filters (B-tree) ─────────────────────────────
+        Index('ix_credit_vintage', 'vintage'),
     )
 
     id: int = Field(default=None, primary_key=True)
