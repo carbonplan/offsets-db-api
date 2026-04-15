@@ -18,7 +18,7 @@ COPY . .
 RUN pixi install --locked
 
 # Create the shell-hook bash script to activate the environment
-RUN pixi shell-hook > /shell-hook.sh
+RUN pixi shell-hook --shell bash > /shell-hook.sh
 
 # Extend the shell-hook script to run the command passed to the container
 RUN echo 'exec "$@"' >> /shell-hook.sh
@@ -41,6 +41,9 @@ COPY --from=build /app/.pixi/envs/default /app/.pixi/envs/default
 COPY --from=build /shell-hook.sh /shell-hook.sh
 COPY --from=build /app /app
 WORKDIR /app
+
+# Ensure the pixi env binaries are on PATH (belt-and-suspenders alongside shell-hook)
+ENV PATH="/app/.pixi/envs/default/bin:$PATH"
 
 # Expose the port
 EXPOSE 8000
