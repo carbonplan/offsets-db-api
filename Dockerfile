@@ -1,5 +1,5 @@
 # Build stage using pixi
-FROM ghcr.io/prefix-dev/pixi:0.59.0 AS build
+FROM ghcr.io/prefix-dev/pixi:latest AS build
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
