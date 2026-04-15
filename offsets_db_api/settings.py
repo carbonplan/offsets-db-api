@@ -3,13 +3,21 @@ import pydantic_settings
 
 
 class Settings(pydantic_settings.BaseSettings):
-    model_config = pydantic_settings.SettingsConfigDict(env_prefix='offsets_db_')
+    model_config = pydantic_settings.SettingsConfigDict(
+        env_prefix='offsets_db_',
+        env_file='.env',
+        env_file_encoding='utf-8',
+        extra='ignore',
+    )
 
     database_url: str | None = pydantic.Field(default=None)
     database_pool_size: int = pydantic.Field(default=300)
     web_concurrency: int = pydantic.Field(default=1)
     staging: bool = pydantic.Field(default=True)
     api_key: pydantic.SecretStr | None = pydantic.Field(default=None)
+    # Comma-separated list of allowed CORS origins, e.g. https://carbonplan.org,https://offsets.carbonplan.org
+    # Defaults to '*' (allow all) — restrict in production via OFFSETS_DB_ALLOWED_ORIGINS.
+    allowed_origins: str = pydantic.Field(default='*')
 
     @pydantic.field_validator('database_url')
     def fix_database_url(cls, value: str) -> str:

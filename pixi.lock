@@ -5,6 +5,8 @@ environments:
     - url: https://conda.anaconda.org/conda-forge/
     indexes:
     - https://pypi.org/simple
+    options:
+      pypi-prerelease-mode: if-necessary-or-explicit
     packages:
       linux-64:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_libgcc_mutex-0.1-conda_forge.tar.bz2
@@ -2557,13 +2559,12 @@ packages:
   timestamp: 1763350930747
 - pypi: ./
   name: offsets-db-api
-  version: 999.post167+g693258630.d20251203
-  sha256: 75bb412736e1f995a0741bff741e63e497f864b6748b4cf4a0e9f98ae91f3816
+  version: 999.post184+g682f726cd.d20260415
+  sha256: aec64692d922b4e124b8aefc2c3e8298712dda0be1b64ceb7b310ea4615b00f7
   requires_dist:
   - fastapi-cache2 @ git+https://github.com/andersy005/fastapi-cache@pydantic-v2-compat
   - offsets-db-data>=2025.12.2,<2026
   requires_python: '>=3.10'
-  editable: true
 - pypi: https://files.pythonhosted.org/packages/71/3f/9f9619ca6684d7cbb63593d1bb8265feb55896daf5a703607d9f7c3be2b4/offsets_db_data-2025.12.2-py3-none-any.whl
   name: offsets-db-data
   version: 2025.12.2
