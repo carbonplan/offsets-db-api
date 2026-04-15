@@ -1,6 +1,5 @@
 # flake8: noqa
 
-import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -26,18 +25,13 @@ from offsets_db_api.settings import get_settings
 config = context.config
 
 # https://stackoverflow.com/questions/37890284/ini-file-load-environment-variable
-settings = get_settings()
-database_url = settings.database_url
+database_url = get_settings().database_url
 if database_url is None:
     raise RuntimeError(
         'OFFSETS_DB_DATABASE_URL is not set. '
         'Copy .env.example to .env and set the database URL, '
         'or export the variable in your shell before running migrations.'
     )
-if database_url.startswith('postgres://'):
-    # Fix Heroku's incompatible postgres database uri
-    # https://stackoverflow.com/a/67754795/3266235
-    database_url = database_url.replace('postgres://', 'postgresql://', 1)
 
 config.set_main_option('sqlalchemy.url', database_url)
 # Interpret the config file for Python logging.

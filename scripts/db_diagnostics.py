@@ -16,15 +16,13 @@ Usage
 
 from __future__ import annotations
 
-import os
 import sys
 
 import click
 import psycopg2
 import psycopg2.extras
-from dotenv import load_dotenv
 
-load_dotenv(override=False)
+from offsets_db_api.settings import get_settings
 
 # ── Sections ──────────────────────────────────────────────────────────────────
 ALL_SECTIONS = ['overview', 'tables', 'indexes', 'usage', 'vacuum', 'cache', 'bloat']
@@ -38,10 +36,13 @@ GREEN = '\x1b[32m'
 YELLOW = '\x1b[33m'
 RED = '\x1b[31m'
 CYAN = '\x1b[36m'
-BLUE = '\x1b[34m'
+
+_USE_COLOR = True
 
 
 def _c(text: str, *codes: str) -> str:
+    if not _USE_COLOR:
+        return str(text)
     return ''.join(codes) + str(text) + RESET
 
 
@@ -103,18 +104,24 @@ def _scalar(cur, sql: str, params=None):
 def section_overview(cur) -> None:
     _header('Overview')
 
-    pg_version = _scalar(cur, 'SELECT version()')
-    db_name = _scalar(cur, 'SELECT current_database()')
-    db_size = _scalar(cur, 'SELECT pg_size_pretty(pg_database_size(current_database()))')
-    conn_count = _scalar(cur, 'SELECT count(*) FROM pg_stat_activity')
-    max_conn = _scalar(cur, 'SELECT setting FROM pg_settings WHERE name = %s', ('max_connections',))
-    stats_reset = _scalar(cur, 'SELECT stats_reset FROM pg_stat_bgwriter')
+    row = _q(
+        cur,
+        """
+        SELECT
+            version()                                                        AS pg_version,
+            current_database()                                               AS db_name,
+            pg_size_pretty(pg_database_size(current_database()))             AS db_size,
+            (SELECT count(*) FROM pg_stat_activity)                          AS conn_count,
+            (SELECT setting FROM pg_settings WHERE name = 'max_connections') AS max_conn,
+            (SELECT stats_reset FROM pg_stat_bgwriter)                       AS stats_reset
+    """,
+    )[0]
 
-    _kv('Database', db_name)
-    _kv('Size', db_size, color=CYAN)
-    _kv('Connections', f'{conn_count} / {max_conn}')
-    _kv('Stats reset at', str(stats_reset) if stats_reset else 'never')
-    _kv('PostgreSQL', (pg_version or '').split(' on ')[0])
+    _kv('Database', row['db_name'])
+    _kv('Size', row['db_size'], color=CYAN)
+    _kv('Connections', f'{row["conn_count"]} / {row["max_conn"]}')
+    _kv('Stats reset at', str(row['stats_reset']) if row['stats_reset'] else 'never')
+    _kv('PostgreSQL', (row['pg_version'] or '').split(' on ')[0])
 
 
 def section_tables(cur) -> None:
@@ -217,7 +224,7 @@ def section_usage(cur) -> None:
         ('unused', 'Unused?', 7),
     ]
 
-    # colorise the 'unused' flag
+    unused = sum(1 for r in rows if r.get('unused'))
     for row in rows:
         if row['unused']:
             row['unused'] = _c('YES', YELLOW)
@@ -225,8 +232,6 @@ def section_usage(cur) -> None:
         row['tuples_fetched'] = f'{row["tuples_fetched"]:,}'
 
     _table(rows, cols)
-
-    unused = sum(1 for r in rows if 'YES' in str(r.get('unused', '')))
     if unused:
         click.echo()
         click.echo(_c(f'  ⚠  {unused} non-primary index(es) have never been scanned.', YELLOW))
@@ -302,18 +307,17 @@ def section_cache(cur) -> None:
     """,
     )
 
+    def _pct(val) -> str:
+        if val is None:
+            return _c('  n/a', DIM)
+        v = float(val)
+        color = GREEN if v >= 99 else YELLOW if v >= 95 else RED
+        return _c(f'{v:6.2f}%', color)
+
     click.echo()
     click.echo(_c('  Table cache hits (heap + index)', BOLD))
     click.echo()
     for row in table_rows:
-
-        def _pct(val) -> str:
-            if val is None:
-                return _c('  n/a', DIM)
-            v = float(val)
-            color = GREEN if v >= 99 else YELLOW if v >= 95 else RED
-            return _c(f'{v:6.2f}%', color)
-
         click.echo(
             f'  {_c(row["table_name"], CYAN):<22}'
             f'  heap={_pct(row["heap_hit_pct"])}'
@@ -425,7 +429,7 @@ SECTION_FNS = {
 @click.option(
     '--url',
     '-u',
-    default=lambda: os.environ.get('OFFSETS_DB_DATABASE_URL', ''),
+    default=lambda: get_settings().database_url or '',
     show_default='$OFFSETS_DB_DATABASE_URL',
     help='PostgreSQL connection URL.',
 )
@@ -443,9 +447,8 @@ def main(url: str, section: tuple[str, ...], no_color: bool) -> None:
     """Diagnostic report for the offsets-db PostgreSQL database."""
 
     if no_color:
-        # Disable colour by making all codes empty strings.
-        global RESET, BOLD, DIM, GREEN, YELLOW, RED, CYAN, BLUE
-        RESET = BOLD = DIM = GREEN = YELLOW = RED = CYAN = BLUE = ''
+        global _USE_COLOR
+        _USE_COLOR = False
 
     if not url:
         click.echo(
@@ -454,19 +457,17 @@ def main(url: str, section: tuple[str, ...], no_color: bool) -> None:
         )
         sys.exit(1)
 
-    if url.startswith('postgres://'):
-        url = url.replace('postgres://', 'postgresql://', 1)
-
     try:
         conn = psycopg2.connect(url, cursor_factory=psycopg2.extras.RealDictCursor)
     except psycopg2.OperationalError as exc:
         click.echo(f'Connection failed: {exc}', err=True)
         sys.exit(1)
 
+    active = set(section)
     try:
         with conn.cursor() as cur:
             for name in ALL_SECTIONS:
-                if name in section:
+                if name in active:
                     SECTION_FNS[name](cur)
         click.echo()
     finally:
