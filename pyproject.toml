@@ -147,8 +147,8 @@
     db-stop  = "pg_ctl -D .pixi-postgres/data stop"
 
     # ── Database updates ──────────────────────────────────────────────────────
-    update-db-production = "python update_database.py production --url https://offsets-db.fly.dev/files/"
-    update-db-staging    = "python update_database.py staging --url https://offsets-db-staging.fly.dev/files/"
+    update-db-production = "python scripts/update_database.py production --url https://offsets-db.fly.dev/files/"
+    update-db-staging    = "python scripts/update_database.py staging --url https://offsets-db-staging.fly.dev/files/"
 
     # ── Load testing ──────────────────────────────────────────────────────────
     loadtest = "locust -f load-testing/locustfile.py"

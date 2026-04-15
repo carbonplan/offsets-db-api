@@ -6,7 +6,7 @@ comment: false
 
 ignore:
   - 'tests/*.py'
-  - 'update_database.py'
+  - 'scripts/*.py'
   - 'load-testing/*.py'
   - 'migrations/*.py'
   - 'migrations/versions/*.py'
