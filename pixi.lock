@@ -2559,8 +2559,8 @@ packages:
   timestamp: 1763350930747
 - pypi: ./
   name: offsets-db-api
-  version: 999.post176+g457cf9b1a.d20260302
-  sha256: 44ae1f4fb67056c635953e93946c998ab6eea8b2c1159b9a7b37e505c1ab4984
+  version: 999.post184+g682f726cd.d20260415
+  sha256: aec64692d922b4e124b8aefc2c3e8298712dda0be1b64ceb7b310ea4615b00f7
   requires_dist:
   - fastapi-cache2 @ git+https://github.com/andersy005/fastapi-cache@pydantic-v2-compat
   - offsets-db-data>=2025.12.2,<2026

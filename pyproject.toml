@@ -105,7 +105,7 @@
     keep-runtime-typing = true
 
 [tool.pytest.ini_options]
-    addopts              = "--cov=./ --cov-report=xml  --cov-report=term-missing --verbose"
+    addopts              = "--cov=./offsets_db_api --cov-report=xml  --cov-report=term-missing --verbose"
     console_output_style = "count"
 
 [tool.pixi.workspace]
