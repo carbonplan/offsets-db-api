@@ -18,7 +18,7 @@
 OffsetsDB-API, is a fastAPI application, designed to integrate and harmonize data related to the issuance and use of offset credits from the six major offset registries. This database aims to promote transparency and accountability in the carbon offsets market. It provides an accessible online tool, data downloads, and APIs for researchers, journalists, and regulators.
 
 [![Fly.io Deployment](https://github.com/carbonplan/offsets-db-api/actions/workflows/fly.yml/badge.svg)](https://github.com/carbonplan/offsets-db-api/actions/workflows/fly.yml)
-[![Database Update](https://github.com/carbonplan/offsets-db-api/actions/workflows/update-db.yaml/badge.svg)](https://github.com/carbonplan/offsets-db-api/actions/workflows/updated-db.yaml)
+[![Database Update](https://github.com/carbonplan/offsets-db-api/actions/workflows/update-db.yaml/badge.svg)](https://github.com/carbonplan/offsets-db-api/actions/workflows/update-db.yaml)
 ![MIT License](https://badgen.net/badge/license/MIT/blue)
 [![Code Coverage Status][codecov-badge]][codecov-link]
 
