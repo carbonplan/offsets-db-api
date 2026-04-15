@@ -130,9 +130,10 @@
 
     # ── Local Postgres via Docker Compose ─────────────────────────────────────
     # Requires Docker to be running.
-    db-down = "docker compose down"
-    db-logs = "docker compose logs -f db"
-    db-up   = "docker compose up -d --wait db"
+    db-down        = "docker compose down"
+    db-logs        = "docker compose logs -f db"
+    db-up          = "docker compose up -d --wait db"
+    db-diagnostics = "python scripts/db_diagnostics.py"
     # Start DB, wait until healthy, then apply migrations (one-time setup or after a schema change).
     dev-setup = { depends-on = ["db-up", "migrate"] }
     # Start DB then launch the dev server (daily startup).
