@@ -18,7 +18,7 @@
 OffsetsDB-API, is a fastAPI application, designed to integrate and harmonize data related to the issuance and use of offset credits from the six major offset registries. This database aims to promote transparency and accountability in the carbon offsets market. It provides an accessible online tool, data downloads, and APIs for researchers, journalists, and regulators.
 
 [![Fly.io Deployment](https://github.com/carbonplan/offsets-db-api/actions/workflows/fly.yml/badge.svg)](https://github.com/carbonplan/offsets-db-api/actions/workflows/fly.yml)
-[![Database Update](https://github.com/carbonplan/offsets-db-api/actions/workflows/update-db.yaml/badge.svg)](https://github.com/carbonplan/offsets-db-api/actions/workflows/updated-db.yaml)
+[![Database Update](https://github.com/carbonplan/offsets-db-api/actions/workflows/update-db.yaml/badge.svg)](https://github.com/carbonplan/offsets-db-api/actions/workflows/update-db.yaml)
 ![MIT License](https://badgen.net/badge/license/MIT/blue)
 [![Code Coverage Status][codecov-badge]][codecov-link]
 
@@ -38,11 +38,62 @@ cd offsets-db-api
 pixi install
 ```
 
+## local development
+
+> [!NOTE]
+> A running PostgreSQL instance is required. Two options are provided: Docker Compose (recommended) or a local server managed by pixi.
+
+### Option A — Docker Compose (recommended)
+
+Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or any Docker engine).
+
+```console
+# 1. Copy the example env file and adjust if needed
+cp .env.example .env
+
+# 2. Start Postgres and apply migrations in one step
+pixi run dev-setup
+
+# 3. Start the API server with hot reload
+pixi run serve
+```
+
+The API will be available at <http://localhost:8000> — interactive docs at <http://localhost:8000/docs>.
+
+```console
+# Run tests (DB must be running)
+pixi run test
+
+# Stop Postgres
+pixi run db-down
+```
+
+### Option B — pixi-managed Postgres (no Docker)
+
+The `postgresql` package is already in the pixi environment.
+
+```console
+# 1. Copy the example env file
+cp .env.example .env
+
+# 2. One-time: initialise the data directory and create the database
+pixi run db-init
+
+# 3. Start the server and apply migrations
+pixi run db-start
+pixi run migrate
+
+# 4. Launch the API
+pixi run serve
+```
+
+To stop the server: `pixi run db-stop`. The data directory is kept in `.pixi-postgres/` (gitignored).
+
 ## usage
 
 ```console
 pixi run serve        # Start development server with hot reload
-pixi run test         # Run tests
+pixi run test         # Run tests (requires a running DB)
 pixi run migrate      # Run database migrations
 pixi run serve-prod   # Start production server
 ```

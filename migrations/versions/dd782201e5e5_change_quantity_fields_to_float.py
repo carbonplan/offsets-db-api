@@ -1,8 +1,8 @@
-"""change quantity issued retired to float
+"""change_quantity_fields_to_float
 
-Revision ID: 7880172b664a
-Revises: e84bf98a5507
-Create Date: 2026-03-04 17:13:52.366361
+Revision ID: dd782201e5e5
+Revises: e7d9d6cf54c6
+Create Date: 2026-04-15 07:55:28.570225
 
 """
 
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = '7880172b664a'
-down_revision = 'e84bf98a5507'
+revision = 'dd782201e5e5'
+down_revision = 'e7d9d6cf54c6'
 branch_labels = None
 depends_on = None
 

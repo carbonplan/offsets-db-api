@@ -105,7 +105,7 @@
     keep-runtime-typing = true
 
 [tool.pytest.ini_options]
-    addopts              = "--cov=./ --cov-report=xml  --cov-report=term-missing --verbose"
+    addopts              = "--cov=./offsets_db_api --cov-report=xml  --cov-report=term-missing --verbose"
     console_output_style = "count"
 
 [tool.pixi.workspace]
@@ -116,18 +116,41 @@
     offsets-db-api = { path = ".", editable = true }
 
 [tool.pixi.tasks]
-    # Testing
+    # ── Testing ───────────────────────────────────────────────────────────────
     test = "python -m pytest"
-    # Database migrations
+
+    # ── Database migrations ───────────────────────────────────────────────────
     migrate = "python -m alembic upgrade head"
-    # Development server
+
+    # ── Development server ────────────────────────────────────────────────────
     serve = "uvicorn offsets_db_api.main:app --reload"
-    # Production server
+
+    # ── Production server ─────────────────────────────────────────────────────
     serve-prod = "gunicorn -w 2 -t 600 -k uvicorn.workers.UvicornWorker offsets_db_api.main:app --config gunicorn_config.py --access-logfile - --error-logfile -"
-    # Database updates
-    update-db-production = "python update_database.py production --url https://offsets-db.fly.dev/files/"
-    update-db-staging    = "python update_database.py staging --url https://offsets-db-staging.fly.dev/files/"
-    # Load testing
+
+    # ── Local Postgres via Docker Compose ─────────────────────────────────────
+    # Requires Docker to be running.
+    db-down        = "docker compose down"
+    db-logs        = "docker compose logs -f db"
+    db-up          = "docker compose up -d --wait db"
+    db-diagnostics = "python scripts/db_diagnostics.py"
+    # Start DB, wait until healthy, then apply migrations (one-time setup or after a schema change).
+    dev-setup = { depends-on = ["db-up", "migrate"] }
+    # Start DB then launch the dev server (daily startup).
+    dev = { depends-on = ["db-up", "serve"] }
+
+    # ── Local Postgres via pixi (no Docker) ───────────────────────────────────
+    # One-time: initialise a local Postgres data directory and create the DB.
+    db-init = "initdb -D .pixi-postgres/data -U offsets_db --pwfile=<(echo offsets_db) && pg_ctl -D .pixi-postgres/data -l .pixi-postgres/logfile start && createdb -U offsets_db offsets_db"
+    # Start / stop the pixi-managed Postgres server.
+    db-start = "pg_ctl -D .pixi-postgres/data -l .pixi-postgres/logfile start"
+    db-stop  = "pg_ctl -D .pixi-postgres/data stop"
+
+    # ── Database updates ──────────────────────────────────────────────────────
+    update-db-production = "python scripts/update_database.py production --url https://offsets-db.fly.dev/files/"
+    update-db-staging    = "python scripts/update_database.py staging --url https://offsets-db-staging.fly.dev/files/"
+
+    # ── Load testing ──────────────────────────────────────────────────────────
     loadtest = "locust -f load-testing/locustfile.py"
 
 [tool.pixi.dependencies]
@@ -141,6 +164,7 @@
     pandas            = ">=2.3.3,<3"
     psycopg2-binary   = "==2.9.10"
     pydantic-settings = ">=2.12.0,<3"
+    python-dotenv     = ">=1.0,<2"
     sqlmodel          = "==0.0.27"
     ujson             = ">=5.11.0,<6"
     universal-pathlib = ">=0.3.6,<0.4"

@@ -1,3 +1,10 @@
 fly.staging.toml
 fly.prod.toml
 cache-watch-dog/
+.pixi/
+__pycache__/
+*.pyc
+*.egg-info/
+.git/
+tests/
+node_modules/

@@ -98,6 +98,9 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
+# Local pixi-managed Postgres data directory
+.pixi-postgres/
+
 # Environments
 .env
 .venv

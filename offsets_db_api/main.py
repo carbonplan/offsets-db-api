@@ -14,6 +14,7 @@ from offsets_db_api.app_metadata import metadata
 from offsets_db_api.cache import clear_cache, request_key_builder, watch_dog_dir, watch_dog_file
 from offsets_db_api.log import get_logger
 from offsets_db_api.routers import charts, clips, credits, files, health, projects
+from offsets_db_api.settings import get_settings
 
 logger = get_logger()
 
@@ -68,13 +69,10 @@ async def lifespan_event(app: FastAPI):
 
 def create_application() -> FastAPI:
     application = FastAPI(**metadata, lifespan=lifespan_event)
-    # TODO: figure out how to set origins to only the frontend domain
-    # in the meantime, we can allow everything.
-    origins = ['*']  # is this dangerous? I don't think so, but I'm not sure.
+    settings = get_settings()
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=origins,
-        allow_credentials=True,
+        allow_origins=[o.strip() for o in settings.allowed_origins.split(',')],
         allow_methods=['*'],
         allow_headers=['*'],
     )
