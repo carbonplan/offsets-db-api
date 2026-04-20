@@ -104,14 +104,23 @@ def post_data_to_environment(
     for file in files:
         print(f'- {file["category"]}: {file["url"]}')
 
-    # Send the request
-    response = requests.post(url, headers=headers, data=json.dumps(files))
+    try:
+        response = requests.post(url, headers=headers, data=json.dumps(files), timeout=100)
+    except requests.exceptions.ConnectionError:
+        print(f'\nFailed in {env}: could not connect to {url}')
+        print('Is the API server running?')
+        sys.exit(1)
+    except requests.exceptions.Timeout:
+        print(f'\nFailed in {env}: request to {url} timed out after 30s')
+        sys.exit(1)
 
-    # Log the response
     if response.ok:
         print(f'\nSuccess in {env}:', response.json())
     else:
-        print(f'\nFailed in {env}:', response.text)
+        print(f'\nFailed in {env}: HTTP {response.status_code} {response.reason}')
+        body = response.text.strip()
+        if body:
+            print(body)
         sys.exit(1)
 
 
