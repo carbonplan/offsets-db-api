@@ -280,7 +280,7 @@ async def test_process_files_project(
 
         await process_files(engine=mock_engine, session=mock_session, files=[sample_file_project])
 
-        mock_read_parquet.assert_called_once_with(sample_file_project.url, engine='fastparquet')
+        mock_read_parquet.assert_called_once_with(sample_file_project.url, engine='pyarrow')
         mock_project_schema.validate.assert_called_once_with(sample_df_projects)
         mock_process_df.assert_called_once()
         mock_update_status.assert_called_once_with(sample_file_project, mock_session, 'success')
