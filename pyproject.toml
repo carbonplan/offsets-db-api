@@ -22,7 +22,7 @@
 
     dependencies = [
         "fastapi-cache2 @ git+https://github.com/andersy005/fastapi-cache@pydantic-v2-compat",
-        "offsets-db-data>=2025.12.2,<2026",
+        "offsets-db-data @ git+https://github.com/carbonplan/offsets-db-data.git@main",
     ]
     dynamic = ["version"]
 
@@ -130,10 +130,10 @@
 
     # ── Local Postgres via Docker Compose ─────────────────────────────────────
     # Requires Docker to be running.
+    db-diagnostics = "python scripts/db_diagnostics.py"
     db-down        = "docker compose down"
     db-logs        = "docker compose logs -f db"
     db-up          = "docker compose up -d --wait db"
-    db-diagnostics = "python scripts/db_diagnostics.py"
     # Start DB, wait until healthy, then apply migrations (one-time setup or after a schema change).
     dev-setup = { depends-on = ["db-up", "migrate"] }
     # Start DB then launch the dev server (daily startup).
@@ -158,11 +158,11 @@
     alembic           = "==1.14"
     apscheduler       = ">=3.11.0,<4"
     fastapi           = "==0.115.5"
-    pyarrow           = ">=16.0"
     gunicorn          = ">=23.0.0,<24"
     httpx             = ">=0.28.1,<0.29"
     pandas            = ">=2.3.3,<3"
     psycopg2-binary   = "==2.9.10"
+    pyarrow           = ">=16.0"
     pydantic-settings = ">=2.12.0,<3"
     python-dotenv     = ">=1.0,<2"
     sqlmodel          = "==0.0.27"
