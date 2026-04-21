@@ -1,6 +1,7 @@
 import csv
 import datetime
 import io
+import json
 import random
 import time
 import traceback
@@ -191,9 +192,23 @@ def process_dataframe(
         for col_name, dtype in dtype_dict.items():
             if 'ARRAY' in str(dtype) and col_name in df.columns:
                 logger.info(f'Converting column {col_name} to PostgreSQL array format')
-                df[col_name] = df[col_name].apply(
-                    lambda x: '{' + ','.join(str(i) for i in x) + '}' if isinstance(x, list) else x
-                )
+
+                def _to_pg_array(x):
+                    if x is None:
+                        return x
+                    if isinstance(x, str):
+                        try:
+                            parsed = json.loads(x)
+                            if isinstance(parsed, list):
+                                return '{' + ','.join(str(i) for i in parsed) + '}'
+                        except (json.JSONDecodeError, ValueError):
+                            pass
+                        return x
+                    if hasattr(x, '__iter__'):
+                        return '{' + ','.join(str(i) for i in x) + '}'
+                    return x
+
+                df[col_name] = df[col_name].apply(_to_pg_array)
 
     with engine.begin() as conn:
         if table_name == 'credit':
@@ -416,7 +431,7 @@ async def process_files(*, engine, session, files: list[File], chunk_size: int =
             if file.category == 'credits':
                 logger.info(f'📚 Loading credit file: {file.url}')
                 data = (
-                    pd.read_parquet(file.url, engine='fastparquet')
+                    pd.read_parquet(file.url, engine='pyarrow')
                     .reset_index(drop=True)
                     .reset_index()
                     .rename(columns={'index': 'id'})
@@ -441,7 +456,7 @@ async def process_files(*, engine, session, files: list[File], chunk_size: int =
 
             elif file.category == 'projects':
                 logger.info(f'📚 Loading project file: {file.url}')
-                data = pd.read_parquet(file.url, engine='fastparquet')
+                data = pd.read_parquet(file.url, engine='pyarrow')
                 df = project_schema.validate(data)
                 project_dtype_dict = {
                     'project_id': String,
@@ -495,7 +510,7 @@ async def process_files(*, engine, session, files: list[File], chunk_size: int =
         metrics['file_metrics'][file.id]['category'] = file.category
         try:
             logger.info(f'📚 Loading clip file: {file.url}')
-            data = pd.read_parquet(file.url, engine='fastparquet')
+            data = pd.read_parquet(file.url, engine='pyarrow')
             clips_dfs.append(data)
             update_file_status(file, session, 'success')
             metrics['file_metrics'][file.id]['status'] = 'success'
@@ -534,6 +549,11 @@ async def process_files(*, engine, session, files: list[File], chunk_size: int =
     for _, row in df.iterrows():
         clip_id = row['id']  # Assuming 'id' is the primary key in Clip model
         project_ids = row['project_ids']
+        if isinstance(project_ids, str):
+            try:
+                project_ids = json.loads(project_ids)
+            except (json.JSONDecodeError, ValueError):
+                project_ids = [project_ids]
         for project_id in project_ids:
             clip_projects_data.append({'id': index, 'clip_id': clip_id, 'project_id': project_id})
             index += 1

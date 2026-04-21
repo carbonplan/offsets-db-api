@@ -130,12 +130,16 @@
 
     # ── Local Postgres via Docker Compose ─────────────────────────────────────
     # Requires Docker to be running.
+    db-diagnostics = "python scripts/db_diagnostics.py"
     db-down        = "docker compose down"
     db-logs        = "docker compose logs -f db"
     db-up          = "docker compose up -d --wait db"
-    db-diagnostics = "python scripts/db_diagnostics.py"
+    # Wipe data volumes and start a completely fresh DB (WARNING: destroys all local data).
+    db-reset = "docker compose down -v && docker compose up -d --wait db"
     # Start DB, wait until healthy, then apply migrations (one-time setup or after a schema change).
     dev-setup = { depends-on = ["db-up", "migrate"] }
+    # Wipe DB, recreate, and apply migrations — use when the schema is broken or migrations are out of sync.
+    dev-reset = { depends-on = ["db-reset", "migrate"] }
     # Start DB then launch the dev server (daily startup).
     dev = { depends-on = ["db-up", "serve"] }
 
@@ -149,6 +153,8 @@
     # ── Database updates ──────────────────────────────────────────────────────
     update-db-production = "python scripts/update_database.py production --url https://offsets-db.fly.dev/files/"
     update-db-staging    = "python scripts/update_database.py staging --url https://offsets-db-staging.fly.dev/files/"
+    # Seed local DB from staging-files.json (requires `pixi run serve` to be running in another terminal).
+    seed-local = "OFFSETS_DB_API_KEY_STAGING=local-dev-key python scripts/update_database.py staging --url http://127.0.0.1:8000/files/"
 
     # ── Load testing ──────────────────────────────────────────────────────────
     loadtest = "locust -f load-testing/locustfile.py"
@@ -158,11 +164,11 @@
     alembic           = "==1.14"
     apscheduler       = ">=3.11.0,<4"
     fastapi           = "==0.115.5"
-    fastparquet       = ">=2024.11.0,<2025"
     gunicorn          = ">=23.0.0,<24"
     httpx             = ">=0.28.1,<0.29"
     pandas            = ">=2.3.3,<3"
     psycopg2-binary   = "==2.9.10"
+    pyarrow           = ">=16.0"
     pydantic-settings = ">=2.12.0,<3"
     python-dotenv     = ">=1.0,<2"
     sqlmodel          = "==0.0.27"
