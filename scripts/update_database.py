@@ -86,15 +86,15 @@ def _get_api_key(env: str) -> str:
     return key
 
 
-def _request(method: str, url: str, headers: dict, **kwargs) -> httpx.Response:
+def _request(method: str, url: str, headers: dict, timeout: float = 30, **kwargs) -> httpx.Response:
     try:
-        return httpx.request(method, url, headers=headers, timeout=30, **kwargs)
+        return httpx.request(method, url, headers=headers, timeout=timeout, **kwargs)
     except httpx.ConnectError:
         print(f'Error: could not connect to {url}')
         print('Is the API server running?')
         sys.exit(1)
     except httpx.TimeoutException:
-        print(f'Error: request to {url} timed out after 30s')
+        print(f'Error: request to {url} timed out after {timeout:.0f}s')
         sys.exit(1)
 
 
@@ -147,6 +147,7 @@ def post_data_to_environment(
     env: str,
     url: str,
     files: list[dict[str, str]],
+    post_timeout: float = 120,
 ) -> None:
     headers = {
         'accept': 'application/json',
@@ -158,9 +159,9 @@ def post_data_to_environment(
     for file in files:
         print(f'- {file["category"]}: {file["url"]}')
 
-    response = _request('POST', url, headers=headers, json=files)
+    response = _request('POST', url, headers=headers, json=files, timeout=post_timeout)
     if not response.is_success:
-        print(f'\nFailed in {env}: HTTP {response.status_code} {response.reason}')
+        print(f'\nFailed in {env}: HTTP {response.status_code} {response.reason_phrase}')
         if body := response.text.strip():
             print(body)
         sys.exit(1)
