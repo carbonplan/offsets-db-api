@@ -258,7 +258,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/51/c0/00c9809d8b9346eb238a6bbd5f83e846a4ce4503da94a4c08cb7284c325b/multipledispatch-1.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/79/7b/2c79738432f5c924bef5071f933bcc9efd0473bac3b4aa584a6f7c1c8df8/mypy_extensions-1.1.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ef/82/7a9d0550484a62c6da82858ee9419f3dd1ccc9aa1c26a1e43da3ecd20b0d/natsort-8.4.0-py3-none-any.whl
-      - pypi: git+https://github.com/carbonplan/offsets-db-data.git?rev=a200308#a200308476a1bfedfa376b1d04cba2e94199cd07
+      - pypi: git+https://github.com/carbonplan/offsets-db-data.git?rev=dd06d31#dd06d3156c9a14e9bd1470626be7b628125056c4
       - pypi: https://files.pythonhosted.org/packages/30/04/b57109ac39c90054ca8239daa61f619042b73406309c33df06d3b73a48a7/pandas_flavor-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d5/26/8e4a28ffbf3406c60d58eaa7f0529fb6197f5ae49f77b173dc84c057e1a2/pandera-0.27.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/71/e7/40fb618334dcdf7c5a316c0e7343c5cd82d3d866edc100d98e29bc945ecd/partd-1.4.2-py3-none-any.whl
@@ -512,7 +512,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/51/c0/00c9809d8b9346eb238a6bbd5f83e846a4ce4503da94a4c08cb7284c325b/multipledispatch-1.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/79/7b/2c79738432f5c924bef5071f933bcc9efd0473bac3b4aa584a6f7c1c8df8/mypy_extensions-1.1.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ef/82/7a9d0550484a62c6da82858ee9419f3dd1ccc9aa1c26a1e43da3ecd20b0d/natsort-8.4.0-py3-none-any.whl
-      - pypi: git+https://github.com/carbonplan/offsets-db-data.git?rev=a200308#a200308476a1bfedfa376b1d04cba2e94199cd07
+      - pypi: git+https://github.com/carbonplan/offsets-db-data.git?rev=dd06d31#dd06d3156c9a14e9bd1470626be7b628125056c4
       - pypi: https://files.pythonhosted.org/packages/30/04/b57109ac39c90054ca8239daa61f619042b73406309c33df06d3b73a48a7/pandas_flavor-0.8.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d5/26/8e4a28ffbf3406c60d58eaa7f0529fb6197f5ae49f77b173dc84c057e1a2/pandera-0.27.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/71/e7/40fb618334dcdf7c5a316c0e7343c5cd82d3d866edc100d98e29bc945ecd/partd-1.4.2-py3-none-any.whl
@@ -3975,15 +3975,15 @@ packages:
   timestamp: 1763350930747
 - pypi: ./
   name: offsets-db-api
-  version: 999.post199+ga074cce76.d20260421
-  sha256: 36cff09d03cfe2da0418bf43d11e9c77315eea3c42651f0a875f8604e37d2ee9
+  version: 999.post200+g8a1178d7c.d20260421
+  sha256: 3e4ae0147e33d36620556c6749d842c377ffc99e2106a708fe99952e74fe88e3
   requires_dist:
   - fastapi-cache2 @ git+https://github.com/andersy005/fastapi-cache@pydantic-v2-compat
-  - offsets-db-data @ git+https://github.com/carbonplan/offsets-db-data.git@a200308
+  - offsets-db-data @ git+https://github.com/carbonplan/offsets-db-data.git@dd06d31
   requires_python: '>=3.10'
-- pypi: git+https://github.com/carbonplan/offsets-db-data.git?rev=a200308#a200308476a1bfedfa376b1d04cba2e94199cd07
+- pypi: git+https://github.com/carbonplan/offsets-db-data.git?rev=dd06d31#dd06d3156c9a14e9bd1470626be7b628125056c4
   name: offsets-db-data
-  version: 2025.12.2.post80+ga20030847
+  version: 2025.12.2.post82+gdd06d3156
   requires_dist:
   - country-converter==1.0.0
   - dask>=2025.2.0
