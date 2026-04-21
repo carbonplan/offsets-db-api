@@ -147,7 +147,7 @@ def post_data_to_environment(
     env: str,
     url: str,
     files: list[dict[str, str]],
-    post_timeout: float = 120,
+    post_timeout: float = 300,
 ) -> None:
     headers = {
         'accept': 'application/json',
@@ -172,8 +172,7 @@ def post_data_to_environment(
 
     results = _poll_until_complete(base_url=url, file_ids=file_ids, headers=headers)
 
-    failures = [f for f in results if f['status'] == 'failure']
-    if failures:
+    if failures := [f for f in results if f['status'] == 'failure']:
         print(f'\n{len(failures)} file(s) failed in {env}:')
         for f in failures:
             print(f'  - [{f["id"]}] {f["url"]}')
