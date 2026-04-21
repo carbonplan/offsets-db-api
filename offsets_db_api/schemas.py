@@ -120,7 +120,7 @@ def get_beneficiary_filters(
     ),
     beneficiary_search_fields: list[str] = Query(
         default=['retirement_beneficiary_harmonized'],
-        description='Beneficiary fields to search in. Valid fields are: `retirement_beneficiary_harmonized`, `retirement_beneficiary`, `retirement_beneficiary_account`, `retirement_beneficiary_note`, `retirement_beneficiary_reason`',
+        description='Beneficiary fields to search in. Valid fields are: `retirement_beneficiary_harmonized`, `retirement_beneficiary`, `retirement_account`, `retirement_note`, `retirement_reason`',
     ),
 ):
     """Dependency to get beneficiary search params from query parameters"""
