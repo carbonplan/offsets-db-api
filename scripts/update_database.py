@@ -3,10 +3,11 @@ import datetime
 import json
 import os
 import sys
+import time
 
 import fsspec
+import httpx
 import pandas as pd
-import requests
 
 
 def generate_path(*, date: datetime.date, bucket: str, category: str) -> str:
@@ -77,51 +78,109 @@ def load_files_from_json(file_path: str) -> list[dict[str, str]]:
         sys.exit(1)
 
 
+def _get_api_key(env: str) -> str:
+    var = 'OFFSETS_DB_API_KEY_PRODUCTION' if env == 'production' else 'OFFSETS_DB_API_KEY_STAGING'
+    key = os.environ.get(var)
+    if key is None:
+        raise ValueError(f'{var} environment variable not set')
+    return key
+
+
+def _request(method: str, url: str, headers: dict, **kwargs) -> httpx.Response:
+    try:
+        return httpx.request(method, url, headers=headers, timeout=30, **kwargs)
+    except httpx.ConnectError:
+        print(f'Error: could not connect to {url}')
+        print('Is the API server running?')
+        sys.exit(1)
+    except httpx.TimeoutException:
+        print(f'Error: request to {url} timed out after 30s')
+        sys.exit(1)
+
+
+def _poll_until_complete(
+    *,
+    base_url: str,
+    file_ids: list[int],
+    headers: dict,
+    initial_delay: float = 2.0,
+    max_delay: float = 30.0,
+    timeout: float = 600.0,
+) -> list[dict]:
+    """Poll file statuses with exponential backoff until all leave pending state."""
+    pending = set(file_ids)
+    results: dict[int, dict] = {}
+    deadline = time.monotonic() + timeout
+    delay = initial_delay
+
+    print(f'\nPolling status for {len(file_ids)} file(s)...')
+
+    while pending:
+        if time.monotonic() > deadline:
+            timed_out = [str(i) for i in pending]
+            print(f'Timed out waiting for file(s): {", ".join(timed_out)}')
+            sys.exit(1)
+
+        time.sleep(delay)
+        delay = min(delay * 2, max_delay)
+
+        for file_id in list(pending):
+            resp = _request('GET', f'{base_url.rstrip("/")}/{file_id}', headers=headers)
+            if not resp.is_success:
+                print(f'  [{file_id}] HTTP {resp.status_code} polling status — skipping')
+                continue
+            file = resp.json()
+            if file['status'] != 'pending':
+                pending.discard(file_id)
+                results[file_id] = file
+                icon = '✓' if file['status'] == 'success' else '✗'
+                error = f'  error: {file["error"]}' if file.get('error') else ''
+                print(
+                    f'  {icon} [{file_id}] {file["category"]:8s} {file["status"]:8s}  {file["url"]}{error}'
+                )
+
+    return list(results.values())
+
+
 def post_data_to_environment(
     *,
     env: str,
     url: str,
     files: list[dict[str, str]],
 ) -> None:
-    """Post file definitions to the API."""
-    # Get API key from environment
-    if env == 'production':
-        api_key = os.environ.get('OFFSETS_DB_API_KEY_PRODUCTION')
-        if api_key is None:
-            raise ValueError('OFFSETS_DB_API_KEY_PRODUCTION environment variable not set')
-    else:
-        api_key = os.environ.get('OFFSETS_DB_API_KEY_STAGING')
-        if api_key is None:
-            raise ValueError('OFFSETS_DB_API_KEY_STAGING environment variable not set')
-
     headers = {
         'accept': 'application/json',
         'Content-Type': 'application/json',
-        'X-API-KEY': api_key,
+        'X-API-KEY': _get_api_key(env),
     }
 
-    print(f'\nSending {len(files)} files to {url}:')
+    print(f'\nSending {len(files)} file(s) to {url}:')
     for file in files:
         print(f'- {file["category"]}: {file["url"]}')
 
-    timeout = 200  # seconds
-    try:
-        response = requests.post(url, headers=headers, data=json.dumps(files), timeout=timeout)
-    except requests.exceptions.ConnectionError:
-        print(f'\nFailed in {env}: could not connect to {url}')
-        print('Is the API server running?')
-        sys.exit(1)
-    except requests.exceptions.Timeout:
-        print(f'\nFailed in {env}: request to {url} timed out after {timeout} seconds')
-        sys.exit(1)
-
-    if response.ok:
-        print(f'\nSuccess in {env}:', response.json())
-    else:
+    response = _request('POST', url, headers=headers, json=files)
+    if not response.is_success:
         print(f'\nFailed in {env}: HTTP {response.status_code} {response.reason}')
         if body := response.text.strip():
             print(body)
         sys.exit(1)
+
+    queued = response.json()
+    file_ids = [f['id'] for f in queued]
+    print(f'Queued {len(file_ids)} file(s) with ids: {file_ids}')
+
+    results = _poll_until_complete(base_url=url, file_ids=file_ids, headers=headers)
+
+    failures = [f for f in results if f['status'] == 'failure']
+    if failures:
+        print(f'\n{len(failures)} file(s) failed in {env}:')
+        for f in failures:
+            print(f'  - [{f["id"]}] {f["url"]}')
+            if f.get('error'):
+                print(f'    {f["error"]}')
+        sys.exit(1)
+
+    print(f'\nAll {len(results)} file(s) processed successfully in {env}.')
 
 
 def main():
