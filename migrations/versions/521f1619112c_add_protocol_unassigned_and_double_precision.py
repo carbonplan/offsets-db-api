@@ -1,21 +1,34 @@
-"""change issued, retired, quantity columns to double precision
+"""add protocol_unassigned column and change issued/retired/quantity to double precision
 
-Revision ID: a1b2c3d4e5f6
-Revises: 521f1619112c
+Revision ID: 521f1619112c
+Revises: e7d9d6cf54c6
 Create Date: 2026-04-22
 
 """
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
-revision = 'a1b2c3d4e5f6'
-down_revision = '521f1619112c'
+# revision identifiers, used by Alembic.
+revision = '521f1619112c'
+down_revision = 'e7d9d6cf54c6'
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
+    op.add_column(
+        'project',
+        sa.Column('protocol_unassigned', postgresql.ARRAY(sa.String()), nullable=True),
+    )
+    op.create_index(
+        'ix_project_protocol_unassigned_gin',
+        'project',
+        ['protocol_unassigned'],
+        unique=False,
+        postgresql_using='gin',
+    )
     op.alter_column(
         'project',
         'issued',
@@ -65,3 +78,9 @@ def downgrade() -> None:
         existing_type=sa.Double(),
         postgresql_using='issued::bigint',
     )
+    op.drop_index(
+        'ix_project_protocol_unassigned_gin',
+        table_name='project',
+        postgresql_using='gin',
+    )
+    op.drop_column('project', 'protocol_unassigned')
