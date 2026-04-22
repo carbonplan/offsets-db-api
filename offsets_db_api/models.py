@@ -39,7 +39,14 @@ class ProjectBase(SQLModel):
     registry: str = Field(description='Name of the registry')
     proponent: str | None
     protocol: list[str] | None = Field(
-        description='List of protocols', default=None, sa_column=Column(postgresql.ARRAY(String()))
+        description='List of mapped/recognised protocol IDs',
+        default=None,
+        sa_column=Column(postgresql.ARRAY(String())),
+    )
+    protocol_unassigned: list[str] | None = Field(
+        description='Raw registry protocol strings that could not be mapped to a known ID',
+        default=None,
+        sa_column=Column(postgresql.ARRAY(String())),
     )
     category: str | None = Field(description='Category of the project')
     status: str | None
@@ -90,6 +97,7 @@ class Project(ProjectBase, table=True):
         ),
         # ── ARRAY containment (GIN) ────────────────────────────────────────
         Index('ix_project_protocol_gin', 'protocol', postgresql_using='gin'),
+        Index('ix_project_protocol_unassigned_gin', 'protocol_unassigned', postgresql_using='gin'),
         # ── Range / equality filters (B-tree) ─────────────────────────────
         Index('ix_project_listed_at', 'listed_at'),
         Index('ix_project_is_compliance', 'is_compliance'),
