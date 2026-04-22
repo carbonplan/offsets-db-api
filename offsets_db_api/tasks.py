@@ -13,7 +13,19 @@ import pandas as pd
 from offsets_db_data.models import clip_schema, credit_schema, project_schema
 from offsets_db_data.registry import get_registry_from_project_id
 from sqlalchemy.exc import DBAPIError, IntegrityError, OperationalError
-from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, Session, String, col, select, text
+from sqlmodel import (
+    ARRAY,
+    BigInteger,
+    Boolean,
+    Date,
+    DateTime,
+    Double,
+    Session,
+    String,
+    col,
+    select,
+    text,
+)
 
 from offsets_db_api.cache import watch_dog_file
 from offsets_db_api.database import get_session
@@ -429,7 +441,7 @@ async def process_files(*, engine, session, files: list[File], chunk_size: int =
                 credit_dtype_dict = {
                     'recorded_at': DateTime,
                     'project_id': String,
-                    'quantity': BigInteger,
+                    'quantity': Double,
                     'vintage': BigInteger,
                     'transaction_date': Date,
                     'transaction_type': String,
@@ -460,8 +472,8 @@ async def process_files(*, engine, session, files: list[File], chunk_size: int =
                     'country': String,
                     'listed_at': Date,
                     'is_compliance': Boolean,
-                    'retired': BigInteger,
-                    'issued': BigInteger,
+                    'retired': Double,
+                    'issued': Double,
                     'project_url': String,
                 }
 
