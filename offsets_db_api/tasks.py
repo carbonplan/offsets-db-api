@@ -149,6 +149,7 @@ def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
         'american-carbon-registry': 'https://acr2.apx.com/mymodule/reg/prjView.asp?id1=',
         'climate-action-reserve': 'https://thereserve2.apx.com/mymodule/reg/prjView.asp?id1=',
         'art-trees': 'https://art.apx.com/mymodule/reg/prjView.asp?id1=',
+        'cercarbono': 'https://www.ecoregistry.io/projects/CDC-',
     }
     values = []
     for project_id in missing_project_ids:
