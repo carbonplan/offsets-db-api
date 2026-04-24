@@ -121,8 +121,11 @@ def update_file_status(file: File, session, status: str, error: str | None = Non
 
 def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
     """
-    Ensure all project IDs in the dataframe exist in the database.
-    If not, create placeholder projects for missing IDs.
+    Safety net: create zeroed-out placeholder projects for any project IDs that slipped
+    through the offsets-db-data ETL without a corresponding project record.
+
+    This should rarely fire. If it does, it means add_placeholder_projects() in
+    offsets-db-data/pipeline_utils.py missed a case — investigate there first.
     """
     logger.info('🔍 Checking for missing project IDs')
 
@@ -140,7 +143,14 @@ def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
     missing_project_ids = set(credit_project_ids) - existing_project_ids
 
     logger.info(f'🔍 Found {len(existing_project_ids)} existing project IDs')
-    logger.info(f'🔍 Found {len(missing_project_ids)} missing project IDs: {missing_project_ids}')
+    if missing_project_ids:
+        logger.warning(
+            f'⚠️  {len(missing_project_ids)} project IDs in credits have no project record '
+            f'(should have been handled by add_placeholder_projects in offsets-db-data): '
+            f'{missing_project_ids}'
+        )
+    else:
+        logger.info('✅ All project IDs accounted for — no safety-net placeholders needed')
 
     # Create placeholder projects for missing IDs
     urls = {
