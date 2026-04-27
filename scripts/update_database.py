@@ -25,14 +25,16 @@ def get_latest(*, bucket: str) -> list[dict[str, str]]:
     fs = fsspec.filesystem('s3')
     today, yesterday = calculate_date(days_back=0), calculate_date(days_back=1)
 
-    items = [
+    required_items = [
         ('credits', 'credits-augmented', today, yesterday),
         ('projects', 'projects-augmented', today, yesterday),
+    ]
+    optional_items = [
         ('clips', 'curated-clips', today, yesterday),
     ]
 
     data = []
-    for key, category, latest_date, previous_date in items:
+    for key, category, latest_date, previous_date in required_items:
         latest_path = generate_path(date=latest_date, bucket=bucket, category=category)
         previous_path = generate_path(date=previous_date, bucket=bucket, category=category)
 
@@ -41,10 +43,20 @@ def get_latest(*, bucket: str) -> list[dict[str, str]]:
         elif fs.exists(previous_path):
             entry_url = previous_path
         else:
-            print(f"Warning: Both {latest_path} and {previous_path} don't exist, skipping")
             raise ValueError(f"both {latest_path} and {previous_path} file paths don't exist")
 
         data.append({'category': key, 'url': entry_url})
+
+    for key, category, latest_date, previous_date in optional_items:
+        latest_path = generate_path(date=latest_date, bucket=bucket, category=category)
+        previous_path = generate_path(date=previous_date, bucket=bucket, category=category)
+
+        if fs.exists(latest_path):
+            data.append({'category': key, 'url': latest_path})
+        elif fs.exists(previous_path):
+            data.append({'category': key, 'url': previous_path})
+        else:
+            print(f"Warning: Both {latest_path} and {previous_path} don't exist, skipping clips")
 
     # Handle weekly summaries
     weekly_summary_start = datetime.date(year=2024, month=2, day=6)

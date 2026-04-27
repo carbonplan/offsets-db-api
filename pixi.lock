@@ -3975,8 +3975,8 @@ packages:
   timestamp: 1763350930747
 - pypi: ./
   name: offsets-db-api
-  version: 999.post196+g3cd99620f.d20260424
-  sha256: 8c44d61e6c0bbad275adba946828ef8b102e2bb1bc122a6e1a938c60ea6e471d
+  version: 999.post197+g754e52233.d20260427
+  sha256: 3c04f5214c1385469320cef16ceebf8b5ec7e019a7acc096675ee1bebdac8c24
   requires_dist:
   - fastapi-cache2 @ git+https://github.com/andersy005/fastapi-cache@pydantic-v2-compat
   - offsets-db-data @ git+https://github.com/carbonplan/offsets-db-data.git@f5ea9f7
