@@ -10,6 +10,7 @@ class MockProjectFilters:
     registry: str | None = None
     country: str | None = None
     protocol: list[str] | None = None
+    protocol_unassigned: list[str] | None = None
     category: str | None = None
     project_type: str | None = None
     is_compliance: bool | None = None
@@ -147,6 +148,25 @@ def test_build_filters_exclude():
     assert ('country', 'US', 'ilike', Project) not in filters
     assert ('protocol', ['AFOLU'], 'ANY', Project) in filters
     assert ('is_compliance', False, '==', Project) in filters
+
+
+def test_build_filters_protocol_unassigned():
+    """Test filtering on protocol_unassigned."""
+    project_filters = MockProjectFilters(protocol_unassigned=['some-raw-string', 'another'])
+    filters = build_filters(project_filters=project_filters)
+    assert len(filters) == 1
+    assert ('protocol_unassigned', ['some-raw-string', 'another'], 'ANY', Project) in filters
+
+
+def test_build_filters_exclude_protocol_unassigned():
+    """Test that protocol_unassigned can be excluded."""
+    project_filters = MockProjectFilters(protocol=['AFOLU'], protocol_unassigned=['raw-value'])
+    filters = build_filters(
+        project_filters=project_filters, exclude_filters=['protocol_unassigned']
+    )
+    assert len(filters) == 1
+    assert ('protocol', ['AFOLU'], 'ANY', Project) in filters
+    assert ('protocol_unassigned', ['raw-value'], 'ANY', Project) not in filters
 
 
 def test_build_filters_combined():

@@ -13,6 +13,7 @@ Registries = typing.Literal[
     'american-carbon-registry',
     'climate-action-reserve',
     'art-trees',
+    'cercarbono',
     'none',
 ]
 
@@ -56,6 +57,7 @@ class ProjectFilters(pydantic.BaseModel):
     registry: list[Registries] | None = None
     country: list[str] | None = None
     protocol: list[str] | None = None
+    protocol_unassigned: list[str] | None = None
     category: list[str] | None = None
     project_type: list[str] | None = None
     is_compliance: bool | None = None
@@ -71,6 +73,9 @@ def get_project_filters(
     registry: list[Registries] | None = Query(None, description='Registry name'),
     country: list[str] | None = Query(None, description='Country name'),
     protocol: list[str] | None = Query(None, description='Protocol name'),
+    protocol_unassigned: list[str] | None = Query(
+        None, description='Raw registry protocol strings that could not be mapped to a known ID'
+    ),
     category: list[str] | None = Query(None, description='Category name'),
     is_compliance: bool | None = Query(None, description='Whether project is an ARB project'),
     listed_at_from: datetime.datetime | datetime.date | None = Query(
@@ -90,6 +95,7 @@ def get_project_filters(
         registry=registry,
         country=country,
         protocol=protocol,
+        protocol_unassigned=protocol_unassigned,
         category=category,
         is_compliance=is_compliance,
         listed_at_from=listed_at_from,

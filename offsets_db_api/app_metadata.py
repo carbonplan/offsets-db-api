@@ -26,8 +26,9 @@ The raw data are retrieved from the following registries:
 - [american carbon registry](https://acr2.apx.com/)
 - [verra](https://registry.verra.org/)
 - [gold-standard](https://www.goldstandard.org)
+- [cercarbono](https://cercarbono.com/)
 
-This API is deployed from the [carbonplan/offsets-db](https://github.com/carbonplan/offsets-db) repository.
+This API is deployed from the [carbonplan/offsets-db-api](https://github.com/carbonplan/offsets-db-api) repository.
 If you have any questions or feedback, please open an issue in that repository.
 """
 

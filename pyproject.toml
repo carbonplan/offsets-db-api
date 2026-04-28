@@ -22,7 +22,7 @@
 
     dependencies = [
         "fastapi-cache2 @ git+https://github.com/andersy005/fastapi-cache@pydantic-v2-compat",
-        "offsets-db-data @ git+https://github.com/carbonplan/offsets-db-data.git@main",
+        "offsets-db-data @ git+https://github.com/carbonplan/offsets-db-data.git@ca37c59",
     ]
     dynamic = ["version"]
 
@@ -152,7 +152,7 @@
 
     # ── Database updates ──────────────────────────────────────────────────────
     update-db-production = "python scripts/update_database.py production --url https://offsets-db.fly.dev/files/"
-    update-db-staging    = "python scripts/update_database.py staging --url https://offsets-db-staging.fly.dev/files/"
+    update-db-staging    = "python scripts/update_database.py staging --url https://offsets-db-staging.fly.dev/files/ --bucket s3://carbonplan-scratch/offsets-db-test"
     # Seed local DB from staging-files.json (requires `pixi run serve` to be running in another terminal).
     seed-local = "OFFSETS_DB_API_KEY_STAGING=local-dev-key python scripts/update_database.py staging --url http://127.0.0.1:8000/files/"
 

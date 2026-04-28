@@ -3,7 +3,17 @@ import typing
 
 import pydantic
 from sqlalchemy.dialects import postgresql
-from sqlmodel import BigInteger, Column, Enum, Field, Index, Relationship, SQLModel, String, text
+from sqlmodel import (
+    Column,
+    Double,
+    Enum,
+    Field,
+    Index,
+    Relationship,
+    SQLModel,
+    String,
+    text,
+)
 
 from offsets_db_api.schemas import FileCategory, FileStatus, Pagination
 
@@ -39,7 +49,14 @@ class ProjectBase(SQLModel):
     registry: str = Field(description='Name of the registry')
     proponent: str | None
     protocol: list[str] | None = Field(
-        description='List of protocols', default=None, sa_column=Column(postgresql.ARRAY(String()))
+        description='List of mapped/recognised protocol IDs',
+        default=None,
+        sa_column=Column(postgresql.ARRAY(String())),
+    )
+    protocol_unassigned: list[str] | None = Field(
+        description='Raw registry protocol strings that could not be mapped to a known ID',
+        default=None,
+        sa_column=Column(postgresql.ARRAY(String())),
     )
     category: str | None = Field(description='Category of the project')
     status: str | None
@@ -48,11 +65,11 @@ class ProjectBase(SQLModel):
         description='Date project was listed',
     )
     is_compliance: bool | None = Field(description='Whether project is compliance project')
-    retired: int | None = Field(
-        description='Total of retired credits', default=0, sa_column=Column(BigInteger())
+    retired: float | None = Field(
+        description='Total of retired credits', default=0, sa_column=Column(Double())
     )
-    issued: int | None = Field(
-        description='Total of issued credits', default=0, sa_column=Column(BigInteger())
+    issued: float | None = Field(
+        description='Total of issued credits', default=0, sa_column=Column(Double())
     )
     first_issuance_at: datetime.date | None = Field(
         description='Date of first issuance of credits',
@@ -90,6 +107,7 @@ class Project(ProjectBase, table=True):
         ),
         # ── ARRAY containment (GIN) ────────────────────────────────────────
         Index('ix_project_protocol_gin', 'protocol', postgresql_using='gin'),
+        Index('ix_project_protocol_unassigned_gin', 'protocol_unassigned', postgresql_using='gin'),
         # ── Range / equality filters (B-tree) ─────────────────────────────
         Index('ix_project_listed_at', 'listed_at'),
         Index('ix_project_is_compliance', 'is_compliance'),
@@ -168,7 +186,7 @@ class ProjectWithClips(ProjectBase):
 
 
 class CreditBase(SQLModel):
-    quantity: int = Field(description='Number of credits', sa_column=Column(BigInteger()))
+    quantity: float | None = Field(description='Number of credits', sa_column=Column(Double()))
     vintage: int | None = Field(description='Vintage year of credits')
     transaction_date: datetime.date | None = Field(description='Date of transaction', index=True)
     transaction_type: str | None = Field(description='Type of transaction')
@@ -274,8 +292,8 @@ class ProjectCounts(pydantic.BaseModel):
 
 class CreditCounts(pydantic.BaseModel):
     category: str
-    retired: int
-    issued: int
+    retired: float
+    issued: float
 
 
 class PaginatedProjectCounts(pydantic.BaseModel):

@@ -13,7 +13,19 @@ import pandas as pd
 from offsets_db_data.models import clip_schema, credit_schema, project_schema
 from offsets_db_data.registry import get_registry_from_project_id
 from sqlalchemy.exc import DBAPIError, IntegrityError, OperationalError
-from sqlmodel import ARRAY, BigInteger, Boolean, Date, DateTime, Session, String, col, select, text
+from sqlmodel import (
+    ARRAY,
+    BigInteger,
+    Boolean,
+    Date,
+    DateTime,
+    Double,
+    Session,
+    String,
+    col,
+    select,
+    text,
+)
 
 from offsets_db_api.cache import watch_dog_file
 from offsets_db_api.database import get_session
@@ -109,8 +121,11 @@ def update_file_status(file: File, session, status: str, error: str | None = Non
 
 def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
     """
-    Ensure all project IDs in the dataframe exist in the database.
-    If not, create placeholder projects for missing IDs.
+    Safety net: create zeroed-out placeholder projects for any project IDs that slipped
+    through the offsets-db-data ETL without a corresponding project record.
+
+    This should rarely fire. If it does, it means add_placeholder_projects() in
+    offsets-db-data/pipeline_utils.py missed a case — investigate there first.
     """
     logger.info('🔍 Checking for missing project IDs')
 
@@ -128,7 +143,14 @@ def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
     missing_project_ids = set(credit_project_ids) - existing_project_ids
 
     logger.info(f'🔍 Found {len(existing_project_ids)} existing project IDs')
-    logger.info(f'🔍 Found {len(missing_project_ids)} missing project IDs: {missing_project_ids}')
+    if missing_project_ids:
+        logger.warning(
+            f'⚠️  {len(missing_project_ids)} project IDs in credits have no project record '
+            f'(should have been handled by add_placeholder_projects in offsets-db-data): '
+            f'{missing_project_ids}'
+        )
+    else:
+        logger.info('✅ All project IDs accounted for — no safety-net placeholders needed')
 
     # Create placeholder projects for missing IDs
     urls = {
@@ -137,6 +159,7 @@ def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
         'american-carbon-registry': 'https://acr2.apx.com/mymodule/reg/prjView.asp?id1=',
         'climate-action-reserve': 'https://thereserve2.apx.com/mymodule/reg/prjView.asp?id1=',
         'art-trees': 'https://art.apx.com/mymodule/reg/prjView.asp?id1=',
+        'cercarbono': 'https://www.ecoregistry.io/projects/CDC-',
     }
     values = []
     for project_id in missing_project_ids:
@@ -147,7 +170,8 @@ def ensure_projects_exist(df: pd.DataFrame, session: Session) -> None:
             project_id=project_id,
             registry=registry,
             category='unknown',
-            protocol=['unknown'],
+            protocol=None,
+            protocol_unassigned=None,
             project_url=url,
             project_type='Unknown',
             project_type_source='carbonplan',
@@ -428,7 +452,7 @@ async def process_files(*, engine, session, files: list[File], chunk_size: int =
                 credit_dtype_dict = {
                     'recorded_at': DateTime,
                     'project_id': String,
-                    'quantity': BigInteger,
+                    'quantity': Double,
                     'vintage': BigInteger,
                     'transaction_date': Date,
                     'transaction_type': String,
@@ -451,6 +475,7 @@ async def process_files(*, engine, session, files: list[File], chunk_size: int =
                     'registry': String,
                     'proponent': String,
                     'protocol': ARRAY(String),
+                    'protocol_unassigned': ARRAY(String),
                     'category': String,
                     'project_type': String,
                     'project_type_source': String,
@@ -458,8 +483,8 @@ async def process_files(*, engine, session, files: list[File], chunk_size: int =
                     'country': String,
                     'listed_at': Date,
                     'is_compliance': Boolean,
-                    'retired': BigInteger,
-                    'issued': BigInteger,
+                    'retired': Double,
+                    'issued': Double,
                     'project_url': String,
                 }
 
