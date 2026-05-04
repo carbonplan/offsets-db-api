@@ -8,8 +8,6 @@ on:
     branches:
       - main
   workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * *' # Daily “At 00:00” UTC
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
