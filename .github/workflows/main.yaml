@@ -8,8 +8,6 @@ on:
     branches:
       - main
   workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * *' # Daily “At 00:00” UTC
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -23,8 +21,6 @@ env:
   OFFSETS_DB_DATABASE_URL: postgres://postgres_user:postgres_password@localhost:5432/postgres_db
   OFFSETS_DB_STAGING: true
   OFFSETS_DB_API_KEY: cowsay
-
-  AWS_DEFAULT_REGION: us-west-2
 
 jobs:
   test:
@@ -55,18 +51,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v6
+      - name: Setup AWS and pixi
+        uses: ./.github/actions/setup
         with:
-          role-to-assume: arn:aws:iam::631969445205:role/github-action-role
           role-session-name: offsets-db-ci-role-session
-          aws-region: ${{ env.AWS_DEFAULT_REGION }}
-
-      - name: Set up pixi
-        uses: prefix-dev/setup-pixi@v0.9.5
-        with:
-          cache: true
-          locked: true
 
       - name: Database migration
         run: |
@@ -79,6 +67,7 @@ jobs:
       - name: Upload code coverage to Codecov
         uses: codecov/codecov-action@v6.0.0
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
           flags: unittests
           env_vars: OS,PYTHON

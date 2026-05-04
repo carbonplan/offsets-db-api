@@ -156,9 +156,6 @@
     # Seed local DB from staging-files.json (requires `pixi run serve` to be running in another terminal).
     seed-local = "OFFSETS_DB_API_KEY_STAGING=local-dev-key python scripts/update_database.py staging --url http://127.0.0.1:8000/files/"
 
-    # ── Load testing ──────────────────────────────────────────────────────────
-    loadtest = "locust -f load-testing/locustfile.py"
-
 [tool.pixi.dependencies]
     aiofiles          = ">=25.1.0,<26"
     alembic           = "==1.14"
@@ -177,7 +174,6 @@
     uvicorn           = ">=0.38.0,<0.39"
     watchdog          = ">=6.0.0,<7"
     # Dev/test dependencies
-    locust         = ">=2.20,<3"
     postgresql     = ">=17,<18"
     pydantic       = ">=2.10,<3"
     pytest         = ">=8,<9"

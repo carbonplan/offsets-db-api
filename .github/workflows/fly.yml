@@ -14,17 +14,12 @@ on:
       - main
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions:
   id-token: write # This is required for requesting the JWT
   contents: read # This is required for actions/checkout
 
 env:
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-  AWS_DEFAULT_REGION: us-west-2
   OFFSETS_DB_API_KEY_STAGING: ${{ secrets.OFFSETS_DB_API_KEY_STAGING }}
   OFFSETS_DB_API_KEY_PRODUCTION: ${{ secrets.OFFSETS_DB_API_KEY_PRODUCTION }}
   PRODUCTION_URL: 'https://offsets-db.fly.dev/docs'
@@ -35,23 +30,19 @@ jobs:
     name: deploy staging
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    concurrency:
+      group: ${{ github.workflow }}-staging-${{ github.ref }}
+      cancel-in-progress: true
     environment:
       name: staging
       url: ${{ env.STAGING_URL }}
     if: ${{ (contains(github.event.pull_request.labels.*.name, 'api') && github.event_name == 'pull_request') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'}}
     steps:
       - uses: actions/checkout@v6
-      - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v6
+      - name: Setup AWS and pixi
+        uses: ./.github/actions/setup
         with:
-          role-to-assume: arn:aws:iam::631969445205:role/github-action-role
           role-session-name: offsets-db-fly-role-session
-          aws-region: ${{ env.AWS_DEFAULT_REGION }}
-      - name: Set up pixi
-        uses: prefix-dev/setup-pixi@v0.9.5
-        with:
-          cache: true
-          locked: true
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy to Staging
         run: |
@@ -63,34 +54,30 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: deploy-staging
+    concurrency:
+      group: ${{ github.workflow }}-production
+      cancel-in-progress: false
     environment:
       name: production
       url: ${{ env.PRODUCTION_URL }}
     if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' }}
     steps:
       - uses: actions/checkout@v6
-      - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v6
+      - name: Setup AWS and pixi
+        uses: ./.github/actions/setup
         with:
-          role-to-assume: arn:aws:iam::631969445205:role/github-action-role
           role-session-name: offsets-db-fly-role-session
-          aws-region: ${{ env.AWS_DEFAULT_REGION }}
       - name: Get Current time in UTC in format YYYY-MM-DD HH:MM
         if: always()
         id: time
         run: echo "date=$(date -u +'%Y-%m-%d %H:%M')" >> $GITHUB_OUTPUT
-      - name: Set up pixi
-        uses: prefix-dev/setup-pixi@v0.9.5
-        with:
-          cache: true
-          locked: true
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy to Production
         run: |
           flyctl deploy --remote-only --config fly.prod.toml
       - name: Notify Slack on Failure
         if: failure()
-        uses: slackapi/slack-github-action@v3.0.1
+        uses: slackapi/slack-github-action@v3.0.2
         with:
           method: chat.postMessage
           token: ${{ secrets.SLACK_BOT_TOKEN }}
