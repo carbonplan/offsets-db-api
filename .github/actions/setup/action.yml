@@ -1,0 +1,23 @@
+name: Configure AWS and Pixi
+description: Configure AWS OIDC credentials and set up pixi
+
+inputs:
+  role-session-name:
+    description: AWS role session name
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v6
+      with:
+        role-to-assume: arn:aws:iam::631969445205:role/github-action-role
+        role-session-name: ${{ inputs.role-session-name }}
+        aws-region: us-west-2
+
+    - name: Set up pixi
+      uses: prefix-dev/setup-pixi@v0.9.5
+      with:
+        cache: true
+        locked: true

@@ -9,13 +9,12 @@ on:
     - cron: '45 6 * * *' # 6:45am UTC every day
 
 env:
-  AWS_DEFAULT_REGION: us-west-2
   OFFSETS_DB_API_KEY_STAGING: ${{ secrets.OFFSETS_DB_API_KEY_STAGING }}
   OFFSETS_DB_API_KEY_PRODUCTION: ${{ secrets.OFFSETS_DB_API_KEY_PRODUCTION }}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 permissions:
   id-token: write # This is required for requesting the JWT
@@ -23,34 +22,29 @@ permissions:
 
 jobs:
   seed-db:
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v6
+      - name: Setup AWS and pixi
+        uses: ./.github/actions/setup
         with:
-          role-to-assume: arn:aws:iam::631969445205:role/github-action-role
           role-session-name: offsets-db-update-role-session
-          aws-region: ${{ env.AWS_DEFAULT_REGION }}
 
       - name: Get Current time in UTC in format YYYY-MM-DD HH:MM
         if: always()
         id: time
         run: echo "date=$(date -u +'%Y-%m-%d %H:%M')" >> $GITHUB_OUTPUT
 
-      - name: Set up pixi
-        uses: prefix-dev/setup-pixi@v0.9.5
-        with:
-          cache: true
-          locked: true
-
       - name: Seed Staging Database
         run: |
           pixi run update-db-staging
 
       - name: Seed Production Database
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'repository_dispatch'
+        if:
+          github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+          || github.event_name == 'repository_dispatch'
         run: |
           pixi run update-db-production
 
