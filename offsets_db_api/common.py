@@ -39,6 +39,13 @@ def build_filters(
             filters.append(('country', project_filters.country, 'ilike', Project))
         if 'protocol' not in exclude_filters and project_filters.protocol is not None:
             filters.append(('protocol', project_filters.protocol, 'ANY', Project))
+        if (
+            'protocol_unassigned' not in exclude_filters
+            and project_filters.protocol_unassigned is not None
+        ):
+            filters.append(
+                ('protocol_unassigned', project_filters.protocol_unassigned, 'ANY', Project)
+            )
         if 'category' not in exclude_filters and project_filters.category is not None:
             filters.append(('category', project_filters.category, 'ilike', Project))
         if 'project_type' not in exclude_filters and project_filters.project_type is not None:

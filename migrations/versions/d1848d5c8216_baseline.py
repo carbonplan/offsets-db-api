@@ -1,8 +1,8 @@
 """baseline
 
-Revision ID: e7d9d6cf54c6
+Revision ID: d1848d5c8216
 Revises:
-Create Date: 2026-04-14 22:28:35.866959
+Create Date: 2026-05-04 12:44:33.434466
 
 """
 
@@ -12,7 +12,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'e7d9d6cf54c6'
+revision = 'd1848d5c8216'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -82,13 +82,14 @@ def upgrade() -> None:
         sa.Column('registry', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column('proponent', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column('protocol', postgresql.ARRAY(sa.String()), nullable=True),
+        sa.Column('protocol_unassigned', postgresql.ARRAY(sa.String()), nullable=True),
         sa.Column('category', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column('status', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column('country', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column('listed_at', sa.Date(), nullable=True),
         sa.Column('is_compliance', sa.Boolean(), nullable=True),
-        sa.Column('retired', sa.BigInteger(), nullable=True),
-        sa.Column('issued', sa.BigInteger(), nullable=True),
+        sa.Column('retired', sa.Double(), nullable=True),
+        sa.Column('issued', sa.Double(), nullable=True),
         sa.Column('first_issuance_at', sa.Date(), nullable=True),
         sa.Column('first_retirement_at', sa.Date(), nullable=True),
         sa.Column('project_url', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
@@ -139,6 +140,13 @@ def upgrade() -> None:
         'ix_project_protocol_gin', 'project', ['protocol'], unique=False, postgresql_using='gin'
     )
     op.create_index(
+        'ix_project_protocol_unassigned_gin',
+        'project',
+        ['protocol_unassigned'],
+        unique=False,
+        postgresql_using='gin',
+    )
+    op.create_index(
         'ix_project_registry_gin',
         'project',
         [sa.text('lower(registry) gin_trgm_ops')],
@@ -166,7 +174,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_clipproject_project_id'), 'clipproject', ['project_id'], unique=False)
     op.create_table(
         'credit',
-        sa.Column('quantity', sa.BigInteger(), nullable=True),
+        sa.Column('quantity', sa.Double(), nullable=True),
         sa.Column('vintage', sa.Integer(), nullable=True),
         sa.Column('transaction_date', sa.Date(), nullable=True),
         sa.Column('transaction_type', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
@@ -177,6 +185,7 @@ def upgrade() -> None:
         sa.Column(
             'retirement_beneficiary_harmonized', sqlmodel.sql.sqltypes.AutoString(), nullable=True
         ),
+        sa.Column('transaction_url', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('project_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.ForeignKeyConstraint(
@@ -259,6 +268,9 @@ def downgrade() -> None:
     op.drop_table('clipproject')
     op.drop_index('ix_project_retired', table_name='project')
     op.drop_index('ix_project_registry_gin', table_name='project', postgresql_using='gin')
+    op.drop_index(
+        'ix_project_protocol_unassigned_gin', table_name='project', postgresql_using='gin'
+    )
     op.drop_index('ix_project_protocol_gin', table_name='project', postgresql_using='gin')
     op.drop_index('ix_project_project_type_gin', table_name='project', postgresql_using='gin')
     op.drop_index('ix_project_project_id_gin', table_name='project', postgresql_using='gin')
