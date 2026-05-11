@@ -38,8 +38,57 @@ jobs:
         run: echo "date=$(date -u +'%Y-%m-%d %H:%M')" >> $GITHUB_OUTPUT
 
       - name: Seed Staging Database
+        id: seed-staging
+        continue-on-error: true
         run: |
           pixi run update-db-staging
+
+      - name: Notify Slack on Staging Failure
+        if: steps.seed-staging.outcome == 'failure' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+        uses: slackapi/slack-github-action@v3.0.2
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          payload: |
+            {
+              "channel": "C06CXEYKMBP",
+              "attachments": [
+                {
+                  "color": "#ff9900",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "Staging DB Update Failed ⚠️ (Production continuing)"
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "fields": [
+                        {
+                          "type": "mrkdwn",
+                          "text": "*GH event:*\n${{ github.event_name }}"
+                        },
+                        {
+                          "type": "mrkdwn",
+                          "text": "*Time:*\n${{ steps.time.outputs.date }} UTC"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "section",
+                      "fields": [
+                        {
+                          "type": "mrkdwn",
+                          "text": "*Details URL:*\n🔍 <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
 
       - name: Seed Production Database
         if:
