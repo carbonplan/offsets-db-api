@@ -39,6 +39,7 @@ jobs:
     if: ${{ (contains(github.event.pull_request.labels.*.name, 'api') && github.event_name == 'pull_request') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'}}
     outputs:
       staging_seed_type: ${{ steps.classify-staging.outputs.type }}
+      staging_seed_reason: ${{ steps.classify-staging.outputs.reason }}
     steps:
       - uses: actions/checkout@v6
       - name: Setup AWS and pixi
@@ -61,8 +62,10 @@ jobs:
         run: |
           if grep -q "file paths don't exist" /tmp/staging-output.txt; then
             echo "type=missing_data" >> $GITHUB_OUTPUT
+            echo "reason=$(grep 'ValueError:' /tmp/staging-output.txt | tail -1)" >> $GITHUB_OUTPUT
           else
             echo "type=unexpected" >> $GITHUB_OUTPUT
+            echo "reason=$(tail -1 /tmp/staging-output.txt)" >> $GITHUB_OUTPUT
           fi
       - name: Fail on unexpected staging error
         if: steps.classify-staging.outputs.type == 'unexpected'
@@ -119,7 +122,7 @@ jobs:
                       "fields": [
                         {
                           "type": "mrkdwn",
-                          "text": "*Reason:*\nStaging S3 data unavailable"
+                          "text": "*Reason:*\n${{ needs.deploy-staging.outputs.staging_seed_reason }}"
                         },
                         {
                           "type": "mrkdwn",

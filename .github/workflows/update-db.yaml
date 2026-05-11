@@ -50,8 +50,10 @@ jobs:
         run: |
           if grep -q "file paths don't exist" /tmp/staging-output.txt; then
             echo "type=missing_data" >> $GITHUB_OUTPUT
+            echo "reason=$(grep 'ValueError:' /tmp/staging-output.txt | tail -1)" >> $GITHUB_OUTPUT
           else
             echo "type=unexpected" >> $GITHUB_OUTPUT
+            echo "reason=$(tail -1 /tmp/staging-output.txt)" >> $GITHUB_OUTPUT
           fi
 
       - name: Notify Slack on staging missing data
@@ -79,7 +81,7 @@ jobs:
                       "fields": [
                         {
                           "type": "mrkdwn",
-                          "text": "*Reason:*\nStaging S3 data unavailable"
+                          "text": "*Reason:*\n${{ steps.classify-staging.outputs.reason }}"
                         },
                         {
                           "type": "mrkdwn",
