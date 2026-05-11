@@ -41,10 +41,21 @@ jobs:
         id: seed-staging
         continue-on-error: true
         run: |
-          pixi run update-db-staging
+          pixi run update-db-staging 2>&1 | tee /tmp/staging-output.txt
+          exit ${PIPESTATUS[0]}
 
-      - name: Notify Slack on Staging Failure
-        if: steps.seed-staging.outcome == 'failure' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+      - name: Classify staging failure
+        id: classify-staging
+        if: steps.seed-staging.outcome == 'failure'
+        run: |
+          if grep -q "file paths don't exist" /tmp/staging-output.txt; then
+            echo "type=missing_data" >> $GITHUB_OUTPUT
+          else
+            echo "type=unexpected" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify Slack on staging missing data
+        if: steps.classify-staging.outputs.type == 'missing_data' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
         uses: slackapi/slack-github-action@v3.0.2
         with:
           method: chat.postMessage
@@ -68,7 +79,7 @@ jobs:
                       "fields": [
                         {
                           "type": "mrkdwn",
-                          "text": "*GH event:*\n${{ github.event_name }}"
+                          "text": "*Reason:*\nStaging S3 data unavailable"
                         },
                         {
                           "type": "mrkdwn",
@@ -89,6 +100,10 @@ jobs:
                 }
               ]
             }
+
+      - name: Fail on unexpected staging error
+        if: steps.classify-staging.outputs.type == 'unexpected'
+        run: exit 1
 
       - name: Seed Production Database
         if:
