@@ -221,7 +221,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/zipp-3.23.0-pyhcf101f3_1.conda
       - pypi: .
       - pypi: git+https://github.com/andersy005/fastapi-cache?rev=pydantic-v2-compat#4b079c750e5b1f33e0a27d177c89740fa6e38cd4
-      - pypi: git+https://github.com/carbonplan/offsets-db-data.git?rev=main#68b7b349b5088ca2d81f86829b3d4038818919e5
+      - pypi: git+https://github.com/carbonplan/offsets-db-data?rev=main#68b7b349b5088ca2d81f86829b3d4038818919e5
       - pypi: https://files.pythonhosted.org/packages/11/f7/71ea1a7b74f02e8c1a7887a4c7ff8bb534fbe170b3e1a9a4349cdb65092b/pyjanitor-0.23.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/19/0f/f6121b90b86b9093c066889274d26a1de3f29969d45c2ed1ecbe2033cb78/cramjam-2.11.0-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/1b/a9/e3aee762739c1d7528da1c3e06d518503f8b6c439c35549b53735ba52ead/typeguard-4.4.4-py3-none-any.whl
@@ -450,7 +450,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-hd0aec43_5.conda
       - pypi: .
       - pypi: git+https://github.com/andersy005/fastapi-cache?rev=pydantic-v2-compat#4b079c750e5b1f33e0a27d177c89740fa6e38cd4
-      - pypi: git+https://github.com/carbonplan/offsets-db-data.git?rev=main#68b7b349b5088ca2d81f86829b3d4038818919e5
+      - pypi: git+https://github.com/carbonplan/offsets-db-data?rev=main#68b7b349b5088ca2d81f86829b3d4038818919e5
       - pypi: https://files.pythonhosted.org/packages/11/f7/71ea1a7b74f02e8c1a7887a4c7ff8bb534fbe170b3e1a9a4349cdb65092b/pyjanitor-0.23.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/1b/9f/38ff9e57a2eade7bf9dfee5eae17f39fc0e998658050279cbb14d97d36d9/msgpack-1.1.2-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/1b/a9/e3aee762739c1d7528da1c3e06d518503f8b6c439c35549b53735ba52ead/typeguard-4.4.4-py3-none-any.whl
@@ -4976,7 +4976,7 @@ packages:
   name: offsets-db-api
   requires_dist:
   - fastapi-cache2 @ git+https://github.com/andersy005/fastapi-cache@pydantic-v2-compat
-  - offsets-db-data @ git+https://github.com/carbonplan/offsets-db-data.git@main
+  - offsets-db-data @ git+https://github.com/carbonplan/offsets-db-data@main
   requires_python: '>=3.10'
 - pypi: git+https://github.com/andersy005/fastapi-cache?rev=pydantic-v2-compat#4b079c750e5b1f33e0a27d177c89740fa6e38cd4
   name: fastapi-cache2
@@ -4991,7 +4991,7 @@ packages:
   - typing-extensions>=4.1.0
   - uvicorn
   requires_python: '>=3.7,<4.0'
-- pypi: git+https://github.com/carbonplan/offsets-db-data.git?rev=main#68b7b349b5088ca2d81f86829b3d4038818919e5
+- pypi: git+https://github.com/carbonplan/offsets-db-data?rev=main#68b7b349b5088ca2d81f86829b3d4038818919e5
   name: offsets-db-data
   version: 2026.5.6
   requires_dist:
