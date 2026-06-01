@@ -1,14 +1,19 @@
 # Build stage using pixi
-FROM ghcr.io/prefix-dev/pixi:latest AS build
+FROM ubuntu:24.04 AS build
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Install git and ca-certificates (needed for git+https:// dependencies in pyproject.toml)
+# Install git, ca-certificates, and curl (needed for pixi installer and git+https:// deps)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends git ca-certificates && \
+    apt-get install -y --no-install-recommends git ca-certificates curl && \
     rm -rf /var/lib/apt/lists/*
+
+# Install pixi — pin to the same version used to generate pixi.lock to avoid
+# lock-file-not-up-to-date failures when the ghcr.io/prefix-dev/pixi:latest image lags behind.
+RUN curl -fsSL https://pixi.sh/install.sh | PIXI_VERSION=v0.70.0 bash
+ENV PATH="/root/.pixi/bin:$PATH"
 
 # Copy source code, pixi.toml and pixi.lock to the container
 WORKDIR /app
