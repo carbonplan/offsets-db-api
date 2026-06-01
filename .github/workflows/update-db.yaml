@@ -58,7 +58,7 @@ jobs:
 
       - name: Notify Slack on staging missing data
         if: steps.classify-staging.outputs.type == 'missing_data' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
-        uses: slackapi/slack-github-action@v3.0.2
+        uses: slackapi/slack-github-action@v3.0.3
         with:
           method: chat.postMessage
           token: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -116,7 +116,7 @@ jobs:
 
       - name: Notify Slack on Failure
         if: failure() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
-        uses: slackapi/slack-github-action@v3.0.2
+        uses: slackapi/slack-github-action@v3.0.3
         with:
           method: chat.postMessage
           token: ${{ secrets.SLACK_BOT_TOKEN }}

@@ -99,7 +99,7 @@ jobs:
           flyctl deploy --remote-only --config fly.prod.toml
       - name: Notify Slack on staging missing data
         if: needs.deploy-staging.outputs.staging_seed_type == 'missing_data'
-        uses: slackapi/slack-github-action@v3.0.2
+        uses: slackapi/slack-github-action@v3.0.3
         with:
           method: chat.postMessage
           token: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -145,7 +145,7 @@ jobs:
             }
       - name: Notify Slack on Failure
         if: failure()
-        uses: slackapi/slack-github-action@v3.0.2
+        uses: slackapi/slack-github-action@v3.0.3
         with:
           method: chat.postMessage
           token: ${{ secrets.SLACK_BOT_TOKEN }}
