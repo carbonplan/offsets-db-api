@@ -50,12 +50,12 @@ jobs:
       - name: Deploy to Staging
         run: |
           flyctl deploy --remote-only --config fly.staging.toml
-      - name: Seed Staging Database
-        id: seed-staging
-        continue-on-error: true
-        run: |
-          pixi run update-db-staging 2>&1 | tee /tmp/staging-output.txt
-          exit ${PIPESTATUS[0]}
+      # - name: Seed Staging Database
+      #   id: seed-staging
+      #   continue-on-error: true
+      #   run: |
+      #     pixi run update-db-staging 2>&1 | tee /tmp/staging-output.txt
+      #     exit ${PIPESTATUS[0]}
       - name: Classify staging failure
         id: classify-staging
         if: steps.seed-staging.outcome == 'failure'
@@ -189,6 +189,6 @@ jobs:
                 }
               ]
             }
-      - name: Update Production DB
-        run: |
-          pixi run update-db-production
+      # - name: Update Production DB
+      #   run: |
+      #     pixi run update-db-production
