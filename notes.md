@@ -39,16 +39,15 @@ from offsets_db_api.models import Project
 
 
 # https://stackoverflow.com/questions/37890284/ini-file-load-environment-variable
-database_url = os.environ["OFFSETS_DATABASE_URL"]
-if database_url.startswith("postgres://"):
+database_url = os.environ['OFFSETS_DATABASE_URL']
+if database_url.startswith('postgres://'):
     # Fix Heroku's incompatible postgres database uri
     # https://stackoverflow.com/a/67754795/3266235
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
+    database_url = database_url.replace('postgres://', 'postgresql://', 1)
 
-config.set_main_option("sqlalchemy.url", database_url)
+config.set_main_option('sqlalchemy.url', database_url)
 
 target_metadata = SQLModel.metadata
-
 ```
 
 ### Resetting the Database / migrations
