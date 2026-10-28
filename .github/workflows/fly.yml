@@ -41,7 +41,7 @@ jobs:
       staging_seed_type: ${{ steps.classify-staging.outputs.type }}
       staging_seed_reason: ${{ steps.classify-staging.outputs.reason }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup AWS and pixi
         uses: ./.github/actions/setup
         with:
@@ -84,7 +84,7 @@ jobs:
       url: ${{ env.PRODUCTION_URL }}
     if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup AWS and pixi
         uses: ./.github/actions/setup
         with:
